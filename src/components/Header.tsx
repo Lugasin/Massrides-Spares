@@ -7,8 +7,8 @@ import {
   Menu, 
   X, 
   Search,
-  Phone,
-  Mail
+  Mail,
+  Leaf
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,53 +21,33 @@ interface HeaderProps {
 export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Streamlined navigation options
   const navItems = [
     { label: "Home", href: "#home" },
-    { label: "Tractors", href: "#tractors" },
-    { label: "Planters", href: "#planters" },
-    { label: "Irrigation", href: "#irrigation" },
-    { label: "Parts", href: "#parts" },
-    { label: "About", href: "#about" },
+    { label: "About Us", href: "#about" },
+    { label: "Catalog", href: "#catalog" },
     { label: "Contact", href: "#contact" }
   ];
 
   return (
-    <header className="bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-50">
-      {/* Top contact bar with farm-green theme */}
-      <div className="gradient-primary text-primary-foreground py-2 px-4">
-        <div className="container mx-auto flex justify-between items-center text-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              <span>+260 97 575 0936</span>
-            </div>
-            <div className="hidden md:flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              <span>info@massrides.co.zm</span>
-            </div>
-          </div>
-          <div className="hidden md:block text-xs">
-            Lusaka, Zambia | Mon-Fri: 8AM-5PM
-          </div>
-        </div>
-      </div>
-
-      {/* Main navigation */}
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="bg-primary text-primary-foreground p-2 rounded-lg font-bold text-xl">
-              MAR
+    <header className="sticky top-0 z-50">
+      {/* Main navigation with translucency and blur */}
+      <div className="bg-background/60 backdrop-blur-md">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          {/* Logo with Leaf accent */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-primary text-primary-foreground p-2 rounded-lg">
+              <span className="font-bold text-xl">AGRI</span>
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-lg text-foreground">MASSRIDES</span>
               <span className="text-xs text-muted-foreground">COMPANY LIMITED</span>
             </div>
+            <Leaf className="h-5 w-5 text-secondary-foreground animate-pulse" />
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-8">
             {navItems.map((item) => (
               <a
                 key={item.label}
@@ -79,51 +59,36 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
             ))}
           </nav>
 
-          {/* Right side actions */}
-          <div className="flex items-center gap-3">
-            {/* Search */}
+          {/* Actions */}
+          <div className="flex items-center gap-4">
+            {/* Search icon */}
             <Button variant="ghost" size="sm" className="hidden md:flex">
               <Search className="h-4 w-4" />
             </Button>
 
-            {/* Cart */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onCartClick}
-              className="relative"
-            >
+            {/* Cart with badge */}
+            <Button variant="ghost" size="sm" onClick={onCartClick} className="relative">
               <ShoppingCart className="h-5 w-5" />
               {cartItemsCount > 0 && (
-                <Badge 
-                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground"
-                >
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
                   {cartItemsCount}
                 </Badge>
               )}
             </Button>
 
             {/* Book Now CTA */}
-            <Button 
-              size="sm" 
-              className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hover-glow animate-ripple hidden md:flex"
-            >
+            <Button size="sm" className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hidden md:flex animate-pulse">
               Book Now
             </Button>
 
-            {/* User Account */}
+            {/* User account */}
             <Button variant="outline" size="sm" onClick={onAuthClick}>
-              <User className="h-4 w-4 mr-2" />
+              <User className="h-4 w-4 mr-1" />
               <span className="hidden md:inline">Account</span>
             </Button>
 
             {/* Mobile menu toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
+            <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
@@ -131,10 +96,10 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
 
         {/* Mobile Navigation */}
         <div className={cn(
-          "lg:hidden mt-4 pb-4 border-t border-border transition-all duration-300",
-          isMobileMenuOpen ? "block animate-slide-up" : "hidden"
+          "lg:hidden bg-background/70 backdrop-blur-md border-t border-border",
+          isMobileMenuOpen ? "block animate-slide-down" : "hidden"
         )}>
-          <nav className="flex flex-col gap-3 pt-4">
+          <nav className="flex flex-col px-4 py-3 gap-2">
             {navItems.map((item) => (
               <a
                 key={item.label}
@@ -155,3 +120,5 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
     </header>
   );
 };
+
+// Note: For global lazy loading, wrap <img> tags with loading="lazy", and implement a separate <Loader> component with a rotating tractor wheel and smoke animations for full-page loads.

@@ -94,7 +94,7 @@ export const HeroSection = () => {
             <div 
               className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-parallax parallax-slow"
               style={{
-                backgroundImage: `linear-gradient(rgba(46, 125, 50, 0.3), rgba(0,0,0,0.4)), url(${slide.image})`,
+                backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6)), url(${slide.image})`,
               }}
             />
 
@@ -181,10 +181,10 @@ export const HeroSection = () => {
       </div>
 
       {/* Scroll Indicator */}
-      <div className="absolute bottom-8 right-8 text-white/70 animate-bounce">
+      <div className="absolute bottom-8 right-8 text-white/90 animate-fade-in-out">
         <div className="flex flex-col items-center gap-2">
           <span className="text-xs uppercase tracking-wider">Scroll</span>
-          <div className="w-px h-8 bg-white/50" />
+          <div className="w-px h-8 bg-white/70" />
         </div>
       </div>
     </section>
