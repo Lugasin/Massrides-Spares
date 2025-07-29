@@ -11,35 +11,26 @@ import {
   ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-  specs: string[];
-}
+import { useQuote } from "@/context/QuoteContext";
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  items: CartItem[];
-  onUpdateQuantity: (id: number, quantity: number) => void;
-  onRemoveItem: (id: number) => void;
-  onCheckout: () => void;
 }
 
 export const CartDrawer = ({
   isOpen,
   onClose,
-  items,
-  onUpdateQuantity,
-  onRemoveItem,
-  onCheckout
 }: CartDrawerProps) => {
+  const { items, total, removeItem, updateItemQuantity, clearQuote } = useQuote();
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+  const handleCheckout = () => {
+    // TODO: Implement checkout logic here or in the context
+    console.log("Proceeding to checkout...");
+    clearQuote(); // Clear the cart after checkout (example)
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -87,8 +78,10 @@ export const CartDrawer = ({
                 <Card key={item.id} className="border-border/50">
                   <CardContent className="p-4">
                     <div className="flex gap-4">
+                      {/* Assuming each item has an image property */} {/* Added comment */}
+                      {/* Added a placeholder image or conditional rendering if item.image is not always available */}
                       <img 
-                        src={item.image}
+                        src={item.image || "/placeholder.svg"} // Use item.image or a placeholder
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-md"
                       />
@@ -97,7 +90,8 @@ export const CartDrawer = ({
                           {item.name}
                         </h4>
                         <div className="flex flex-wrap gap-1 mb-2">
-                          {item.specs.slice(0, 2).map((spec) => (
+                          {/* Added a check for item.specs before mapping */}
+                          {item.specs && item.specs.slice(0, 2).map((spec) => (
                             <Badge key={spec} variant="outline" className="text-xs">
                               {spec}
                             </Badge>
@@ -112,7 +106,7 @@ export const CartDrawer = ({
                               size="icon"
                               variant="outline"
                               className="h-8 w-8"
-                              onClick={() => onUpdateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                              onClick={() => updateItemQuantity(item.id, Math.max(0, item.quantity - 1))}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -123,7 +117,7 @@ export const CartDrawer = ({
                               size="icon"
                               variant="outline"
                               className="h-8 w-8"
-                              onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -131,7 +125,7 @@ export const CartDrawer = ({
                               size="icon"
                               variant="ghost"
                               className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => onRemoveItem(item.id)}
+                              onClick={() => removeItem(item.id)}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -151,10 +145,10 @@ export const CartDrawer = ({
           <div className="border-t border-border p-6 space-y-4">
             <div className="flex items-center justify-between text-lg font-bold">
               <span className="text-foreground">Total:</span>
-              <span className="text-primary">${totalPrice.toLocaleString()}</span>
+              <span className="text-primary">${total.toLocaleString()}</span>
             </div>
             <Button 
-              onClick={onCheckout}
+              onClick={handleCheckout}
               size="lg"
               className="w-full bg-primary hover:bg-primary-hover group"
             >

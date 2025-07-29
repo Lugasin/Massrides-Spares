@@ -1,9 +1,8 @@
-import { useContext } from "react";
-import { QuoteContext } from "@/context/QuoteContext";
+import { useQuote } from "@/context/QuoteContext";
 import { Button } from "@/components/ui/button";
 
 export function SidebarQuote() {
-  const { items, total, removeItem } = useContext(QuoteContext);
+  const { items, total, removeItem } = useQuote();
   return (
     <aside className="fixed right-0 top-0 h-full w-80 bg-white shadow-lg p-4 transform translate-x-full md:translate-x-0 transition-transform">
       <h3 className="text-xl font-bold mb-4">Quote Cart</h3>

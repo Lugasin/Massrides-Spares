@@ -11,15 +11,17 @@ import {
   Leaf
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuote } from "@/context/QuoteContext";
 
 interface HeaderProps {
-  cartItemsCount?: number;
   onCartClick?: () => void;
   onAuthClick?: () => void;
 }
 
-export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderProps) => {
+export const Header = ({ onCartClick, onAuthClick }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { items } = useQuote();
+  const cartItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Streamlined navigation options
   const navItems = [
@@ -84,7 +86,7 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
             {/* User account */}
             <Button variant="outline" size="sm" onClick={onAuthClick}>
               <User className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Account</span>
+              <span className="hidden md::inline">Account</span>
             </Button>
 
             {/* Mobile menu toggle */}

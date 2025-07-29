@@ -1,0 +1,12 @@
+/* Add this to your existing src/pages/Index.css */
+
+.image-switcher-section {
+  position: relative; /* Needed for absolute positioning of the AdRibbon */
+  margin-top: 40px; /* Example: Add some space above this section */
+  /* Add any other container styles you need */
+}
+
+/* You might also want to add styles for the overall index-page class */
+.index-page {
+    /* Add general page styles here */
+}
