@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
+import { AboutUsTeaser } from "@/components/AboutUsTeaser";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProductShowcase } from "@/components/ProductShowcase";
 import { ContactSection } from "@/components/ContactSection";
 import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
+import { BackToTop } from "@/components/BackToTop";
 import tractorPlowing from "@/assets/tractor-plowing.jpg";
 import planterSeeding from "@/assets/planter-seeding.jpg";
 
@@ -80,6 +82,7 @@ const Index = () => {
       
       <main>
         <HeroSection />
+        <AboutUsTeaser />
         <FeaturesSection />
         <ProductShowcase />
         <ContactSection />
@@ -95,6 +98,8 @@ const Index = () => {
         onRemoveItem={handleRemoveItem}
         onCheckout={handleCheckout}
       />
+      
+      <BackToTop />
     </div>
   );
 };

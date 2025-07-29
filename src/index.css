@@ -16,15 +16,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 155 25% 15%;
 
-    /* Massrides brand orange/gold */
-    --primary: 35 95% 55%;
+    /* Deep farm-green primary (#2E7D32) */
+    --primary: 123 38% 26%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 35 95% 48%;
+    --primary-hover: 123 38% 22%;
+    --primary-glow: 123 50% 35%;
 
-    /* Agriculture green variants */
-    --secondary: 125 35% 45%;
-    --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 125 35% 38%;
+    /* Lime-green accent (#A4D65E) */
+    --secondary: 73 44% 64%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --secondary-hover: 73 44% 60%;
 
     /* Earth tones */
     --muted: 45 25% 95%;
@@ -44,13 +45,15 @@
     --input: 45 20% 88%;
     --ring: 35 95% 55%;
 
-    /* Agriculture gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(35 95% 55%), hsl(35 95% 65%));
-    --gradient-earth: linear-gradient(180deg, hsl(125 35% 45%), hsl(85 40% 35%));
+    /* Farm-green gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(123 38% 26%), hsl(123 50% 35%));
+    --gradient-farm: linear-gradient(180deg, hsl(123 20% 95%), hsl(123 30% 85%));
+    --gradient-crops: linear-gradient(90deg, hsl(123 40% 30% / 0.8), hsl(73 44% 40% / 0.6));
     --gradient-field: linear-gradient(135deg, hsl(85 40% 85%), hsl(125 35% 75%));
 
-    /* Shadows with earth tones */
-    --shadow-primary: 0 10px 25px -5px hsl(35 95% 55% / 0.25);
+    /* Farm shadows */
+    --shadow-primary: 0 10px 30px -10px hsl(123 38% 26% / 0.3);
+    --shadow-glow: 0 0 40px hsl(73 44% 64% / 0.4);
     --shadow-earth: 0 8px 20px -4px hsl(125 35% 45% / 0.2);
 
     --radius: 0.75rem;
@@ -142,6 +145,18 @@
     will-change: transform;
   }
   
+  .animate-crops-water {
+    animation: cropsWater 8s ease-in-out infinite;
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-ripple {
+    animation: ripple 0.6s ease-out;
+  }
+  
   .hover-scale {
     transition: transform 0.3s ease;
   }
@@ -150,8 +165,25 @@
     transform: scale(1.05);
   }
   
+  .hover-glow:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-2px);
+  }
+  
   .tractor-spin {
     animation: tractorSpin 2s linear infinite;
+  }
+  
+  .parallax-slow {
+    animation: parallaxSlow 20s linear infinite;
+  }
+  
+  .gradient-farm {
+    background: var(--gradient-farm);
+  }
+  
+  .gradient-crops {
+    background: var(--gradient-crops);
   }
   
   .gradient-primary {
@@ -203,5 +235,49 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes cropsWater {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 hsl(var(--secondary) / 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px hsl(var(--secondary) / 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--secondary) / 0);
+  }
+}
+
+@keyframes parallaxSlow {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(-20px);
   }
 }

@@ -33,8 +33,8 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
 
   return (
     <header className="bg-background/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
-      {/* Top contact bar */}
-      <div className="bg-primary text-primary-foreground py-2 px-4">
+      {/* Top contact bar with farm-green theme */}
+      <div className="gradient-primary text-primary-foreground py-2 px-4">
         <div className="container mx-auto flex justify-between items-center text-sm">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -101,6 +101,14 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
                   {cartItemsCount}
                 </Badge>
               )}
+            </Button>
+
+            {/* Book Now CTA */}
+            <Button 
+              size="sm" 
+              className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hover-glow animate-ripple hidden md:flex"
+            >
+              Book Now
             </Button>
 
             {/* User Account */}

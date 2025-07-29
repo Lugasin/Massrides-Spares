@@ -36,7 +36,10 @@ const services = [
 
 export const Footer = () => {
   return (
-    <footer className="bg-foreground text-background">
+    <footer className="bg-primary text-primary-foreground relative overflow-hidden">
+      {/* Dark farm-green background with translucent overlay */}
+      <div className="absolute inset-0 gradient-primary opacity-90"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-primary via-transparent to-transparent"></div>
       {/* Main Footer Content */}
       <div className="container mx-auto px-4 py-16">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
@@ -47,47 +50,47 @@ export const Footer = () => {
                 MAR
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-background">MASSRIDES</span>
-                <span className="text-xs text-background/70">COMPANY LIMITED</span>
+                <span className="font-bold text-lg text-primary-foreground">MASSRIDES</span>
+                <span className="text-xs text-primary-foreground/70">COMPANY LIMITED</span>
               </div>
             </div>
-            <p className="text-background/80 mb-6 leading-relaxed">
+            <p className="text-primary-foreground/80 mb-6 leading-relaxed relative z-10">
               Massrides Company LTD is a leading procurement and supply chain management company dedicated to providing high-quality sourcing, logistics, and procurement solutions. We help businesses save costs, improve efficiency, and focus on growth.
             </p>
             
             {/* Contact Info */}
             <div className="space-y-3 mb-6">
               <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-primary" />
-                <span className="text-sm text-background/80">info@massrides.co.zm</span>
+                <Mail className="h-4 w-4 text-secondary" />
+                <span className="text-sm text-primary-foreground/80">info@massrides.co.zm</span>
               </div>
               <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-primary" />
-                <span className="text-sm text-background/80">+260 211 843445 | +260 967 729310</span>
+                <Phone className="h-4 w-4 text-secondary" />
+                <span className="text-sm text-primary-foreground/80">+260 211 843445 | +260 967 729310</span>
               </div>
               <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-primary mt-0.5" />
-                <span className="text-sm text-background/80">
+                <MapPin className="h-4 w-4 text-secondary mt-0.5" />
+                <span className="text-sm text-primary-foreground/80">
                   H763+3HQ, Los Angeles Rd, Lusaka, Zambia
                 </span>
               </div>
             </div>
 
             {/* Working Hours */}
-            <div className="text-sm text-background/80">
-              <span className="font-medium text-background">Working Hours:</span> Monday – Friday: 8 AM – 5 PM
+            <div className="text-sm text-primary-foreground/80 relative z-10">
+              <span className="font-medium text-primary-foreground">Working Hours:</span> Monday – Friday: 8 AM – 5 PM
             </div>
           </div>
 
           {/* Quick Links */}
-          <div>
-            <h3 className="font-bold text-lg text-background mb-4">Quick Links</h3>
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg text-primary-foreground mb-4">Quick Links</h3>
             <ul className="space-y-3">
               {quickLinks.map((link) => (
                 <li key={link.label}>
                   <a 
                     href={link.href}
-                    className="text-background/80 hover:text-primary transition-colors text-sm"
+                    className="text-primary-foreground/80 hover:text-secondary transition-colors text-sm"
                   >
                     {link.label}
                   </a>
@@ -97,14 +100,14 @@ export const Footer = () => {
           </div>
 
           {/* Products */}
-          <div>
-            <h3 className="font-bold text-lg text-background mb-4">Products</h3>
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg text-primary-foreground mb-4">Products</h3>
             <ul className="space-y-3">
               {productCategories.map((category) => (
                 <li key={category.label}>
                   <a 
                     href={category.href}
-                    className="text-background/80 hover:text-primary transition-colors text-sm"
+                    className="text-primary-foreground/80 hover:text-secondary transition-colors text-sm"
                   >
                     {category.label}
                   </a>
@@ -114,14 +117,14 @@ export const Footer = () => {
           </div>
 
           {/* Services */}
-          <div>
-            <h3 className="font-bold text-lg text-background mb-4">Services</h3>
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg text-primary-foreground mb-4">Services</h3>
             <ul className="space-y-3">
               {services.map((service) => (
                 <li key={service.label}>
                   <a 
                     href={service.href}
-                    className="text-background/80 hover:text-primary transition-colors text-sm"
+                    className="text-primary-foreground/80 hover:text-secondary transition-colors text-sm"
                   >
                     {service.label}
                   </a>

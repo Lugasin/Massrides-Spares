@@ -66,7 +66,20 @@ export const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-[80vh] lg:min-h-[90vh] overflow-hidden">
+    <section className="relative min-h-[90vh] lg:min-h-[100vh] overflow-hidden">
+      {/* Animated "watered crops" background layer */}
+      <div className="absolute inset-0 animate-crops-water opacity-30">
+        <div className="absolute inset-0 gradient-crops"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-primary/10"></div>
+      </div>
+
+      {/* Parallax equipment silhouettes layer */}
+      <div className="absolute inset-0 parallax-slow opacity-20">
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-white/10 rounded-full animate-float" style={{ animationDelay: '0s' }}></div>
+        <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-white/10 rounded-full animate-float" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-3/4 w-20 h-20 bg-white/10 rounded-full animate-float" style={{ animationDelay: '2s' }}></div>
+      </div>
+
       {/* Slides Container */}
       <div className="relative w-full h-full">
         {slides.map((slide, index) => (
@@ -77,11 +90,11 @@ export const HeroSection = () => {
               index === currentSlide ? "opacity-100 scale-100" : "opacity-0 scale-105"
             )}
           >
-            {/* Background Image with Parallax Effect */}
+            {/* Background Image with Enhanced Parallax */}
             <div 
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-parallax"
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-parallax parallax-slow"
               style={{
-                backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.3)), url(${slide.image})`,
+                backgroundImage: `linear-gradient(rgba(46, 125, 50, 0.3), rgba(0,0,0,0.4)), url(${slide.image})`,
               }}
             />
 
