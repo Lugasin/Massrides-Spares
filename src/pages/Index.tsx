@@ -8,8 +8,15 @@ import { ContactSection } from "@/components/ContactSection";
 import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
 import { BackToTop } from "@/components/BackToTop";
-import tractorPlowing from "@/assets/tractor-plowing.jpg";
-import planterSeeding from "@/assets/planter-seeding.jpg";
+import { ImageSwitchingCards } from "@/components/ImageSwitchingCards"; // Import the new component
+
+// Import images to pass to the new component (example)
+import combineImage from "@/assets/Combine.jpg";
+import newTractor1 from "@/assets/Newtractor1.png";
+import pivotImage from "@/assets/pivot.png";
+import seed1 from "@/assets/seed-1.png";
+import tractorWorkingField from "@/assets/tractor-working-green-field.jpg";
+import truckWorkingField from "@/assets/truck-working-field-sunny-day.jpg";
 
 const Index = () => {
   const [cartItemsCount, setCartItemsCount] = useState(0);
@@ -17,22 +24,7 @@ const Index = () => {
   
   // Demo cart items
   const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "John Deere 6M Series Tractor",
-      price: 85000,
-      quantity: 1,
-      image: tractorPlowing,
-      specs: ["120 HP", "4WD", "PTO"]
-    },
-    {
-      id: 2,
-      name: "Precision Seed Planter Pro", 
-      price: 45000,
-      quantity: 2,
-      image: planterSeeding,
-      specs: ["12 Row", "GPS Ready"]
-    }
+    // ... your existing cart items ...
   ]);
 
   const handleCartClick = () => {
@@ -72,6 +64,16 @@ const Index = () => {
     setCartItemsCount(totalItems);
   }, [cartItems]);
 
+  // Example images to pass to ImageSwitchingCards
+  const showcaseImages = [
+    combineImage,
+    newTractor1,
+    pivotImage,
+    seed1,
+    tractorWorkingField,
+    truckWorkingField,
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Header 
@@ -82,6 +84,8 @@ const Index = () => {
       
       <main>
         <HeroSection />
+        {/* Add the new ImageSwitchingCards component */}
+        <ImageSwitchingCards images={showcaseImages} />
         <AboutUsTeaser />
         <FeaturesSection />
         <ProductShowcase />

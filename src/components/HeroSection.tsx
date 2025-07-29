@@ -2,9 +2,70 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Import all images from assets
 import heroCombine from "@/assets/hero-combine.jpg";
 import tractorPlowing from "@/assets/tractor-plowing.jpg";
 import irrigationAerial from "@/assets/irrigation-aerial.jpg";
+import image8_8 from "@/assets/8-8.png";
+import combineImage from "@/assets/Combine.jpg";
+import droneSprayer from "@/assets/Dronesprayer.png";
+import harvesterImage from "@/assets/Harverster.jpg";
+import harvestersImage from "@/assets/Harversters.jpg.png";
+import maizeSprinklers from "@/assets/Maizesprinklers.png";
+import newTractor from "@/assets/Newtractor.png";
+import newTractor1 from "@/assets/Newtractor1.png";
+import newTractor10 from "@/assets/Newtractor10.png";
+import newTractor11 from "@/assets/Newtractor11.png";
+import newTractor2 from "@/assets/Newtractor2.png";
+import newTractor3 from "@/assets/Newtractor3.png";
+import newTractor4 from "@/assets/Newtractor4.png";
+import newTractor5 from "@/assets/Newtractor5.png";
+import newTractor6 from "@/assets/Newtractor6.png";
+import newTractor7 from "@/assets/Newtractor7.png";
+import newTractor8 from "@/assets/Newtractor8.png";
+import newTractor9 from "@/assets/Newtractor9.png";
+import newTractorFreight from "@/assets/Newtractorfreight.png";
+import newTractors from "@/assets/Newtractors.png";
+import newTractors1 from "@/assets/Newtractors1.jpg.png";
+import pivot3 from "@/assets/Pivot3.png";
+import ploughImage from "@/assets/Plough.png";
+import ploughsImage from "@/assets/Ploughs.png";
+import rotavatorImage from "@/assets/Rotavator-5-1.png";
+import screenshotImage from "@/assets/Screenshot 2025-07-29 131548.png";
+import sprinklersImage from "@/assets/Sprinklers.png";
+import sprinklers1Image from "@/assets/Sprinklers1.png";
+import tractorPloughingImage from "@/assets/Tractorplouging.jpg.png";
+import tractorPloughing1Image from "@/assets/Tractorplouging1.png";
+import tractorsImage from "@/assets/Tractors.jpg";
+import tractors1Image from "@/assets/Tractors1.jpg.png";
+import tractorsDiscImage from "@/assets/Tractorsdisc.jpg";
+import tractorsSprayingImage from "@/assets/Tractorsspraying.jpg.png";
+import seederCloseUp from "@/assets/close-up-seeder-attached-tractor-field.jpg";
+import combineHarvesterWorking from "@/assets/combine-harvester-working-field.jpg";
+import cornFieldSunset from "@/assets/corn-field-sunset.jpg";
+import discHarrow from "@/assets/disc-harrow-76-1696055574.png";
+import discHarrow1 from "@/assets/disc-harrow-76-1711433455.png";
+import discMounted from "@/assets/disc-mounted-47004.png";
+import hydraulicHarrow from "@/assets/hydraulic-harrow-76-1608289508.png";
+import largeRiceField from "@/assets/large-green-rice-field-with-green-rice-plants-rows.jpg";
+import matTillage from "@/assets/mat-multi-application-tillage-unit-76-1673517805.png";
+import matTillageWebp from "@/assets/mat-multi-application-tillage-unit-76-1673517805.webp";
+import newRedSeeder from "@/assets/new-red-agricultural-seeder-close-up-view-background-combine.jpg";
+import newTractorsImage from "@/assets/newTractors.jpg.png";
+import pivotImage from "@/assets/pivot.png";
+import pivot1Image from "@/assets/pivot1.png";
+import pivot2Image from "@/assets/pivot2.png";
+import pivotsImage from "@/assets/pivots.png";
+import planterSeedingImage from "@/assets/planter-seeding.jpg";
+import polyDiscHarrow from "@/assets/poly-disc-harrow-plough-76-1673336488..png";
+import ripeWheatCutting from "@/assets/ripe-wheat-cutting-with-heavy-machinery-outdoors-generated-by-ai.jpg";
+import seed1 from "@/assets/seed-1.png";
+import tandemDiscHarrow from "@/assets/tandem-disc-harrow-heavy-series-76-1673002303.png";
+import topViewTractors from "@/assets/top-view-tractors-doing-harvest-field.jpg";
+import tractorWheel from "@/assets/tractor-wheel.jpg";
+import tractorWorkingField from "@/assets/tractor-working-green-field.jpg";
+import truckWorkingField from "@/assets/truck-working-field-sunny-day.jpg";
 
 const slides = [
   {
@@ -33,6 +94,33 @@ const slides = [
     description: "State-of-the-art irrigation systems to optimize water usage and crop production.",
     cta: "Irrigation Systems",
     ctaSecondary: "Get Quote"
+  },
+  {
+    id: 4,
+    image: combineHarvesterWorking,
+    title: "Maximize Your Harvest",
+    subtitle: "High-Performance Combines",
+    description: "Cut through your fields with our top-of-the-line combine harvesters.",
+    cta: "Browse Combines",
+    ctaSecondary: "Request a Demo"
+  },
+  {
+    id: 5,
+    image: cornFieldSunset,
+    title: "Beautiful Fields, Bountiful Yields",
+    subtitle: "Planting for the Future",
+    description: "Our equipment helps you cultivate the land for maximum productivity.",
+    cta: "Discover Planters",
+    ctaSecondary: "Learn Planting Tips"
+  },
+  {
+    id: 6,
+    image: ripeWheatCutting,
+    title: "Efficient Harvesting",
+    subtitle: "Advanced Machinery for Grain",
+    description: "Harvest your grain crops quickly and efficiently with our heavy machinery.",
+    cta: "View Harvesters",
+    ctaSecondary: "Compare Models"
   }
 ];
 

@@ -10,15 +10,79 @@ import {
   ArrowRight 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import planterSeeding from "@/assets/planter-seeding.jpg";
-import tractorPlowing from "@/assets/tractor-plowing.jpg";
+
+// Import all images from assets that are used
+import image8_8 from "@/assets/8-8.png";
+import combineImage from "@/assets/Combine.jpg";
+import droneSprayer from "@/assets/Dronesprayer.png";
+import harvesterImage from "@/assets/Harverster.jpg";
+import harvestersImage from "@/assets/Harversters.jpg.png";
+import maizeSprinklers from "@/assets/Maizesprinklers.png";
+import newTractor from "@/assets/Newtractor.png";
+import newTractor1 from "@/assets/Newtractor1.png";
+import newTractor10 from "@/assets/Newtractor10.png";
+import newTractor11 from "@/assets/Newtractor11.png";
+import newTractor2 from "@/assets/Newtractor2.png";
+import newTractor3 from "@/assets/Newtractor3.png";
+import newTractor4 from "@/assets/Newtractor4.png";
+import newTractor5 from "@/assets/Newtractor5.png";
+import newTractor6 from "@/assets/Newtractor6.png";
+import newTractor7 from "@/assets/Newtractor7.png";
+import newTractor8 from "@/assets/Newtractor8.png";
+import newTractor9 from "@/assets/Newtractor9.png";
+import newTractorFreight from "@/assets/Newtractorfreight.png";
+import newTractors from "@/assets/Newtractors.png";
+import newTractors1 from "@/assets/Newtractors1.jpg.png";
+import pivot3 from "@/assets/Pivot3.png";
+import ploughImage from "@/assets/Plough.png";
+import ploughsImage from "@/assets/Ploughs.png";
+import rotavatorImage from "@/assets/Rotavator-5-1.png";
+// import screenshotImage from "@/assets/Screenshot 2025-07-29 131548.png"; // Removed unused import
+import sprinklersImage from "@/assets/Sprinklers.png";
+import sprinklers1Image from "@/assets/Sprinklers1.png";
+import tractorPloughingImage from "@/assets/Tractorplouging.jpg.png";
+import tractorPloughing1Image from "@/assets/Tractorplouging1.png";
+import tractorsImage from "@/assets/Tractors.jpg";
+import tractors1Image from "@/assets/Tractors1.jpg.png";
+import tractorsDiscImage from "@/assets/Tractorsdisc.jpg";
+import tractorsSprayingImage from "@/assets/Tractorsspraying.jpg.png";
+import seederCloseUp from "@/assets/close-up-seeder-attached-tractor-field.jpg";
+import combineHarvesterWorking from "@/assets/combine-harvester-working-field.jpg";
+import cornFieldSunset from "@/assets/corn-field-sunset.jpg";
+import discHarrow from "@/assets/disc-harrow-76-1696055574.png";
+import discHarrow1 from "@/assets/disc-harrow-76-1711433455.png";
+import discMounted from "@/assets/disc-mounted-47004.png";
+import hydraulicHarrow from "@/assets/hydraulic-harrow-76-1608289508.png";
+import largeRiceField from "@/assets/large-green-rice-field-with-green-rice-plants-rows.jpg";
+import matTillage from "@/assets/mat-multi-application-tillage-unit-76-1673517805.png";
+import matTillageWebp from "@/assets/mat-multi-application-tillage-unit-76-1673517805.webp";
+import newRedSeeder from "@/assets/new-red-agricultural-seeder-close-up-view-background-combine.jpg";
+import newTractorsImage from "@/assets/newTractors.jpg.png";
+import pivotImage from "@/assets/pivot.png";
+import pivot1Image from "@/assets/pivot1.png";
+import pivot2Image from "@/assets/pivot2.png";
+import pivotsImage from "@/assets/pivots.png";
+import planterSeedingImage from "@/assets/planter-seeding.jpg";
+import polyDiscHarrow from "@/assets/poly-disc-harrow-plough-76-1673336488..png";
+import ripeWheatCutting from "@/assets/ripe-wheat-cutting-with-heavy-machinery-outdoors-generated-by-ai.jpg";
+import seed1 from "@/assets/seed-1.png";
+import tandemDiscHarrow from "@/assets/tandem-disc-harrow-heavy-series-76-1673002303.png";
+import topViewTractors from "@/assets/top-view-tractors-doing-harvest-field.jpg";
+import tractorWheel from "@/assets/tractor-wheel.jpg";
+import tractorWorkingField from "@/assets/tractor-working-green-field.jpg";
+import truckWorkingField from "@/assets/truck-working-field-sunny-day.jpg";
 import irrigationAerial from "@/assets/irrigation-aerial.jpg";
 
 const categories = [
   { id: "all", label: "All Equipment" },
   { id: "tractors", label: "Tractors" },
   { id: "planters", label: "Planters" },
-  { id: "irrigation", label: "Irrigation" }
+  { id: "irrigation", label: "Irrigation" },
+  { id: "harvesters", label: "Harvesters" },
+  { id: "plows", label: "Plows" },
+  { id: "harrows", label: "Harrows" },
+  { id: "seeders", label: "Seeders" },
+  { id: "sprayers", label: "Sprayers" },
 ];
 
 const products = [
@@ -28,7 +92,7 @@ const products = [
     category: "tractors",
     price: "$85,000",
     originalPrice: "$95,000",
-    image: tractorPlowing,
+    image: tractorPloughingImage,
     rating: 4.8,
     reviews: 24,
     isNew: true,
@@ -42,7 +106,7 @@ const products = [
     category: "planters",
     price: "$45,000",
     originalPrice: null,
-    image: planterSeeding,
+    image: planterSeedingImage,
     rating: 4.9,
     reviews: 18,
     isNew: false,
@@ -63,6 +127,174 @@ const products = [
     isFeatured: false,
     description: "Automated center pivot irrigation with smart water management.",
     specs: ["500m Radius", "GPS Control", "Weather Station", "Remote Monitoring"]
+  },
+  {
+    id: 4,
+    name: "Heavy Duty Combine Harvester",
+    category: "harvesters",
+    price: "$250,000",
+    originalPrice: null,
+    image: combineImage,
+    rating: 4.9,
+    reviews: 30,
+    isNew: true,
+    isFeatured: true,
+    description: "High-capacity combine for efficient grain harvesting.",
+    specs: ["30ft Header", "Large Grain Tank", "GPS Guidance"]
+  },
+  {
+    id: 5,
+    name: "Advanced Drone Sprayer",
+    category: "sprayers",
+    price: "$15,000",
+    originalPrice: null,
+    image: droneSprayer,
+    rating: 4.5,
+    reviews: 8,
+    isNew: true,
+    isFeatured: false,
+    description: "Precise aerial spraying with advanced drone technology.",
+    specs: ["10L Capacity", "GPS Waypoints", "Autonomous Flight"]
+  },
+  {
+    id: 6,
+    name: "Maize Sprinkler System",
+    category: "irrigation",
+    price: "$10,000",
+    originalPrice: null,
+    image: maizeSprinklers,
+    rating: 4.0,
+    reviews: 5,
+    isNew: false,
+    isFeatured: false,
+    description: "Efficient sprinkler system designed for maize fields.",
+    specs: ["Adjustable Range", "Durable Materials"]
+  },
+  {
+    id: 7,
+    name: "Compact New Tractor",
+    category: "tractors",
+    price: "$30,000",
+    originalPrice: null,
+    image: newTractor,
+    rating: 4.2,
+    reviews: 15,
+    isNew: true,
+    isFeatured: false,
+    description: "Versatile compact tractor for small farms and various tasks.",
+    specs: ["50 HP", "2WD", "PTO"]
+  },
+  {
+    id: 8,
+    name: "Modern Tractor 1",
+    category: "tractors",
+    price: "$75,000",
+    originalPrice: null,
+    image: newTractor1,
+    rating: 4.7,
+    reviews: 20,
+    isNew: false,
+    isFeatured: true,
+    description: "Powerful and comfortable tractor with modern features.",
+    specs: ["100 HP", "4WD", "Enclosed Cab"]
+  },
+    {
+    id: 9,
+    name: "Heavy Duty Plough",
+    category: "plows",
+    price: "$12,000",
+    originalPrice: null,
+    image: ploughImage,
+    rating: 4.1,
+    reviews: 9,
+    isNew: true,
+    isFeatured: false,
+    description: "Robust plough for preparing soil in tough conditions.",
+    specs: ["5 Bottom", "Durable Steel"]
+  },
+  {
+    id: 10,
+    name: "Disc Harrow for Soil Prep",
+    category: "harrows",
+    price: "$8,000",
+    originalPrice: null,
+    image: discHarrow,
+    rating: 4.3,
+    reviews: 11,
+    isNew: false,
+    isFeatured: false,
+    description: "Efficient disc harrow for breaking up soil clumps.",
+    specs: ["Offset Design", "Heavy Duty Discs"]
+  },
+    {
+    id: 11,
+    name: "Rotary Tiller",
+    category: "plows",
+    price: "$6,000",
+    originalPrice: null,
+    image: rotavatorImage,
+    rating: 4.0,
+    reviews: 7,
+    isNew: true,
+    isFeatured: false,
+    description: "Ideal for preparing seed beds and managing weeds.",
+    specs: ["Adjustable Depth", " PTO Driven"]
+  },
+    {
+    id: 12,
+    name: "Seed Drill Machine",
+    category: "seeders",
+    price: "$18,000",
+    originalPrice: null,
+    image: seed1,
+    rating: 4.5,
+    reviews: 14,
+    isNew: false,
+    isFeatured: true,
+    description: "Precise seed placement for optimal crop growth.",
+    specs: ["Multiple Hoppers", "Adjustable Row Spacing"]
+  },
+    {
+    id: 13,
+    name: "Tractor Sprayer",
+    category: "sprayers",
+    price: "$10,000",
+    originalPrice: null,
+    image: tractorsSprayingImage,
+    rating: 4.4,
+    reviews: 10,
+    isNew: true,
+    isFeatured: false,
+    description: "Broad coverage sprayer for crop protection.",
+    specs: ["Boom Sprayer", "Large Tank Capacity"]
+  },
+    {
+    id: 14,
+    name: "Farm Trailer",
+    category: "other", // Assuming 'other' category for non-core equipment
+    price: "$5,000",
+    originalPrice: null,
+    image: newTractorFreight,
+    rating: 4.0,
+    reviews: 6,
+    isNew: false,
+    isFeatured: false,
+    description: "Durable farm trailer for transporting goods.",
+    specs: ["Heavy Duty", "Various Sizes"]
+  },
+     {
+    id: 15,
+    name: "Cultivator Equipment",
+    category: "plows",
+    price: "$7,000",
+    originalPrice: null,
+    image: matTillage,
+    rating: 4.2,
+    reviews: 8,
+    isNew: true,
+    isFeatured: false,
+    description: "Effective for soil aeration and weed control.",
+    specs: ["Adjustable Tines", "PTO Driven"]
   }
 ];
 
