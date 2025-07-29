@@ -32,7 +32,7 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
   ];
 
   return (
-    <header className="bg-background/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
+    <header className="bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-50">
       {/* Top contact bar with farm-green theme */}
       <div className="gradient-primary text-primary-foreground py-2 px-4">
         <div className="container mx-auto flex justify-between items-center text-sm">
