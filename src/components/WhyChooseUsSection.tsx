@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import './WhyChooseUsSection.css'; // Assuming you have a CSS file for styling
 
 const WhyChooseUsSection: React.FC = () => {
   const sectionRef = useRef<HTMLElement>(null); // Ref for the section

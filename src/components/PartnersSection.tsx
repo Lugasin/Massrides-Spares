@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import './PartnersSection.css';
 
 interface PartnerLogo {
   id: number;

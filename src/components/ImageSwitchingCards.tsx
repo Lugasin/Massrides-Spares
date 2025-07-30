@@ -13,7 +13,7 @@ interface ImageSwitchingCardsProps {
   images: string[]; // Array of image URLs or imported image variables
 }
 
-export const ImageSwitchingCards = ({ images }: ImageSwitchingCardsProps) => {
+export const ImageSwitchingCards = ({ images }: ImageSwitchingCardsCardsProps) => {
   const [displayedImages, setDisplayedImages] = useState<string[]>([
     images[0], // Top
     images[1] || images[0], // Right (use first if not enough images)

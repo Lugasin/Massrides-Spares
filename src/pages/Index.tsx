@@ -9,7 +9,6 @@ import WhyChooseUsSection from '../components/WhyChooseUsSection'; // Import Why
 // Assuming you have other components
 // import FeaturesSection from '../components/FeaturesSection';
 
-import './Index.css';
 
 const Index: React.FC = () => {
   // Example array of images for the ImageSwitcher - Replace with your actual image paths

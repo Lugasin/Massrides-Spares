@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import './PageLoader.css'; // Assuming you have a CSS file for styling
 
 interface PageLoaderProps {
-  isLoading: boolean; // Prop to control loader visibility
+  isLoading: boolean;
 }
 
 const PageLoader: React.FC<PageLoaderProps> = ({ isLoading }) => {
@@ -11,16 +10,13 @@ const PageLoader: React.FC<PageLoaderProps> = ({ isLoading }) => {
 
   useEffect(() => {
     if (!isLoading) {
-      // Start fade-out animation when loading is complete
       setIsFadingOut(true);
-      // Remove the loader from the DOM after the fade-out transition
       const timer = setTimeout(() => {
         setIsVisible(false);
-      }, 500); // Adjust fade-out duration in milliseconds
+      }, 500);
 
       return () => clearTimeout(timer);
     } else {
-        // Show loader if isLoading is true
         setIsVisible(true);
         setIsFadingOut(false);
     }
@@ -28,7 +24,7 @@ const PageLoader: React.FC<PageLoaderProps> = ({ isLoading }) => {
 
 
   if (!isVisible) {
-    return null; // Don't render if not visible
+    return null;
   }
 
   return (
@@ -52,8 +48,6 @@ const PageLoader: React.FC<PageLoaderProps> = ({ isLoading }) => {
                 </circle>
             </svg>
         </div>
-        {/* Smokey Fade-out Effect (Optional, can be implemented with CSS/elements) */}
-        {/* <div className="smokey-effect"></div> */}
       </div>
     </div>
   );

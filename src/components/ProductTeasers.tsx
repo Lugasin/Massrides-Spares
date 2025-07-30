@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'; // Import useRef
 import { Link } from 'react-router-dom';
-import './ProductTeasers.css';
 
 interface Product {
   id: number;
