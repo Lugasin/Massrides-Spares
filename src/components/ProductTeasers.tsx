@@ -8,6 +8,11 @@ interface Product {
   placeholder: string;
   price: string;
   badges: string[];
+  animationId?: number;
+  startX?: number;
+  startY?: number;
+  endX?: number;
+  endY?: number;
 }
 
 const featuredProducts: Product[] = [

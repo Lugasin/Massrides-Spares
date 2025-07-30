@@ -41,6 +41,10 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateItemQuantity = (itemId: number, quantity: number) => {
+    if (quantity <= 0) {
+      removeItem(itemId);
+      return;
+    }
     setItems((prevItems) =>
       prevItems.map((item) =>
         item.id === itemId ? { ...item, quantity: quantity } : item
