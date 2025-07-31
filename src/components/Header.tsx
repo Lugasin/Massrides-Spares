@@ -11,15 +11,16 @@ import {
   Leaf
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuote } from '@/context/QuoteContext'; // Import useQuote
 
 interface HeaderProps {
   cartItemsCount?: number;
-  onCartClick?: () => void;
   onAuthClick?: () => void;
 }
 
-export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderProps) => {
+export const Header = ({ cartItemsCount = 0, onAuthClick }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { openCart } = useQuote(); // Use openCart from context
 
   // Streamlined navigation options
   const navItems = [
@@ -67,7 +68,7 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
             </Button>
 
             {/* Cart with badge */}
-            <Button variant="ghost" size="sm" onClick={onCartClick} className="relative">
+            <Button variant="ghost" size="sm" onClick={openCart} className="relative">
               <ShoppingCart className="h-5 w-5" />
               {cartItemsCount > 0 && (
                 <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">

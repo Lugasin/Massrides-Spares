@@ -5,6 +5,7 @@ import { AboutUsTeaser } from "@/components/AboutUsTeaser";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProductShowcase } from "@/components/ProductShowcase";
 import { ContactSection } from "@/components/ContactSection";
+import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
 import { useQuote } from "@/context/QuoteContext";
 import { useNavigate } from "react-router-dom";
@@ -35,6 +36,8 @@ const Index = () => {
         <ProductShowcase />
         <ContactSection />
       </main>
+      
+      <Footer />
       
       <BackToTop />
     </div>
