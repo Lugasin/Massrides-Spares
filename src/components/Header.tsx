@@ -23,10 +23,10 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
 
   // Streamlined navigation options
   const navItems = [
-    { label: "Home", href: "#home" },
-    { label: "About Us", href: "#about" },
-    { label: "Catalog", href: "#catalog" },
-    { label: "Contact", href: "#contact" }
+    { label: "Home", href: "/" },
+    { label: "About Us", href: "/#about" },
+    { label: "Catalog", href: "/catalog" },
+    { label: "Contact", href: "/#contact" }
   ];
 
   return (

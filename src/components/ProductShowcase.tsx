@@ -10,69 +10,39 @@ import {
   ArrowRight 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import planterSeeding from "@/assets/planter-seeding.jpg";
-import tractorPlowing from "@/assets/tractor-plowing.jpg";
-import irrigationAerial from "@/assets/irrigation-aerial.jpg";
+import { products } from "@/data/products";
+import { useQuote } from "@/context/QuoteContext";
+import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 const categories = [
-  { id: "all", label: "All Equipment" },
-  { id: "tractors", label: "Tractors" },
-  { id: "planters", label: "Planters" },
-  { id: "irrigation", label: "Irrigation" }
-];
-
-const products = [
-  {
-    id: 1,
-    name: "John Deere 6M Series Tractor",
-    category: "tractors",
-    price: "$85,000",
-    originalPrice: "$95,000",
-    image: tractorPlowing,
-    rating: 4.8,
-    reviews: 24,
-    isNew: true,
-    isFeatured: true,
-    description: "Powerful and efficient tractor for medium to large farming operations.",
-    specs: ["120 HP", "4WD", "PTO", "Hydraulic System"]
-  },
-  {
-    id: 2,
-    name: "Precision Seed Planter Pro",
-    category: "planters",
-    price: "$45,000",
-    originalPrice: null,
-    image: planterSeeding,
-    rating: 4.9,
-    reviews: 18,
-    isNew: false,
-    isFeatured: true,
-    description: "Advanced precision planting technology for optimal seed placement.",
-    specs: ["12 Row", "GPS Ready", "Variable Rate", "Fertilizer System"]
-  },
-  {
-    id: 3,
-    name: "Smart Pivot Irrigation System",
-    category: "irrigation",
-    price: "$125,000",
-    originalPrice: "$140,000",
-    image: irrigationAerial,
-    rating: 4.7,
-    reviews: 12,
-    isNew: true,
-    isFeatured: false,
-    description: "Automated center pivot irrigation with smart water management.",
-    specs: ["500m Radius", "GPS Control", "Weather Station", "Remote Monitoring"]
-  }
+  { id: "All", label: "All Equipment" },
+  { id: "Tractors", label: "Tractors" },
+  { id: "Planters", label: "Planters" },
+  { id: "Irrigation", label: "Irrigation" }
 ];
 
 export const ProductShowcase = () => {
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState("All");
   const [favorites, setFavorites] = useState<number[]>([]);
+  const { addItem } = useQuote();
 
-  const filteredProducts = products.filter(
-    product => activeCategory === "all" || product.category === activeCategory
+  const featuredProducts = products.filter(product => product.featured).slice(0, 3);
+  const filteredProducts = featuredProducts.filter(
+    product => activeCategory === "All" || product.category === activeCategory
   );
+
+  const handleAddToCart = (product: any) => {
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      specs: product.specs,
+      category: product.category
+    });
+    toast.success(`${product.name} added to cart!`);
+  };
 
   const toggleFavorite = (productId: number) => {
     setFavorites(prev => 
@@ -137,14 +107,14 @@ export const ProductShowcase = () => {
                 
                 {/* Badges */}
                 <div className="absolute top-3 left-3 flex gap-2">
-                  {product.isNew && (
-                    <Badge className="bg-success text-success-foreground">
-                      New
-                    </Badge>
-                  )}
-                  {product.isFeatured && (
+                  {product.featured && (
                     <Badge className="bg-primary text-primary-foreground">
                       Featured
+                    </Badge>
+                  )}
+                  {product.inStock && (
+                    <Badge className="bg-success text-success-foreground">
+                      In Stock
                     </Badge>
                   )}
                 </div>
@@ -176,14 +146,6 @@ export const ProductShowcase = () => {
                   </Button>
                 </div>
 
-                {/* Price Badge */}
-                {product.originalPrice && (
-                  <div className="absolute bottom-3 left-3">
-                    <Badge variant="destructive" className="bg-destructive/90">
-                      Save ${parseInt(product.originalPrice.replace(/[^0-9]/g, '')) - parseInt(product.price.replace(/[^0-9]/g, ''))}
-                    </Badge>
-                  </div>
-                )}
               </div>
 
               <CardContent className="p-6">
@@ -195,7 +157,7 @@ export const ProductShowcase = () => {
                         key={i}
                         className={cn(
                           "h-4 w-4",
-                          i < Math.floor(product.rating) 
+                          i < 4 
                             ? "text-yellow-500 fill-current" 
                             : "text-gray-300"
                         )}
@@ -203,7 +165,7 @@ export const ProductShowcase = () => {
                     ))}
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    {product.rating} ({product.reviews} reviews)
+                    4.8 (125 reviews)
                   </span>
                 </div>
 
@@ -232,19 +194,15 @@ export const ProductShowcase = () => {
                 {/* Price */}
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl font-bold text-primary">
-                    {product.price}
+                    ${product.price.toLocaleString()}
                   </span>
-                  {product.originalPrice && (
-                    <span className="text-sm text-muted-foreground line-through">
-                      {product.originalPrice}
-                    </span>
-                  )}
                 </div>
               </CardContent>
 
               <CardFooter className="p-6 pt-0">
                 <div className="flex gap-3 w-full">
                   <Button 
+                    onClick={() => handleAddToCart(product)}
                     className="flex-1 bg-primary hover:bg-primary-hover group"
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
@@ -262,12 +220,15 @@ export const ProductShowcase = () => {
         {/* View All CTA */}
         <div className="text-center">
           <Button 
+            asChild
             size="lg" 
             variant="outline"
             className="border-primary text-primary hover:bg-primary/10 group"
           >
-            View All Equipment
-            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            <Link to="/catalog">
+              View All Equipment
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
           </Button>
         </div>
       </div>
