@@ -18,6 +18,9 @@ interface QuoteContextType {
   updateQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
   itemCount: number;
+  isCartOpen: boolean; // Added isCartOpen
+  openCart: () => void; // Added openCart
+  closeCart: () => void; // Added closeCart
 }
 
 export const QuoteContext = createContext<QuoteContextType>({
@@ -28,6 +31,9 @@ export const QuoteContext = createContext<QuoteContextType>({
   updateQuantity: () => {},
   clearCart: () => {},
   itemCount: 0,
+  isCartOpen: false, // Default value
+  openCart: () => {},
+  closeCart: () => {},
 });
 
 export const useQuote = () => {
@@ -44,6 +50,7 @@ interface QuoteProviderProps {
 
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false); // Added state
 
   const addItem = (item: Omit<CartItem, 'quantity'>) => {
     setItems(prev => {
@@ -79,6 +86,9 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     setItems([]);
   };
 
+  const openCart = () => setIsCartOpen(true); // Added openCart function
+  const closeCart = () => setIsCartOpen(false); // Added closeCart function
+
   const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -90,7 +100,10 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       removeItem,
       updateQuantity,
       clearCart,
-      itemCount
+      itemCount,
+      isCartOpen, // Provided to context
+      openCart, // Provided to context
+      closeCart // Provided to context
     }}>
       {children}
     </QuoteContext.Provider>
