@@ -1,238 +1,192 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom'; // Assuming you use react-router-dom for navigation
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import heroCombine from "@/assets/hero-combine.jpg";
+import tractorPlowing from "@/assets/tractor-plowing.jpg";
+import irrigationAerial from "@/assets/irrigation-aerial.jpg";
 
-const heroSlides = [
+const slides = [
   {
-    image: '/src/assets/Newtractors.png', // Placeholder path, replace with your actual image
-    placeholder: '/src/assets/placeholder.svg', // Placeholder image
-    title: 'Advanced Tractor Model 1',
-    blurb: 'Experience power and efficiency with our latest model.',
-    ctaLink: '/catalog/tractor-1',
-    // Add parallax layers data (example)
-    parallaxLayers: {
-        background: '/src/assets/corn-field-sunset.jpg', // Background field image
-        midground: '/src/assets/Newtractors.png', // Mid-ground machinery image
-        foreground: '/src/assets/dust-effect.png', // Foreground dust/smoke effect image
-    }
+    id: 1,
+    image: heroCombine,
+    title: "Premium Agriculture Equipment",
+    subtitle: "Harvesting Excellence",
+    description: "Discover our range of professional combine harvesters designed for maximum efficiency and yield.",
+    cta: "Shop Harvesters",
+    ctaSecondary: "Learn More"
   },
   {
-    image: '/src/assets/Newtractor1.png', // Placeholder path
-    placeholder: '/src/assets/placeholder.svg',
-    title: 'Advanced Tractor Model 2',
-    blurb: 'Maximize your yield with our high-performance harvesters.',
-    ctaLink: '/catalog/harvester-y',
-     parallaxLayers: {
-        background: '/src/assets/large-green-rice-field-with-green-rice-plants-rows.jpg',
-        midground: '/src/assets/combine-harvester-working-field.jpg',
-        foreground: '/src/assets/smoke-effect.png',
-    }
+    id: 2,
+    image: tractorPlowing,
+    title: "Powerful Tractors & Implements",
+    subtitle: "Built for Performance",
+    description: "Advanced tractors and plowing equipment engineered for modern farming operations.",
+    cta: "Explore Tractors",
+    ctaSecondary: "View Catalog"
   },
   {
-    image: '/src/assets/Newtractor2.png', // Placeholder path
-    placeholder: '/src/assets/placeholder.svg',
-    title: 'Advanced Tractor Model 3',
-    blurb: 'Boost productivity with our versatile equipment.',
-    ctaLink: '/catalog/tractor-3',
-     parallaxLayers: {
-        background: '/src/assets/corn-field-sunset.jpg',
-        midground: '/src/assets/Newtractor2.png',
-        foreground: '/src/assets/dust-effect.png',
-    }
-  },
-  {
-    image: '/src/assets/Newtractor3.png', // Placeholder path
-    placeholder: '/src/assets/placeholder.svg',
-    title: 'Advanced Tractor Model 4',
-    blurb: 'Innovative solutions for modern agriculture.',
-    ctaLink: '/catalog/tractor-4',
-     parallaxLayers: {
-        background: '/src/assets/large-green-rice-field-with-green-rice-plants-rows.jpg',
-        midground: '/src/assets/Newtractor3.png',
-        foreground: '/src/assets/smoke-effect.png',
-    }
-  },
-  {
-    image: '/src/assets/Newtractor4.png', // Placeholder path
-    placeholder: '/src/assets/placeholder.svg',
-    title: 'Advanced Tractor Model 5',
-    blurb: 'Reliable machinery for demanding tasks.',
-    ctaLink: '/catalog/tractor-5',
-     parallaxLayers: {
-        background: '/src/assets/corn-field-sunset.jpg',
-        midground: '/src/assets/Newtractor4.png',
-        foreground: '/src/assets/dust-effect.png',
-    }
-  },
-  {
-    image: '/src/assets/Newtractor5.png', // Placeholder path
-    placeholder: '/src/assets/placeholder.svg',
-    title: 'Advanced Tractor Model 6',
-    blurb: 'Optimized performance for every field.',
-    ctaLink: '/catalog/tractor-6',
-     parallaxLayers: {
-        background: '/src/assets/large-green-rice-field-with-green-rice-plants-rows.jpg',
-        midground: '/src/assets/Newtractor5.png',
-        foreground: '/src/assets/smoke-effect.png',
-    }
-  },
+    id: 3,
+    image: irrigationAerial,
+    title: "Smart Irrigation Solutions",
+    subtitle: "Water. Efficiently.",
+    description: "State-of-the-art irrigation systems to optimize water usage and crop production.",
+    cta: "Irrigation Systems",
+    ctaSecondary: "Get Quote"
+  }
 ];
 
-const HeroSection: React.FC = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const intervalRef = useRef<number | null>(null);
-   const heroSectionRef = useRef<HTMLElement>(null); // Ref for hero section for parallax
+export const HeroSection = () => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
-  const totalSlides = heroSlides.length;
+  useEffect(() => {
+    if (!isAutoPlaying) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isAutoPlaying]);
 
   const nextSlide = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % totalSlides);
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+    setIsAutoPlaying(false);
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + totalSlides) % totalSlides);
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+    setIsAutoPlaying(false);
   };
 
   const goToSlide = (index: number) => {
-    setCurrentIndex(index);
+    setCurrentSlide(index);
+    setIsAutoPlaying(false);
   };
-
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying);
-  };
-
-  useEffect(() => {
-    if (isPlaying) {
-      intervalRef.current = window.setInterval(nextSlide, 5000); // Auto-rotate every 5 seconds
-    } else {
-      clearInterval(intervalRef.current || undefined);
-    };
-
-    return () => {
-      clearInterval(intervalRef.current || undefined);
-    };
-  }, [isPlaying, totalSlides]);
-
-  // Basic Intersection Observer for lazy loading
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries, observer) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const img = entry.target as HTMLImageElement;
-          const src = img.getAttribute('data-src');
-          if (src) {
-            img.src = src;
-            img.removeAttribute('data-src');
-            observer.unobserve(img);
-          }
-        }
-      });
-    });
-
-    document.querySelectorAll('.lazy-image').forEach(img => {
-      observer.observe(img);
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-    // Parallax Effect
-  useEffect(() => {
-    const handleScroll = () => {
-      if (heroSectionRef.current) {
-        const scrollTop = window.scrollY;
-        const heroOffsetTop = heroSectionRef.current.offsetTop;
-        const heroHeight = heroSectionRef.current.offsetHeight;
-
-        // Calculate scroll position relative to the hero section
-        const scrollPercentage = (scrollTop - heroOffsetTop) / heroHeight;
-
-        // Apply parallax transform to layers
-        const background = heroSectionRef.current.querySelector('.parallax-background') as HTMLElement;
-        const midground = heroSectionRef.current.querySelector('.parallax-midground') as HTMLElement;
-        const foreground = heroSectionRef.current.querySelector('.parallax-foreground') as HTMLElement;
-
-        if (background) {
-          background.style.transform = `translateY(${scrollPercentage * 50}px)`; // Adjust multiplier for desired speed
-        }
-        if (midground) {
-          midground.style.transform = `translateY(${scrollPercentage * 30}px)`; // Adjust multiplier
-        }
-         if (foreground) {
-          foreground.style.transform = `translateY(${scrollPercentage * 10}px)`; // Adjust multiplier
-        }
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
-
 
   return (
-    <section ref={heroSectionRef} className="hero-section" aria-roledescription="carousel">
-      <div className="carousel-container" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
-        {heroSlides.map((slide, index) => (
+    <section className="relative min-h-[90vh] lg:min-h-[100vh] overflow-hidden">
+      {/* Animated "watered crops" background layer */}
+      <div className="absolute inset-0 animate-crops-water opacity-30">
+        <div className="absolute inset-0 gradient-crops"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-primary/10"></div>
+      </div>
+
+      {/* Parallax equipment silhouettes layer */}
+      <div className="absolute inset-0 parallax-slow opacity-20">
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-white/10 rounded-full animate-float" style={{ animationDelay: '0s' }}></div>
+        <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-white/10 rounded-full animate-float" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-3/4 w-20 h-20 bg-white/10 rounded-full animate-float" style={{ animationDelay: '2s' }}></div>
+      </div>
+
+      {/* Slides Container */}
+      <div className="relative w-full h-full">
+        {slides.map((slide, index) => (
           <div
-            key={index}
-            className={`carousel-slide ${index === currentIndex ? 'active' : ''}`}
-            role="group"
-            aria-label={`Slide ${index + 1} of ${totalSlides}`}
-          >
-             {/* Parallax Layers */}
-            {slide.parallaxLayers && (
-                <div className="parallax-layers">
-                    <div className="parallax-background" style={{ backgroundImage: `url(${slide.parallaxLayers.background})` }}></div>
-                    <img className="parallax-midground" src={slide.parallaxLayers.midground} alt="Midground" />
-                    <img className="parallax-foreground" src={slide.parallaxLayers.foreground} alt="Foreground" />
-                </div>
+            key={slide.id}
+            className={cn(
+              "absolute inset-0 transition-all duration-1000 ease-in-out",
+              index === currentSlide ? "opacity-100 scale-100" : "opacity-0 scale-105"
             )}
-
-
-            <img
-              src={slide.placeholder} // Use placeholder initially
-              data-src={slide.image} // Store actual image path in data-src
-              alt={slide.title}
-              className="lazy-image" // Add a class for easier selection
+          >
+            {/* Background Image with Enhanced Parallax */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-parallax parallax-slow"
+              style={{
+                backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6)), url(${slide.image})`,
+              }}
             />
-            <div className="slide-content">
-              <h2>{slide.title}</h2>
-              <p>{slide.blurb}</p>
-              <Link to={slide.ctaLink}>Learn More</Link>
+
+            {/* Content Overlay */}
+            <div className="relative z-10 container mx-auto px-4 h-full flex items-center">
+              <div className="max-w-2xl text-white">
+                <div className={cn(
+                  "transition-all duration-1000 delay-300",
+                  index === currentSlide ? "animate-fade-in" : "opacity-0 translate-y-8"
+                )}>
+                  <span className="inline-block bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-sm font-medium mb-4">
+                    {slide.subtitle}
+                  </span>
+                  
+                  <h1 className="text-4xl lg:text-6xl font-bold mb-6 leading-tight">
+                    {slide.title}
+                  </h1>
+                  
+                  <p className="text-lg lg:text-xl mb-8 opacity-90 leading-relaxed">
+                    {slide.description}
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Button 
+                      size="lg" 
+                      className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-primary group"
+                    >
+                      {slide.cta}
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                    <Button 
+                      size="lg" 
+                      variant="outline" 
+                      className="border-white/50 text-white hover:bg-white/10 backdrop-blur-sm"
+                    >
+                      {slide.ctaSecondary}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Carousel Navigation */}
-      <div className="carousel-navigation">
-        <button aria-label="Previous slide" onClick={prevSlide}>&lt;</button>
-        <button aria-label="Next slide" onClick={nextSlide}>&gt;</button>
+      {/* Navigation Controls */}
+      <div className="absolute inset-y-0 left-4 flex items-center">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={prevSlide}
+          className="bg-black/20 backdrop-blur-sm text-white hover:bg-black/40 rounded-full"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </Button>
       </div>
 
-      {/* Carousel Indicators */}
-      <div className="carousel-indicators">
-        {heroSlides.map((_, index) => (
+      <div className="absolute inset-y-0 right-4 flex items-center">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={nextSlide}
+          className="bg-black/20 backdrop-blur-sm text-white hover:bg-black/40 rounded-full"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Slide Indicators */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-3">
+        {slides.map((_, index) => (
           <button
             key={index}
-            aria-label={`Go to slide ${index + 1}`}
-            className={index === currentIndex ? 'active' : ''}
             onClick={() => goToSlide(index)}
-          ></button>
+            className={cn(
+              "w-3 h-3 rounded-full transition-all duration-300",
+              index === currentSlide 
+                ? "bg-primary scale-125" 
+                : "bg-white/50 hover:bg-white/75"
+            )}
+            aria-label={`Go to slide ${index + 1}`}
+          />
         ))}
       </div>
 
-      {/* Pause/Play Button */}
-      <button aria-label={isPlaying ? "Pause auto-rotation" : "Start auto-rotation"} onClick={togglePlay}>
-        {isPlaying ? 'Pause' : 'Play'}
-      </button>
+      {/* Scroll Indicator */}
+      <div className="absolute bottom-8 right-8 text-white/90 animate-fade-in-out">
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-xs uppercase tracking-wider">Scroll</span>
+          <div className="w-px h-8 bg-white/70" />
+        </div>
+      </div>
     </section>
   );
 };
-
-export default HeroSection;

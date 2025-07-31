@@ -1,48 +1,105 @@
-import React from 'react';
-import HeroSection from '../components/HeroSection';
-import ImageSwitcher from '../components/ImageSwitcher';
-import AdRibbon from '../components/AdRibbon';
-import ProductTeasers from '../components/ProductTeasers';
-import PartnersSection from '../components/PartnersSection';
-import WhyChooseUsSection from '../components/WhyChooseUsSection'; // Import WhyChooseUsSection
+import React, { useState } from "react";
+import { Header } from "@/components/Header";
+import { HeroSection } from "@/components/HeroSection";
+import { AboutUsTeaser } from "@/components/AboutUsTeaser";
+import { FeaturesSection } from "@/components/FeaturesSection";
+import { ProductShowcase } from "@/components/ProductShowcase";
+import { ContactSection } from "@/components/ContactSection";
+import { Footer } from "@/components/Footer";
+import { CartDrawer } from "@/components/CartDrawer";
+import { BackToTop } from "@/components/BackToTop";
+import tractorPlowing from "@/assets/tractor-plowing.jpg";
+import planterSeeding from "@/assets/planter-seeding.jpg";
 
-// Assuming you have other components
-// import FeaturesSection from '../components/FeaturesSection';
+const Index = () => {
+  const [cartItemsCount, setCartItemsCount] = useState(0);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  
+  // Demo cart items
+  const [cartItems, setCartItems] = useState([
+    {
+      id: 1,
+      name: "John Deere 6M Series Tractor",
+      price: 85000,
+      quantity: 1,
+      image: tractorPlowing,
+      specs: ["120 HP", "4WD", "PTO"]
+    },
+    {
+      id: 2,
+      name: "Precision Seed Planter Pro", 
+      price: 45000,
+      quantity: 2,
+      image: planterSeeding,
+      specs: ["12 Row", "GPS Ready"]
+    }
+  ]);
 
+  const handleCartClick = () => {
+    setIsCartOpen(true);
+  };
 
-const Index: React.FC = () => {
-  // Example array of images for the ImageSwitcher - Replace with your actual image paths
-  const switcherImages = [
-    '/src/assets/newTractors.jpg.png',
-    '/src/assets/Harverster.jpg',
-    '/src/assets/Dronesprayer.png',
-    // Add more image paths as needed
-  ];
+  const handleAuthClick = () => {
+    // TODO: Implement authentication  
+    console.log("Auth clicked");
+  };
 
-  const adMessage = "20% Off All Planters This Week!";
+  const handleUpdateQuantity = (id: number, quantity: number) => {
+    if (quantity === 0) {
+      handleRemoveItem(id);
+      return;
+    }
+    setCartItems(prev => 
+      prev.map(item => 
+        item.id === id ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const handleRemoveItem = (id: number) => {
+    setCartItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleCheckout = () => {
+    // TODO: Implement checkout
+    console.log("Proceeding to checkout...");
+    setIsCartOpen(false);
+  };
+
+  // Update cart items count when items change
+  React.useEffect(() => {
+    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    setCartItemsCount(totalItems);
+  }, [cartItems]);
 
   return (
-    <div className="index-page">
-      {/* Include the Hero Section */}
-      <HeroSection />
-
-      {/* Image Switcher and Ad Ribbon Section */}
-      <section className="image-switcher-section">
-        <ImageSwitcher images={switcherImages} />
-        <AdRibbon text={adMessage} />
-      </section>
-
-      {/* Include Product Teasers Section */}
-      <ProductTeasers />
-
-      {/* Include Partners and Testimonials Section */}
-      <PartnersSection />
-
-      {/* Include Why Choose Us Section with Parallax */}
-      <WhyChooseUsSection />
-
-      {/* Include other sections of your landing page here */}
-      {/* <FeaturesSection /> */}      
+    <div className="min-h-screen bg-background">
+      <Header 
+        cartItemsCount={cartItemsCount}
+        onCartClick={handleCartClick}
+        onAuthClick={handleAuthClick}
+      />
+      
+      <main>
+        <HeroSection />
+        <AboutUsTeaser />
+        <FeaturesSection />
+        <ProductShowcase />
+        <ContactSection />
+      </main>
+      
+      <Footer />
+      
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onCheckout={handleCheckout}
+      />
+      
+      <BackToTop />
     </div>
   );
 };
