@@ -17,7 +17,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   const handleCartClick = () => {
-    navigate('/cart');
+    setIsCartOpen(true);
   };
 
   const handleAuthClick = () => {
