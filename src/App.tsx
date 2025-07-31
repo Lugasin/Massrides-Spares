@@ -16,16 +16,18 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <QuoteProvider>
-      <AppContent />
-    </QuoteProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <QuoteProvider>
+        <AppContent />
+      </QuoteProvider>
+    </QueryClientProvider>
+  );
+};
 
 const AppContent = () => {
-  const { isCartOpen, closeCart, items, updateQuantity, removeItem } = useQuote(); // Use useQuote
+  const { isCartOpen, closeCart, items, updateQuantity, removeItem } = useQuote();
 
   // Placeholder for checkout - replace with actual logic
   const handleCheckout = () => {
@@ -37,7 +39,7 @@ const AppContent = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}> {/* Add v7_startTransition flag */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/catalog" element={<Catalog />} />
@@ -57,7 +59,7 @@ const AppContent = () => {
         items={items}
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
-        onCheckout={handleCheckout} // Use placeholder handler
+        onCheckout={handleCheckout}
       />
     </TooltipProvider>
   );

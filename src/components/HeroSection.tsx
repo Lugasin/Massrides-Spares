@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import heroCombine from "@/assets/hero-combine.jpg";
 import tractorPlowing from "@/assets/tractor-plowing.jpg";
 import irrigationAerial from "@/assets/irrigation-aerial.jpg";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 const slides = [
   {
@@ -13,8 +14,10 @@ const slides = [
     title: "Premium Agriculture Equipment",
     subtitle: "Harvesting Excellence",
     description: "Discover our range of professional combine harvesters designed for maximum efficiency and yield.",
-    cta: "Shop Harvesters",
-    ctaSecondary: "Learn More"
+    cta: "Shop Now", // Changed text
+    ctaLink: "/catalog", // Added link for primary CTA
+    ctaSecondary: "Learn More",
+    ctaSecondaryLink: "/#about"
   },
   {
     id: 2,
@@ -22,8 +25,10 @@ const slides = [
     title: "Powerful Tractors & Implements",
     subtitle: "Built for Performance",
     description: "Advanced tractors and plowing equipment engineered for modern farming operations.",
-    cta: "Explore Tractors",
-    ctaSecondary: "View Catalog"
+    cta: "Shop Now", // Changed text
+    ctaLink: "/catalog", // Added link for primary CTA
+    ctaSecondary: "View Catalog",
+    ctaSecondaryLink: "/catalog"
   },
   {
     id: 3,
@@ -31,14 +36,17 @@ const slides = [
     title: "Smart Irrigation Solutions",
     subtitle: "Water. Efficiently.",
     description: "State-of-the-art irrigation systems to optimize water usage and crop production.",
-    cta: "Irrigation Systems",
-    ctaSecondary: "Get Quote"
+    cta: "Shop Now", // Changed text
+    ctaLink: "/catalog", // Added link for primary CTA
+    ctaSecondary: "Get Quote",
+    ctaSecondaryLink: "/#contact"
   }
 ];
 
 export const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isAutoPlaying) return;
@@ -63,6 +71,17 @@ export const HeroSection = () => {
   const goToSlide = (index: number) => {
     setCurrentSlide(index);
     setIsAutoPlaying(false);
+  };
+
+  // Handle CTA button clicks
+  const handleCtaClick = (link: string) => {
+    if (link.startsWith('/#')) {
+      // Handle hash links for scrolling
+      document.getElementById(link.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Handle route navigation
+      navigate(link);
+    }
   };
 
   return (
@@ -121,6 +140,7 @@ export const HeroSection = () => {
                     <Button 
                       size="lg" 
                       className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-primary group"
+                      onClick={() => slide.ctaLink && navigate(slide.ctaLink)} // Added onClick for primary CTA
                     >
                       {slide.cta}
                       <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -129,6 +149,7 @@ export const HeroSection = () => {
                       size="lg" 
                       variant="outline" 
                       className="border-white/50 text-white hover:bg-white/10 backdrop-blur-sm"
+                      onClick={() => slide.ctaSecondaryLink && handleCtaClick(slide.ctaSecondaryLink)}
                     >
                       {slide.ctaSecondary}
                     </Button>
