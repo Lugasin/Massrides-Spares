@@ -7,39 +7,69 @@ import tractorPlowing from "@/assets/tractor-plowing.jpg";
 import irrigationAerial from "@/assets/irrigation-aerial.jpg";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
 
-const slides = [
+// Define slide data structure with type and src
+interface Slide {
+  id: number;
+  type: 'image' | 'video'; // Add type property
+  src: string; // Use src for both image and video paths
+  title: string;
+  subtitle: string;
+  description: string;
+  cta: string;
+  ctaLink: string;
+  ctaSecondary?: string;
+  ctaSecondaryLink?: string;
+}
+
+const slides: Slide[] = [
   {
     id: 1,
-    image: heroCombine,
+    type: 'image', // Specify type as image
+    src: heroCombine,
     title: "Premium Agriculture Equipment",
     subtitle: "Harvesting Excellence",
     description: "Discover our range of professional combine harvesters designed for maximum efficiency and yield.",
-    cta: "Shop Now", // Changed text
-    ctaLink: "/catalog", // Added link for primary CTA
+    cta: "Shop Now",
+    ctaLink: "/catalog",
     ctaSecondary: "Learn More",
     ctaSecondaryLink: "/#about"
   },
   {
     id: 2,
-    image: tractorPlowing,
+    type: 'image', // Specify type as image
+    src: tractorPlowing,
     title: "Powerful Tractors & Implements",
     subtitle: "Built for Performance",
     description: "Advanced tractors and plowing equipment engineered for modern farming operations.",
-    cta: "Shop Now", // Changed text
-    ctaLink: "/catalog", // Added link for primary CTA
+    cta: "Shop Now",
+    ctaLink: "/catalog",
     ctaSecondary: "View Catalog",
     ctaSecondaryLink: "/catalog"
   },
   {
     id: 3,
-    image: irrigationAerial,
+    type: 'image', // Specify type as image
+    src: irrigationAerial,
     title: "Smart Irrigation Solutions",
     subtitle: "Water. Efficiently.",
     description: "State-of-the-art irrigation systems to optimize water usage and crop production.",
-    cta: "Shop Now", // Changed text
-    ctaLink: "/catalog", // Added link for primary CTA
+    cta: "Shop Now",
+    ctaLink: "/catalog",
     ctaSecondary: "Get Quote",
     ctaSecondaryLink: "/#contact"
+  },
+  // Add example video slide - Replace with your video file later
+  {
+    id: 4,
+    type: 'video', // Specify type as video
+    src: "/path/to/your/video.mp4", // Replace with actual video path
+    title: "See Our Equipment in Action",
+    subtitle: "Dynamic Demonstrations",
+    description: "Watch videos of our machinery performing in real-world agricultural settings.",
+    cta: "View Videos", // Example CTA for video slide
+    ctaLink: "/#videos", // Example link for video slide
+    ctaSecondary: "Learn More", // Example secondary CTA
+    ctaSecondaryLink: "/#features" // Example secondary link
   }
 ];
 
@@ -109,13 +139,24 @@ export const HeroSection = () => {
               index === currentSlide ? "opacity-100 scale-100" : "opacity-0 scale-105"
             )}
           >
-            {/* Background Image with Enhanced Parallax */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-parallax parallax-slow"
-              style={{
-                backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6)), url(${slide.image})`,
-              }}
-            />
+            {/* Background Media (Image or Video) */}
+            {slide.type === 'image' ? (
+              <div 
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-parallax parallax-slow"
+                style={{
+                  backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6)), url(${slide.src})`,
+                }}
+              />
+            ) : (
+              <video 
+                className="absolute inset-0 w-full h-full object-cover"
+                src={slide.src}
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            )}
 
             {/* Content Overlay */}
             <div className="relative z-10 container mx-auto px-4 h-full flex items-center">
@@ -140,19 +181,21 @@ export const HeroSection = () => {
                     <Button 
                       size="lg" 
                       className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-primary group"
-                      onClick={() => slide.ctaLink && navigate(slide.ctaLink)} // Added onClick for primary CTA
+                      onClick={() => slide.ctaLink && navigate(slide.ctaLink)} 
                     >
                       {slide.cta}
                       <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Button>
-                    <Button 
-                      size="lg" 
-                      variant="outline" 
-                      className="border-white/50 text-white hover:bg-white/10 backdrop-blur-sm"
-                      onClick={() => slide.ctaSecondaryLink && handleCtaClick(slide.ctaSecondaryLink)}
-                    >
-                      {slide.ctaSecondary}
-                    </Button>
+                    {slide.ctaSecondary && slide.ctaSecondaryLink && (
+                      <Button 
+                        size="lg" 
+                        variant="outline" 
+                        className="border-white/50 text-white hover:bg-white/10 backdrop-blur-sm"
+                        onClick={() => handleCtaClick(slide.ctaSecondaryLink)}
+                      >
+                        {slide.ctaSecondary}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -211,3 +254,5 @@ export const HeroSection = () => {
     </section>
   );
 };
+
+// Note: For global lazy loading, wrap <img> tags with loading="lazy", and implement a separate <Loader> component with a rotating tractor wheel and smoke animations for full-page loads.

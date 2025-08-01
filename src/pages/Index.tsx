@@ -8,7 +8,7 @@ import { ContactSection } from "@/components/ContactSection";
 import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
 import { useQuote } from "@/context/QuoteContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Import useNavigate and Link
 import { products, Product } from "@/data/products"; // Import products and Product interface
 import { Input } from "@/components/ui/input"; // Import Input for suggestions
 import { Card, CardContent, CardFooter } from "@/components/ui/card"; // Import Card components
@@ -90,72 +90,75 @@ const Index = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {suggestedProducts.map((product) => (
                    <Card key={product.id} className="group overflow-hidden hover:shadow-earth transition-all duration-300 hover-scale border-border/50">
-                    <div className="relative overflow-hidden">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      {/* Badges */}
-                      <div className="absolute top-3 left-3 flex gap-2">
-                        {product.featured && (
-                          <Badge className="bg-primary text-primary-foreground">
-                            Featured
-                          </Badge>
-                        )}
-                        {product.inStock && (
-                          <Badge className="bg-success text-success-foreground">
-                            In Stock
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      {/* Add Eye and Heart buttons here if needed in suggestions */}
-
-                    </div>
-
-                    <CardContent className="p-4">
-                      {/* Rating */}
-                       <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center text-yellow-500">
-                           {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={cn("h-4 w-4", i < 4 ? "fill-current" : "text-gray-300 fill-transparent")}
-                            />
-                          ))}
+                     {/* Wrap card content in Link */}
+                    <Link to={`/products/${product.id}`} className="block">
+                      <div className="relative overflow-hidden">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        {/* Badges */}
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          {product.featured && (
+                            <Badge className="bg-primary text-primary-foreground">
+                              Featured
+                            </Badge>
+                          )}
+                          {product.inStock && (
+                            <Badge className="bg-success text-success-foreground">
+                              In Stock
+                            </Badge>
+                          )}
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          4.8 (125 reviews)
-                        </span>
+
+                        {/* Action Buttons */}
+                        {/* Add Eye and Heart buttons here if needed in suggestions */}
+
                       </div>
 
-                      {/* Product Info */}
-                      <h3 className="text-lg font-semibold mb-1 text-card-foreground">
-                        {product.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                        {product.description}
-                      </p>
+                      <CardContent className="p-4">
+                        {/* Rating */}
+                         <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center text-yellow-500">
+                             {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn("h-4 w-4", i < 4 ? "fill-current" : "text-gray-300 fill-transparent")}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            4.8 (125 reviews)
+                          </span>
+                        </div>
 
-                      {/* Price */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl font-bold text-primary">
-                          ${product.price.toLocaleString()}
-                        </span>
-                      </div>
-                    </CardContent>
+                        {/* Product Info */}
+                        <h3 className="text-lg font-semibold mb-1 text-card-foreground">
+                          {product.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                          {product.description}
+                        </p>
 
-                    <CardFooter className="p-4 pt-0">
-                       <Button 
-                        onClick={() => handleAddToCartFromSuggestion(product)}
-                        className="w-full bg-primary hover:bg-primary-hover"
-                      >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Add to Cart
-                      </Button>
-                    </CardFooter>
+                        {/* Price */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl font-bold text-primary">
+                            ${product.price.toLocaleString()}
+                          </span>
+                        </div>
+                      </CardContent>
+
+                      <CardFooter className="p-4 pt-0">
+                         <Button 
+                          onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(product); }} // Prevent link navigation and call add to cart
+                          className="w-full bg-primary hover:bg-primary-hover"
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-2" />
+                          Add to Cart
+                        </Button>
+                      </CardFooter>
+                    </Link> {/* Close Link */}
                   </Card>
                 ))}
               </div>

@@ -13,6 +13,8 @@ import Catalog from "./pages/Catalog";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
+import ProductDetail from "./pages/ProductDetail"; // Import ProductDetail page
+import VendorMedia from "./pages/VendorMedia"; // Import VendorMedia page
 
 const queryClient = new QueryClient();
 
@@ -39,7 +41,7 @@ const AppContent = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}> {/* Add v7_startTransition flag */}
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/catalog" element={<Catalog />} />
@@ -48,6 +50,8 @@ const AppContent = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/products/:productId" element={<ProductDetail />} />
+          <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

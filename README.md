@@ -1,73 +1,111 @@
-# Welcome to your Lovable project
+# Massrides Agriculture PWA
 
-## Project info
+## Project Description
 
-**URL**: https://lovable.dev/projects/07b5673e-5991-4a4d-9be4-a64e60511f82
+Massrides Agriculture PWA is a progressive web application designed to showcase agriculture equipment with features like product browsing, filtering, sorting, a global shopping cart, and a dynamic search experience.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+*   **Product Catalog:** Browse a catalog of agriculture equipment with filtering by category and sorting options (name, price).
+*   **Global Cart:** Add products to a persistent shopping cart, update quantities, and remove items. The cart state is maintained globally.
+*   **Sticky Catalog Filter:** The filter and search section on the Catalog page remains visible at the top while scrolling.
+*   **Header with Navigation:** Includes navigation links to key sections/pages, a cart item count indicator, and an authentication link.
+*   **Landing Page Search with Suggestions:** A search bar in the header on the landing page that provides real-time product suggestions with product cards in an overlay, replacing the hero section when active.
+*   **Responsive Design:** The application is designed to be viewable and functional across various devices.
 
-**Use Lovable**
+## Technologies Used
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/07b5673e-5991-4a4d-9be4-a64e60511f82) and start prompting.
+*   **Frontend:**
+    *   React
+    *   TypeScript
+    *   Tailwind CSS
+    *   Shadcn UI (for UI components)
+    *   React Router (for navigation)
+    *   Zustand / React Context API (for state management - specifically for the global cart)
+    *   Sonner (for toast notifications)
+    *   Lucide React (for icons)
+*   **Build Tool:** Vite
 
-Changes made via Lovable will be committed automatically to this repo.
+## Installation
 
-**Use your preferred IDE**
+To set up and run the project locally, follow these steps:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1.  **Clone the repository:**
+    ```sh
+git clone https://github.com/5ianga/massrides-agri-pwa.git
+    ```
+2.  **Navigate to the project directory:**
+    ```sh
+    cd massrides-agri-pwa
+    ```
+3.  **Install the necessary dependencies:**
+    ```sh
+    npm install
+    ```
+    or
+    ```sh
+    yarn install
+    ```
+    or
+    ```sh
+    pnpm install
+    ```
+4.  **Start the development server:**
+    ```sh
+    npm run dev
+    ```
+    This will start the application, and you can view it in your browser, typically at `http://localhost:5173/`.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Project Structure
 
-Follow these steps:
+The main directories and files are organized as follows:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+massrides-agri-pwa/
+├── public/
+│   ├── ... (assets and other public files)
+├── src/
+│   ├── assets/ (images, etc.)
+│   ├── components/ (reusable React components)
+│   │   ├── ui/ (Shadcn UI components)
+│   │   ├── ... (other custom components like Header, Footer, HeroSection, etc.)
+│   ├── context/ (React Context for global state, e.g., QuoteContext)
+│   ├── data/ (local data like products, categories)
+│   ├── lib/ (utility functions)
+│   ├── pages/ (page-level components, e.g., Index, Catalog, Cart)
+│   ├── App.tsx (main application component and router setup)
+│   ├── main.tsx (entry point)
+│   ├── global.css (global styles)
+│   └── ...
+├── .gitignore
+├── index.html
+├── package.json
+├── postcss.config.js
+├── README.md (this file)
+├── tailwind.config.js
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
 ```
 
-**Edit a file directly in GitHub**
+## Scripts
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+*   `npm run dev`: Starts the development server.
+*   `npm run build`: Builds the application for production.
+*   `npm run lint`: Lints the code.
+*   `npm run preview`: Previews the production build.
 
-**Use GitHub Codespaces**
+## Future Improvements
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+*   Implementing a dedicated product detail page.
+*   Integrating a backend API for product data and orders.
+*   Adding full user authentication and account management.
+*   Completing the checkout process integration.
+*   Enhancing search with backend capabilities and more advanced filtering.
+*   Implementing full PWA features like offline support and push notifications.
 
-## What technologies are used for this project?
+## License
 
-This project is built with:
+[Specify your project's license here]
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/07b5673e-5991-4a4d-9be4-a64e60511f82) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+---
