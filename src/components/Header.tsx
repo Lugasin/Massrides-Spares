@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input"; // Import Input
 import { 
   ShoppingCart, 
   User, 
@@ -11,15 +12,29 @@ import {
   Leaf
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuote } from '@/context/QuoteContext'; // Import useQuote
+import { Link, useNavigate, useLocation } from "react-router-dom"; // Import Link, useNavigate, and useLocation
 
 interface HeaderProps {
   cartItemsCount?: number;
-  onCartClick?: () => void;
   onAuthClick?: () => void;
+  searchTerm?: string; 
+  onSearchChange?: (term: string) => void; 
 }
 
-export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderProps) => {
+export const Header = ({
+  cartItemsCount = 0,
+  onAuthClick,
+  searchTerm,
+  onSearchChange
+}: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { openCart } = useQuote();
+  const navigate = useNavigate();
+  const location = useLocation(); // Initialize useLocation
+
+  // Determine if the current page is the catalog page
+  const isCatalogPage = location.pathname === '/catalog';
 
   // Streamlined navigation options
   const navItems = [
@@ -29,6 +44,29 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
     { label: "Contact", href: "/#contact" }
   ];
 
+  // Handle navigation for hash links and routes
+  const handleNavLinkClick = (href: string) => {
+    if (href.startsWith('/#')) {
+      // Handle hash links for scrolling
+      document.getElementById(href.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Handle route navigation
+      navigate(href);
+    }
+  };
+
+  // Navigate to catalog page on Shop Now click
+  const handleShopNowClick = () => {
+    navigate('/catalog');
+  };
+
+  // Handle search input change
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (onSearchChange) {
+      onSearchChange(event.target.value);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50">
       {/* Main navigation with translucency and blur */}
@@ -36,22 +74,29 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           {/* Logo with Leaf accent */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-primary text-primary-foreground p-2 rounded-lg">
-              <span className="font-bold text-xl">AGRI</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg text-foreground">MASSRIDES</span>
-              <span className="text-xs text-muted-foreground">COMPANY LIMITED</span>
-            </div>
-            <Leaf className="h-5 w-5 text-secondary-foreground animate-pulse" />
+            {/* Use Link for logo to navigate to home */}
+            <Link to="/" className="flex items-center gap-2">
+              <div className="flex items-center bg-primary text-primary-foreground p-2 rounded-lg">
+                <span className="font-bold text-xl">AGRI</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg text-foreground">MASSRIDES</span>
+                <span className="text-xs text-muted-foreground">COMPANY LIMITED</span>
+              </div>
+              <Leaf className="h-5 w-5 text-secondary-foreground animate-pulse" />
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-8">
+          <nav className={cn("hidden lg:flex items-center gap-8", { "mx-auto w-full justify-center": isCatalogPage })}>{/* Conditionally center nav and make it full width */}
             {navItems.map((item) => (
-              <a
+              <a // Using <a> for hash links, Link for routes
                 key={item.label}
                 href={item.href}
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent default link behavior
+                  handleNavLinkClick(item.href);
+                }}
                 className="text-foreground hover:text-primary transition-colors font-medium"
               >
                 {item.label}
@@ -60,14 +105,23 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center gap-4">
-            {/* Search icon */}
-            <Button variant="ghost" size="sm" className="hidden md:flex">
-              <Search className="h-4 w-4" />
-            </Button>
+          <div className={cn("flex items-center gap-4", { "w-full justify-end": isCatalogPage })}>{/* Adjust actions div for centering effect */}
+            {/* Search Input (instead of icon button) - Conditionally rendered */}
+            {!isCatalogPage && (
+              <div className="relative hidden md:flex items-center">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search products..."
+                  className="pl-10 pr-3 py-2 rounded-md"
+                  value={searchTerm}
+                  onChange={handleInputChange}
+                />
+              </div>
+            )}
 
             {/* Cart with badge */}
-            <Button variant="ghost" size="sm" onClick={onCartClick} className="relative">
+            <Button variant="ghost" size="sm" onClick={openCart} className="relative">
               <ShoppingCart className="h-5 w-5" />
               {cartItemsCount > 0 && (
                 <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
@@ -76,10 +130,16 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
               )}
             </Button>
 
-            {/* Book Now CTA */}
-            <Button size="sm" className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hidden md:flex animate-pulse">
-              Book Now
-            </Button>
+            {/* Shop Now CTA - Conditionally rendered */}
+            {!isCatalogPage && (
+              <Button 
+                size="sm" 
+                className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hidden md:flex animate-pulse"
+                onClick={handleShopNowClick}
+              >
+                Shop Now
+              </Button>
+            )}
 
             {/* User account */}
             <Button variant="outline" size="sm" onClick={onAuthClick}>
@@ -101,11 +161,15 @@ export const Header = ({ cartItemsCount = 0, onCartClick, onAuthClick }: HeaderP
         )}>
           <nav className="flex flex-col px-4 py-3 gap-2">
             {navItems.map((item) => (
-              <a
+              <a // Using <a> for hash links, Link for routes
                 key={item.label}
                 href={item.href}
+                 onClick={(e) => {
+                  e.preventDefault(); // Prevent default link behavior
+                  handleNavLinkClick(item.href);
+                  setIsMobileMenuOpen(false); // Close mobile menu on click
+                }}
                 className="text-foreground hover:text-primary transition-colors font-medium py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 {item.label}
               </a>

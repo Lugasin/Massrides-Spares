@@ -51,7 +51,6 @@ const Catalog = () => {
     <div className="min-h-screen bg-background">
       <Header 
         cartItemsCount={itemCount}
-        onCartClick={() => {}}
         onAuthClick={() => {}}
       />
       
@@ -66,20 +65,20 @@ const Catalog = () => {
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 p-6 bg-card rounded-lg border shadow-sm">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        {/* Filters - Made Sticky and Centered */}
+        <div className="sticky top-16 z-10 mb-8 p-6 bg-card rounded-lg border shadow-sm w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative col-span-full md:col-span-2">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search equipment..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
           
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -93,7 +92,7 @@ const Catalog = () => {
           </Select>
 
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -103,7 +102,7 @@ const Catalog = () => {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center text-sm text-muted-foreground">
+          <div className="flex items-center text-sm text-muted-foreground col-span-full md:col-span-4 justify-center md:justify-start">
             Showing {filteredProducts.length} of {products.length} products
           </div>
         </div>
