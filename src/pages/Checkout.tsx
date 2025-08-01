@@ -68,7 +68,7 @@ const Checkout = () => {
   if (items.length === 0 && step !== 3) {
     return (
       <div className="min-h-screen bg-background">
-        <Header cartItemsCount={0} onCartClick={() => {}} onAuthClick={() => {}} />
+        <Header cartItemsCount={0} onAuthClick={() => navigate('/login')} />
         <main className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto text-center py-16">
             <h1 className="text-2xl font-bold text-foreground mb-4">
@@ -94,8 +94,7 @@ const Checkout = () => {
     <div className="min-h-screen bg-background">
       <Header 
         cartItemsCount={itemCount}
-        onCartClick={() => {}}
-        onAuthClick={() => {}}
+        onAuthClick={() => navigate('/login')}
       />
       
       <main className="container mx-auto px-4 py-8">
