@@ -87,19 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserProfile = async (userId: string) => {
     try {
-      // Get user profile with role and permissions
+      // Get user profile - simplified since we don't have roles/permissions tables yet
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
-        .select(`
-          *,
-          role:roles(
-            name,
-            role_permissions(
-              permission:permissions(name)
-            )
-          )
-        `)
-        .eq('id', userId)
+        .select('*')
+        .eq('user_id', userId)
         .single()
 
       if (profileError) {
@@ -107,15 +99,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
 
-      setProfile(profileData)
-      
-      // Extract permissions and role
-      if (profileData.role) {
-        const permissions = profileData.role.role_permissions?.map(
-          (rp: any) => rp.permission.name
-        ) || []
-        setUserPermissions(permissions)
-        setUserRole(profileData.role.name)
+      if (profileData) {
+        setProfile(profileData)
+        setUserRole(profileData.role || 'customer')
+        
+        // Set basic permissions based on role
+        const rolePermissions: Record<string, string[]> = {
+          'super_admin': ['all'],
+          'admin': ['view_dashboard', 'manage_products', 'manage_orders'],
+          'vendor': ['manage_own_products', 'view_own_orders'],
+          'customer': ['place_orders', 'view_own_orders']
+        }
+        
+        setUserPermissions(rolePermissions[profileData.role] || [])
       }
     } catch (error) {
       console.error('Error in loadUserProfile:', error)

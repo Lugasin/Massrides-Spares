@@ -4,10 +4,11 @@ import { supabase } from '@/lib/supabase';
 interface Partner {
   id: string;
   name: string;
-  logo_url: string;
+  logo_url?: string;
   website_url?: string;
   description?: string;
-  sort_order: number;
+  display_order?: number;
+  active?: boolean;
 }
 
 export const CompanyRibbon: React.FC = () => {
@@ -21,10 +22,10 @@ export const CompanyRibbon: React.FC = () => {
   const loadPartners = async () => {
     try {
       const { data, error } = await supabase
-        .from('partners')
+        .from('company_partners')
         .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
+        .eq('active', true)
+        .order('display_order');
 
       if (error) {
         console.error('Error loading partners:', error);
@@ -46,66 +47,42 @@ export const CompanyRibbon: React.FC = () => {
     {
       id: '1',
       name: 'John Deere',
-      logo_url: 'https://images.unsplash.com/photo-1579952363873-27d3bfad9c0d?w=200&h=100&fit=crop&crop=center',
+      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/John-Deere-Logo.png',
       website_url: 'https://www.deere.com',
       description: 'Leading manufacturer of agricultural machinery',
-      sort_order: 1
+      display_order: 1
     },
     {
       id: '2',
       name: 'Case IH',
-      logo_url: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&h=100&fit=crop&crop=center',
+      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/Case-IH-Logo.png',
       website_url: 'https://www.caseih.com',
       description: 'Global leader in agricultural equipment',
-      sort_order: 2
+      display_order: 2
     },
     {
       id: '3',
       name: 'New Holland',
-      logo_url: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=200&h=100&fit=crop&crop=center',
+      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/New-Holland-Logo.png',
       website_url: 'https://www.newholland.com',
       description: 'Agricultural and construction equipment',
-      sort_order: 3
+      display_order: 3
     },
     {
       id: '4',
       name: 'Kubota',
-      logo_url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=200&h=100&fit=crop&crop=center',
+      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/Kubota-Logo.png',
       website_url: 'https://www.kubota.com',
       description: 'Compact and utility tractor specialist',
-      sort_order: 4
+      display_order: 4
     },
     {
       id: '5',
       name: 'Massey Ferguson',
-      logo_url: 'https://images.unsplash.com/photo-1581093804475-577d72e38aa0?w=200&h=100&fit=crop&crop=center',
+      logo_url: 'https://1000logos.net/wp-content/uploads/2020/09/Massey-Ferguson-Logo.png',
       website_url: 'https://www.masseyferguson.com',
       description: 'Global agricultural equipment brand',
-      sort_order: 5
-    },
-    {
-      id: '6',
-      name: 'Valley Irrigation',
-      logo_url: 'https://images.unsplash.com/photo-1581093458791-9d15f1b55c69?w=200&h=100&fit=crop&crop=center',
-      website_url: 'https://www.valleyirrigation.com',
-      description: 'Center pivot irrigation systems',
-      sort_order: 6
-    },
-    {
-      id: '7',
-      name: 'Kuhn',
-      logo_url: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?w=200&h=100&fit=crop&crop=center',
-      website_url: 'https://www.kuhn.com',
-      description: 'Hay and forage equipment specialist',
-      sort_order: 7
-    },
-    {
-      id: '8',
-      name: 'Great Plains',
-      logo_url: 'https://images.unsplash.com/photo-1581093804475-577d72e38aa0?w=200&h=100&fit=crop&crop=center',
-      website_url: 'https://www.greatplainsmfg.com',
-      description: 'Tillage and seeding equipment',
-      sort_order: 8
+      display_order: 5
     }
   ];
 
@@ -160,7 +137,7 @@ export const CompanyRibbon: React.FC = () => {
                     title={partner.description}
                   >
                     <img
-                      src={partner.logo_url}
+                      src={partner.logo_url || 'https://via.placeholder.com/120x60?text=' + partner.name}
                       alt={`${partner.name} logo`}
                       className="h-12 w-auto max-w-[120px] object-contain grayscale group-hover:grayscale-0 transition-all duration-300"
                       loading="lazy"
@@ -172,7 +149,7 @@ export const CompanyRibbon: React.FC = () => {
                     title={partner.description}
                   >
                     <img
-                      src={partner.logo_url}
+                      src={partner.logo_url || 'https://via.placeholder.com/120x60?text=' + partner.name}
                       alt={`${partner.name} logo`}
                       className="h-12 w-auto max-w-[120px] object-contain grayscale group-hover:grayscale-0 transition-all duration-300"
                       loading="lazy"
