@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react"; // Import useState and useEffect
+import React, { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
-import { HeroSection } from "@/components/HeroSection";
+import { HeroCarousel } from "@/components/HeroCarousel";
+import { CompanyRibbon } from "@/components/CompanyRibbon";
 import { AboutUsTeaser } from "@/components/AboutUsTeaser";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { ProductShowcase } from "@/components/ProductShowcase";
@@ -8,14 +9,14 @@ import { ContactSection } from "@/components/ContactSection";
 import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
 import { useQuote } from "@/context/QuoteContext";
-import { useNavigate, Link } from "react-router-dom"; // Import useNavigate and Link
-import { products, Product } from "@/data/products"; // Import products and Product interface
-import { Input } from "@/components/ui/input"; // Import Input for suggestions
-import { Card, CardContent, CardFooter } from "@/components/ui/card"; // Import Card components
-import { Button } from "@/components/ui/button"; // Import Button
-import { Badge } from "@/components/ui/badge"; // Import Badge
-import { ShoppingCart, Eye, Star } from "lucide-react"; // Import icons
-import { cn } from "@/lib/utils"; // Import cn
+import { useNavigate, Link } from "react-router-dom";
+import { products, Product } from "@/data/products";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ShoppingCart, Star } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const Index = () => {
   const { itemCount, addItem } = useQuote(); // Include addItem
@@ -76,11 +77,12 @@ const Index = () => {
       
       <main>
         {!showSuggestions ? (
-          <> {/* Render these sections when no suggestions are shown */}
-            <HeroSection />
+          <>
+            <HeroCarousel />
+            <CompanyRibbon />
             <AboutUsTeaser />
             <FeaturesSection />
-            <ProductShowcase products={products} /> {/* Show all products in ProductShowcase when no search */}
+            <ProductShowcase products={products} />
             <ContactSection />
           </>
         ) : (
