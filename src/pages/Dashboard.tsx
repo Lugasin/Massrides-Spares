@@ -31,7 +31,7 @@ const Dashboard = () => {
   const { user, profile, userRole, loading } = useAuth();
 
   if (loading) {
-    return <DashboardLayout userRole={userRole} userName={profile?.full_name || user?.email || 'Loading...'}><div className="p-6 text-center">Loading dashboard...</div></DashboardLayout>;
+    return <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Loading...'}><div className="p-6 text-center">Loading dashboard...</div></DashboardLayout>;
   }
 
   // Basic conditional rendering based on role
@@ -168,7 +168,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout 
-      userRole={userRole} 
+      userRole={userRole as any} 
       userName={profile?.full_name || user?.email || 'Guest'}
     >
       {renderDashboardContent()}
