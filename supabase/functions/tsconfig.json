@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "types": ["@supabase/functions-js/v1", "deno_runtime"],
+    "target": "ESNext",
+    "module": "esnext",
+    "strict": true,
+    "esModuleInterop": true
+  },
+  "include": ["./**/*.ts", "./_shared/*.ts"]
+}

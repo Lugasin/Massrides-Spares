@@ -1,4 +1,5 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,18 @@ const topProducts = [
 ];
 
 const Dashboard = () => {
-  return (
-    <DashboardLayout 
-      userRole="admin" 
-      userName="John Mwale"
-    >
-      <div className="space-y-6">
+  const { user, profile, userRole, loading } = useAuth();
+
+  if (loading) {
+    return <DashboardLayout userRole={userRole} userName={profile?.full_name || user?.email || 'Loading...'}><div className="p-6 text-center">Loading dashboard...</div></DashboardLayout>;
+  }
+
+  // Basic conditional rendering based on role
+  const renderDashboardContent = () => {
+    // You would replace this with actual role-specific components/layouts
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      return (
+        <div className="space-y-6">
         {/* Quick Actions */}
         <Card className="border-border/50">
           <CardHeader>
@@ -104,7 +111,7 @@ const Dashboard = () => {
               <div className="space-y-4">
                 {topProducts.map((product, index) => (
                   <div key={product.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3">\
                       <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-sm">
                         {index + 1}
                       </div>
@@ -143,6 +150,28 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      );
+    } else {
+      // Default content for other roles (customer, vendor, guest)
+      return (
+        <div className="space-y-6 p-6">
+          <h2 className="text-2xl font-bold text-foreground">
+            Welcome, {profile?.full_name || user?.email || 'User'}!
+          </h2>
+          <p className="text-muted-foreground">
+            You are logged in as a <Badge variant="secondary">{userRole || 'guest'}</Badge>. Your dashboard content will appear here soon.
+          </p>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <DashboardLayout 
+      userRole={userRole} 
+      userName={profile?.full_name || user?.email || 'Guest'}
+    >
+      {renderDashboardContent()}
     </DashboardLayout>
   );
 };

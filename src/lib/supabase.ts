@@ -78,50 +78,27 @@ export const addToCart = async (productId: string, quantity: number = 1) => {
 
   if (user) {
     // User is logged in - use user cart
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+    const token = (await supabase.auth.getSession())?.data.session?.access_token;
+    if (!token) return { error: 'Authentication token not found' };
 
-    if (!profile) return { error: 'User profile not found' }
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart/items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ product_id: productId, quantity }),
+    });
 
-    // Get or create user cart
-    let { data: cart } = await supabase
-      .from('carts')
-      .select('id')
-      .eq('user_id', profile.id)
-      .single()
+    const data = await response.json();
 
-    if (!cart) {
-      const { data: newCart, error } = await supabase
-        .from('carts')
-        .insert({ user_id: profile.id })
-        .select('id')
-        .single()
-
-      if (error) return { error }
-      cart = newCart
+    if (!response.ok) {
+      console.error('Error adding item via Edge Function:', data);
+      return { error: data.error || 'Failed to add item to cart' };
     }
 
-    // Add item to cart or update quantity
-    const { data: existingItem } = await supabase
-      .from('cart_items')
-      .select('id, quantity')
-      .eq('cart_id', cart.id)
-      .eq('product_id', productId)
-      .single()
+    return { data };
 
-    if (existingItem) {
-      return await supabase
-        .from('cart_items')
-        .update({ quantity: existingItem.quantity + quantity })
-        .eq('id', existingItem.id)
-    } else {
-      return await supabase
-        .from('cart_items')
-        .insert({ cart_id: cart.id, product_id: productId, quantity })
-    }
   } else {
     // Guest user - use guest cart
     const sessionId = getOrCreateSessionId()
@@ -132,6 +109,23 @@ export const addToCart = async (productId: string, quantity: number = 1) => {
       .select('id')
       .eq('session_id', sessionId)
       .single()
+
+    // Handle potential RLS error or no guest cart found
+    if (!guestCart) {
+        // Attempt to create if not found (handles initial guest interaction)
+        const { data: newGuestCart, error: createError } = await supabase
+            .from('guest_carts')
+            .insert({ session_id: sessionId })
+            .select('id')
+            .single();
+
+        if (createError) {
+            console.error('Error creating guest cart:', createError);
+            return { error: createError };
+        }
+        guestCart = newGuestCart;
+    }
+
 
     if (!guestCart) {
       const { data: newGuestCart, error } = await supabase
@@ -170,33 +164,24 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
   if (user) {
     // User is logged in - get user cart
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+    const token = (await supabase.auth.getSession())?.data.session?.access_token;
+    if (!token) {
+       console.error('Authentication token not found for getCartItems');
+       return [];
+    }
 
-    if (!profile) return []
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-    const { data: cart } = await supabase
-      .from('carts')
-      .select('id')
-      .eq('user_id', profile.id)
-      .single()
-
-    if (!cart) return []
-
-    const { data: items } = await supabase
-      .from('cart_items')
-      .select(`
-        id,
-        product_id,
-        quantity,
-        product:products(*)
-      `)
-      .eq('cart_id', cart.id)
-
-    return items || []
+    if (!response.ok) {
+      console.error('Error fetching cart via Edge Function:', response.status, response.statusText);
+      return [];
+    }
+    return await response.json();
   } else {
     // Guest user - get guest cart
     const sessionId = getOrCreateSessionId()
@@ -207,12 +192,18 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       .eq('session_id', sessionId)
       .single()
 
-    if (!guestCart) return []
+    // Handle potential RLS error or no guest cart found
+    if (!guestCart) {
+        // No guest cart found, return empty array
+        return [];
+    }
+
 
     const { data: items } = await supabase
       .from('guest_cart_items')
       .select(`
         id,
+        guest_cart_id,
         product_id,
         quantity,
         product:products(*)
@@ -228,14 +219,35 @@ export const removeFromCart = async (itemId: string) => {
 
   if (user) {
     return await supabase
-      .from('cart_items')
-      .delete()
-      .eq('id', itemId)
+    // User is logged in - remove from user cart via Edge Function
+    const token = (await supabase.auth.getSession())?.data.session?.access_token;
+    if (!token) return { error: 'Authentication token not found' };
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart/items/${itemId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Error removing item via Edge Function:', data);
+      return { error: data.error || 'Failed to remove item from cart' };
+    }
+
+    return { data };
   } else {
     return await supabase
       .from('guest_cart_items')
       .delete()
       .eq('id', itemId)
+      // Handle potential RLS error or no guest cart item found
+      .then(({ data, error }) => {
+          if (error) console.error('Error removing guest item:', error);
+          return { data, error };
+      });
   }
 }
 
@@ -248,6 +260,8 @@ export const updateCartItemQuantity = async (itemId: string, quantity: number) =
       .update({ quantity })
       .eq('id', itemId)
   } else {
+    // Guest user - update guest cart directly
+    // Handle potential RLS error or no guest cart item found
     return await supabase
       .from('guest_cart_items')
       .update({ quantity })
@@ -261,6 +275,7 @@ export const mergeGuestCart = async () => {
   if (!sessionId) return
 
   const { data: { user } } = await supabase.auth.getUser()
+  // Use Edge Function for merging guest cart
   if (!user) return
 
   const { data: profile } = await supabase
@@ -277,47 +292,83 @@ export const mergeGuestCart = async () => {
     .select('id')
     .eq('session_id', sessionId)
     .single()
+    // Handle potential RLS error or no guest cart found
+    if (!guestCart) {
+        // No guest cart found, nothing to merge
+        return;
+    }
+
 
   if (!guestCart) return
 
-  const { data: guestItems } = await supabase
-    .from('guest_cart_items')
-    .select('product_id, quantity')
-    .eq('guest_cart_id', guestCart.id)
-
-  if (!guestItems || guestItems.length === 0) return
-
-  // Get or create user cart
-  let { data: userCart } = await supabase
-    .from('carts')
-    .select('id')
-    .eq('user_id', profile.id)
-    .single()
-
-  if (!userCart) {
-    const { data: newUserCart } = await supabase
-      .from('carts')
-      .insert({ user_id: profile.id })
-      .select('id')
-      .single()
-    userCart = newUserCart
+  // Call Edge Function for merging guest cart
+  const token = (await supabase.auth.getSession())?.data.session?.access_token;
+  if (!token) {
+    console.error('Authentication token not found for mergeGuestCart');
+    return;
   }
 
-  // Merge items
-  for (const guestItem of guestItems) {
-    const { data: existingItem } = await supabase
-      .from('cart_items')
-      .select('id, quantity')
-      .eq('cart_id', userCart!.id)
-      .eq('product_id', guestItem.product_id)
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart/merge-guest`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    console.error('Error merging guest cart via Edge Function:', data);
+    return;
+  }
+
+  // If merge is successful, clear guest session
+  localStorage.removeItem('guest_session_id');
+
+  // Note: The Edge Function needs to handle the actual merging logic server-side.
+  // This frontend code just sends the guest session ID to the backend.
+
+  /*
+    // Original merging logic (commented out as it's moved to Edge Function)
+    const { data: guestItems } = await supabase
+      .from('guest_cart_items')
+      .select('product_id, quantity')
+      .eq('guest_cart_id', guestCart.id)
+
+    if (!guestItems || guestItems.length === 0) return
+
+    // Get or create user cart
+    let { data: userCart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', profile.id)
       .single()
 
-    if (existingItem) {
-      await supabase
+    if (!userCart) {
+      const { data: newUserCart } = await supabase
+        .from('carts')
+        .insert({ user_id: profile.id })
+        .select('id')
+        .single()
+      userCart = newUserCart
+    }
+
+    // Merge items
+    for (const guestItem of guestItems) {
+      const { data: existingItem } = await supabase
         .from('cart_items')
-        .update({ quantity: existingItem.quantity + guestItem.quantity })
-        .eq('id', existingItem.id)
-    } else {
+        .select('id, quantity')
+        .eq('cart_id', userCart!.id)
+        .eq('product_id', guestItem.product_id)
+        .single()
+
+      if (existingItem) {
+        await supabase
+          .from('cart_items')
+          .update({ quantity: existingItem.quantity + guestItem.quantity })
+          .eq('id', existingItem.id)
+      } else {
       await supabase
         .from('cart_items')
         .insert({
@@ -325,8 +376,9 @@ export const mergeGuestCart = async () => {
           product_id: guestItem.product_id,
           quantity: guestItem.quantity
         })
+      }
     }
-  }
+  */
 
   // Delete guest cart
   await supabase
@@ -335,7 +387,7 @@ export const mergeGuestCart = async () => {
     .eq('id', guestCart.id)
 
   // Clear session
-  localStorage.removeItem('guest_session_id')
+  // localStorage.removeItem('guest_session_id') // Moved clearing session to after successful merge via Edge Function
 }
 
 export { supabase }
