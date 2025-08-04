@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface Product {
   // Assuming your product table has these fields
@@ -30,17 +31,31 @@ const NewQuoteRequest: React.FC = () => {
   const [submissionSuccess, setSubmissionSuccess] = useState<boolean | null>(null);
 
   // Import supabase client
-  // Assuming you have a useSupabaseClient hook or similar to get the client instance
-  // import { useSupabaseClient } from '@/hooks/use-supabase-client'; // Example import
-  // const supabase = useSupabaseClient();
-  const { supabase } = require('@/lib/supabase'); // Using require for now based on provided code
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddProduct = () => {
     if (selectedProductId && quantity > 0) {
-    productId: '',
-    if (newProductSelection.productId && newProductSelection.quantity > 0) {
+      // Check if the product is already in the list
+      const existingItemIndex = selectedProducts.findIndex(item => item.productId === selectedProductId);
+
+      if (existingItemIndex > -1) {
+        // Update quantity if product already exists
+        const updatedItems = [...selectedProducts];
+        updatedItems[existingItemIndex].quantity = quantity;
+        setSelectedProducts(updatedItems);
+      } else {
+        // Add new item if product is not in the list
+        setSelectedProducts([...selectedProducts, { 
+          id: Math.random().toString(36).substring(7), 
+          productId: selectedProductId, 
+          quantity 
+        }]);
+      }
+
+      // Reset selection
+      setSelectedProductId('');
+      setQuantity(1);
     }
   };
 
@@ -111,12 +126,14 @@ const NewQuoteRequest: React.FC = () => {
     setSubmissionSuccess(false);
 
     try {
+      // Generate quote number
+      const quoteNumber = `Q${Date.now().toString().slice(-8)}`;
+      
       const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
         .insert([{
-          // client_id will be automatically set by RLS if using auth.uid()
-          // status defaults to 'pending'
-          // created_at defaults to now()
+          quote_number: quoteNumber,
+          status: 'pending'
         }])
         .select('id')
         .single();
@@ -124,10 +141,24 @@ const NewQuoteRequest: React.FC = () => {
       if (quoteError) throw quoteError;
 
       const quoteId = quoteData.id;
-      const quoteItemsToInsert = selectedProducts.map(item => ({
+      
+      // Get product prices for quote items
+      const productPrices = await Promise.all(
+        selectedProducts.map(async (item) => {
+          const { data: product } = await supabase
+            .from('products')
+            .select('price')
+            .eq('id', item.productId)
+            .single();
+          return product?.price || 0;
+        })
+      );
+
+      const quoteItemsToInsert = selectedProducts.map((item, index) => ({
         quote_id: quoteId,
         product_id: item.productId,
         quantity: item.quantity,
+        price: productPrices[index]
       }));
 
       const { error: itemsError } = await supabase.from('quote_items').insert(quoteItemsToInsert);
@@ -157,8 +188,9 @@ const NewQuoteRequest: React.FC = () => {
       ));
       // Also update the productQuantities state if you are using it for the input fields
       setProductQuantities(prevQuantities => ({
-        ...prevQuantities, [selectedProducts.find(item => item.id === id)?.productId || '']: quantity
-      ));
+        ...prevQuantities, 
+        [selectedProducts.find(item => item.id === id)?.productId || '']: quantity
+      }));
     }
   };
 
@@ -188,7 +220,6 @@ const NewQuoteRequest: React.FC = () => {
               <div className="flex gap-4">
                 <div className="flex-grow">
                   <Label htmlFor="product">Product</Label>
-                  <Select onValueChange={handleProductSelect} value={newProductSelection.productId}>
                   <Select onValueChange={handleProductSelect} value={selectedProductId}>
                     <SelectTrigger id="product">
                       <SelectValue placeholder="Select a product" />
@@ -208,14 +239,14 @@ const NewQuoteRequest: React.FC = () => {
                 </div>
                 <div className="w-24">
                   <Label htmlFor="quantity">Quantity</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
- min="1"
-                    value={quantity}
-                    onChange={handleQuantityChange}
-                    disabled={!selectedProductId} // Disable quantity if no product is selected
- />
+                    <Input
+                      id="quantity"
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={handleQuantityChange}
+                      disabled={!selectedProductId}
+                    />
                 </div>
                 <div className="self-end">
                   <Button type="button" onClick={handleAddProduct}>Add Product</Button>

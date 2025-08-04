@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
-  userRole: "super_admin" | "admin" | "vendor" | "support";
+  userRole: "super_admin" | "admin" | "vendor" | "customer" | "guest" | null;
   userName: string;
   children?: React.ReactNode;
 }
@@ -48,6 +48,28 @@ const roleConfig = {
   },
   vendor: {
     title: "Vendor Dashboard",
+    description: "Manage your products and orders",
+    color: "bg-green-500",
+    metrics: [
+      { label: "Your Products", value: "24", icon: Package, change: "+5%" },
+      { label: "Orders Received", value: "18", icon: ShoppingCart, change: "+12%" },
+      { label: "Revenue This Month", value: "$12K", icon: DollarSign, change: "+8%" },
+      { label: "Pending Orders", value: "3", icon: Bell, change: "0%" }
+    ]
+  },
+  customer: {
+    title: "Customer Dashboard",
+    description: "Track your orders and quotes",
+    color: "bg-blue-500",
+    metrics: [
+      { label: "Active Orders", value: "5", icon: ShoppingCart, change: "+2%" },
+      { label: "Quote Requests", value: "3", icon: BarChart3, change: "+1%" },
+      { label: "Total Spent", value: "$3.2K", icon: DollarSign, change: "+15%" },
+      { label: "Saved Items", value: "12", icon: Package, change: "+4%" }
+    ]
+  },
+  guest: {
+    title: "Welcome",
     description: "Manage your products and sales", 
     color: "bg-green-500",
     metrics: [
