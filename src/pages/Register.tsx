@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Mail, Lock, User, Phone, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase"; // Import supabase
-import { Link } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
+import { Link, useNavigate } from "react-router-dom";
 import tractorPlowing from "@/assets/tractor-plowing.jpg"; // Example background image
 
 // Define a customizable background image URL - You can add more images to assets and change this
 const backgroundImage = tractorPlowing; 
+import { Mail, Lock, User, Phone, ArrowRight } from "lucide-react";
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -20,14 +21,42 @@ export default function Register() {
     confirmPassword: ""
   });
 
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    console.log('handleSubmit called'); // Log when handleSubmit is called
     e.preventDefault();
-    // TODO: Implement registration logic
-    console.log("Registration attempt:", formData);
+
+    console.log('Form data:', formData); // Log form data before Supabase call
+
+    if (formData.password !== formData.confirmPassword) {
+      console.log('Password mismatch'); // Log password mismatch
+      toast({
+        title: "Password mismatch",
+        description: "Please make sure your passwords match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+    });
+
+    console.log('Supabase signUp response:', error); // Log the Supabase response (error object)
+
+    if (error) {
+      console.error("Error signing up:", error.message);
+    } else {
+      console.log("Registration successful! Please check your email for confirmation.");
+      navigate('/login?registration=success'); // Redirect to the login page
+    }
   };
 
   const handleSocialLogin = async (provider: 'google' | 'facebook') => {
