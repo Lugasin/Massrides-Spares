@@ -93,7 +93,7 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
 
         {/* Products Grid */}
         {filteredProducts.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
             {filteredProducts.map((product, index) => (
               <Card 
                 key={product.id}
@@ -109,7 +109,7 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-40 sm:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     
                     {/* Badges */}
@@ -157,7 +157,7 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
 
                   </div>
 
-                  <CardContent className="p-6">
+                  <CardContent className="p-4 lg:p-6">
                     {/* Rating */}
                     <div className="flex items-center gap-2 mb-3">
                       <div className="flex items-center">
@@ -179,10 +179,10 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
                     </div>
 
                     {/* Product Info */}
-                    <h3 className="text-lg font-semibold mb-2 text-card-foreground group-hover:text-primary transition-colors">
+                    <h3 className="text-base lg:text-lg font-semibold mb-2 text-card-foreground group-hover:text-primary transition-colors line-clamp-2">
                       {product.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    <p className="text-xs lg:text-sm text-muted-foreground mb-4 line-clamp-2">
                       {product.description}
                     </p>
 
@@ -202,18 +202,18 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
 
                     {/* Price */}
                     <div className="flex items-center gap-2 mb-4">
-                      <span className="text-2xl font-bold text-primary">
+                      <span className="text-lg lg:text-2xl font-bold text-primary">
                         ${product.price.toLocaleString()}
                       </span>
                     </div>
                   </CardContent>
 
-                  <CardFooter className="p-6 pt-0">
+                  <CardFooter className="p-4 lg:p-6 pt-0">
                     <div className="flex gap-3 w-full">
                       {/* Add to Cart Button - Keep separate from the link that wraps the card content */}
                        <Button 
                         onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }} // Prevent link navigation and call add to cart
-                        className="flex-1 bg-primary hover:bg-primary-hover group"
+                        className="flex-1 bg-primary hover:bg-primary-hover group text-sm lg:text-base"
                       >
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         Add to Cart

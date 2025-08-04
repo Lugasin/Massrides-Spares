@@ -105,7 +105,7 @@ export const HeroCarousel: React.FC = () => {
   };
 
   return (
-    <section className="relative h-[70vh] min-h-[600px] overflow-hidden bg-muted">
+    <section className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] min-h-[400px] lg:min-h-[600px] overflow-hidden bg-muted">
       {/* Slides */}
       <div className="relative h-full">
         {slides.map((slide, index) => (
@@ -133,9 +133,10 @@ export const HeroCarousel: React.FC = () => {
             
             {/* Content Overlay */}
             <div className="relative z-10 h-full flex items-center">
-              <div className="container mx-auto px-4">
+              <div className="container mx-auto px-4 lg:px-8">
                 <div className="max-w-2xl">
                   <h1 className={`text-4xl md:text-6xl font-bold text-white mb-6 transition-all duration-1000 delay-300 ${
+                  <h1 className={`text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 lg:mb-6 transition-all duration-1000 delay-300 ${
                     index === currentSlide 
                       ? 'opacity-100 translate-y-0' 
                       : 'opacity-0 translate-y-8'
@@ -143,7 +144,7 @@ export const HeroCarousel: React.FC = () => {
                     {slide.title}
                   </h1>
                   
-                  <p className={`text-xl md:text-2xl text-white/90 mb-8 leading-relaxed transition-all duration-1000 delay-500 ${
+                  <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-white/90 mb-6 lg:mb-8 leading-relaxed transition-all duration-1000 delay-500 ${
                     index === currentSlide 
                       ? 'opacity-100 translate-y-0' 
                       : 'opacity-0 translate-y-8'
@@ -153,8 +154,7 @@ export const HeroCarousel: React.FC = () => {
                   
                   <Button
                     onClick={() => handleCTAClick(slide.link)}
-                    size="lg"
-                    className={`bg-primary hover:bg-primary-hover text-white px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-1000 delay-700 hover-scale ${
+                    className={`bg-primary hover:bg-primary-hover text-white px-6 lg:px-8 py-3 lg:py-4 text-base lg:text-lg font-semibold rounded-lg transition-all duration-1000 delay-700 hover-scale ${
                       index === currentSlide 
                         ? 'opacity-100 translate-y-0' 
                         : 'opacity-0 translate-y-8'
@@ -172,36 +172,36 @@ export const HeroCarousel: React.FC = () => {
       {/* Navigation Arrows */}
       <button
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 hover-scale"
+        className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-2 lg:p-3 rounded-full transition-all duration-300 hover-scale"
         aria-label="Previous slide"
       >
-        <ChevronLeft className="h-6 w-6" />
+        <ChevronLeft className="h-5 w-5 lg:h-6 lg:w-6" />
       </button>
       
       <button
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 hover-scale"
+        className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-2 lg:p-3 rounded-full transition-all duration-300 hover-scale"
         aria-label="Next slide"
       >
-        <ChevronRight className="h-6 w-6" />
+        <ChevronRight className="h-5 w-5 lg:h-6 lg:w-6" />
       </button>
 
       {/* Play/Pause Button */}
       <button
         onClick={togglePlayPause}
-        className="absolute top-4 right-4 z-20 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 hover-scale"
+        className="absolute top-2 lg:top-4 right-2 lg:right-4 z-20 bg-black/30 hover:bg-black/50 text-white p-2 lg:p-3 rounded-full transition-all duration-300 hover-scale"
         aria-label={isPlaying ? 'Pause carousel' : 'Play carousel'}
       >
-        {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+        {isPlaying ? <Pause className="h-4 w-4 lg:h-5 lg:w-5" /> : <Play className="h-4 w-4 lg:h-5 lg:w-5" />}
       </button>
 
       {/* Slide Indicators */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-3">
+      <div className="absolute bottom-4 lg:bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2 lg:gap-3">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+            className={`w-2 h-2 lg:w-3 lg:h-3 rounded-full transition-all duration-300 ${
               index === currentSlide 
                 ? 'bg-white scale-125' 
                 : 'bg-white/50 hover:bg-white/75'

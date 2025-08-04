@@ -6,5 +6,5 @@
     "strict": true,
     "esModuleInterop": true
   },
-  "include": ["./**/*.ts", "./_shared/*.ts"]
+  "include": ["./functions/**/*.ts", "./functions/_shared/*.ts"]
 }

@@ -3,25 +3,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase"; // Import supabase
-import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import tractorPlowing from "@/assets/tractor-plowing.jpg"; // Example background image
+import { Mail, Lock, User, Phone, ArrowRight, Building } from "lucide-react";
 
 // Define a customizable background image URL - You can add more images to assets and change this
 const backgroundImage = tractorPlowing; 
-import { Mail, Lock, User, Phone, ArrowRight } from "lucide-react";
 
 export default function Register() {
   const [formData, setFormData] = useState({
-    name: "",
+    fullName: "",
     email: "",
     phone: "",
+    companyName: "",
     password: "",
     confirmPassword: ""
   });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { toast } = useToast();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (field: string, value: string) => {
@@ -29,50 +30,39 @@ export default function Register() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    console.log('handleSubmit called'); // Log when handleSubmit is called
     e.preventDefault();
-
-    console.log('Form data:', formData); // Log form data before Supabase call
+    setIsLoading(true);
 
     if (formData.password !== formData.confirmPassword) {
-      console.log('Password mismatch'); // Log password mismatch
-      toast({
-        title: "Password mismatch",
-        description: "Please make sure your passwords match.",
-        variant: "destructive",
-      });
+      setIsLoading(false);
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-    });
-
-    console.log('Supabase signUp response:', error); // Log the Supabase response (error object)
-
-    if (error) {
-      console.error("Error signing up:", error.message);
-    } else {
-      console.log("Registration successful! Please check your email for confirmation.");
-      navigate('/login?registration=success'); // Redirect to the login page
+    if (formData.password.length < 6) {
+      setIsLoading(false);
+      return;
     }
-  };
 
-  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`, // Redirect after successful social login
-      },
+    const { error } = await signUp(formData.email, formData.password, {
+      full_name: formData.fullName,
+      phone: formData.phone,
+      company_name: formData.companyName,
+      email: formData.email
     });
-    if (error) console.error(`Error signing up with ${provider}:`, error);
+    
+    if (error) {
+      console.error("Registration error:", error);
+    } else {
+      navigate('/login?registration=success');
+    }
+    
+    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Background Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+      <div className="h-32 lg:h-auto lg:flex lg:w-1/2 relative overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
@@ -81,8 +71,8 @@ export default function Register() {
         />
         <div className="relative z-10 flex items-center justify-center p-12">
           <div className="text-white text-center">
-            <h1 className="text-4xl font-bold mb-4">Join Massrides</h1>
-            <p className="text-xl opacity-90">
+            <h1 className="text-2xl lg:text-4xl font-bold mb-2 lg:mb-4">Join Massrides</h1>
+            <p className="text-sm lg:text-xl opacity-90">
               Start your agriculture equipment journey today
             </p>
           </div>
@@ -90,10 +80,10 @@ export default function Register() {
       </div>
 
       {/* Right side - Registration form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-farm">
-        <Card className="w-full max-w-md bg-white/90 backdrop-blur-sm border-primary/20 shadow-primary">
+      <div className="flex-1 lg:w-1/2 flex items-center justify-center p-4 lg:p-8 bg-gradient-farm">
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm border-primary/20 shadow-primary">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-primary">Create Account</CardTitle>
+            <CardTitle className="text-xl lg:text-2xl font-bold text-primary">Create Account</CardTitle>
             <CardDescription>
               Join our agriculture equipment platform
             </CardDescription>
@@ -101,23 +91,23 @@ export default function Register() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center gap-2">
+                <Label htmlFor="fullName" className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4 text-primary" />
                   Full Name
                 </Label>
                 <Input
-                  id="name"
+                  id="fullName"
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
+                  value={formData.fullName}
+                  onChange={(e) => handleChange("fullName", e.target.value)}
                   placeholder="John Doe"
                   required
-                  className="border-primary/20 focus:border-primary"
+                  className="border-primary/20 focus:border-primary h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2">
+                <Label htmlFor="email" className="flex items-center gap-2 text-sm">
                   <Mail className="h-4 w-4 text-primary" />
                   Email
                 </Label>
@@ -128,12 +118,12 @@ export default function Register() {
                   onChange={(e) => handleChange("email", e.target.value)}
                   placeholder="your@email.com"
                   required
-                  className="border-primary/20 focus:border-primary"
+                  className="border-primary/20 focus:border-primary h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center gap-2">
+                <Label htmlFor="phone" className="flex items-center gap-2 text-sm">
                   <Phone className="h-4 w-4 text-primary" />
                   Phone Number
                 </Label>
@@ -144,12 +134,27 @@ export default function Register() {
                   onChange={(e) => handleChange("phone", e.target.value)}
                   placeholder="+260 xxx xxx xxx"
                   required
-                  className="border-primary/20 focus:border-primary"
+                  className="border-primary/20 focus:border-primary h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="flex items-center gap-2">
+                <Label htmlFor="companyName" className="flex items-center gap-2 text-sm">
+                  <Building className="h-4 w-4 text-primary" />
+                  Company/Farm Name (Optional)
+                </Label>
+                <Input
+                  id="companyName"
+                  type="text"
+                  value={formData.companyName}
+                  onChange={(e) => handleChange("companyName", e.target.value)}
+                  placeholder="Your Farm or Company"
+                  className="border-primary/20 focus:border-primary h-11"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-2 text-sm">
                   <Lock className="h-4 w-4 text-primary" />
                   Password
                 </Label>
@@ -160,12 +165,14 @@ export default function Register() {
                   onChange={(e) => handleChange("password", e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="border-primary/20 focus:border-primary"
+                  minLength={6}
+                  className="border-primary/20 focus:border-primary h-11"
                 />
+                <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="flex items-center gap-2">
+                <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm">
                   <Lock className="h-4 w-4 text-primary" />
                   Confirm Password
                 </Label>
@@ -176,44 +183,34 @@ export default function Register() {
                   onChange={(e) => handleChange("confirmPassword", e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="border-primary/20 focus:border-primary"
+                  className="border-primary/20 focus:border-primary h-11"
                 />
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                Already have an account?{" "}
+                <Link to="/login" className="text-primary hover:underline font-medium">
+                  Sign In
+                </Link>
               </div>
 
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary-hover hover-glow group"
+                disabled={isLoading}
+                className="w-full h-11 bg-primary hover:bg-primary-hover hover-glow group"
               >
-                Create Account
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating Account...
+                  </div>
+                ) : (
+                  <>
+                    Create Account
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
               </Button>
-
-               {/* Social Login Placeholders */}
-              <div className="relative mt-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border"></span>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background/90 backdrop-blur-sm px-2 text-muted-foreground">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-4 justify-center">
-                {/* Google Login Button */}
-                <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleSocialLogin('google')}>
-                   {/* Replace with Google logo SVG or img */}
-                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.0003 4.75C14.0003 4.75 15.6333 5.45 16.9003 6.61667L19.5003 4.01667C17.767 2.35 15.2003 1.25 12.0003 1.25C7.73366 1.25 4.00033 3.25833 1.83366 6.33333L6.25033 9.15833C7.29199 6.21667 9.417 4.75 12.0003 4.75Z" fill="#EA4335"/><path d="M23.5837 12.2167C23.5837 11.4167 23.5087 10.75 23.3587 10.0833H12.0003V14.5167H18.4337C18.167 15.9167 17.317 17.1833 16.0003 18.0667C16.0003 18.1417 16.0003 18.1417 16.0003 18.1417L20.467 21.4167C23.017 19.05 24.5837 15.6833 24.5837 12.2167H23.5837Z" fill="#4285F4"/><path d="M6.25037 14.525C5.7337 13.1333 5.7337 11.6333 6.25037 10.2417L1.8337 7.41667C0.0670396 11.1 0.0670396 15.6 1.8337 19.2833L6.25037 16.4583C6.00037 15.7667 6.00037 15.1417 6.25037 14.525Z" fill="#FBBC05"/><path d="M16.0004 18.0667C14.767 18.9667 13.2004 19.5834 11.417 19.5834C8.84199 19.5834 6.717 18.1084 5.67533 15.1667L1.25866 18.0417C3.14199 21.2417 7.15033 23.7501 11.417 23.7501C15.1837 23.7501 18.3504 22.3417 20.467 19.0501L16.0004 18.0667Z" fill="#34A853"/></svg>
-                </Button>
-                {/* Facebook Login Button */}
-                 <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleSocialLogin('facebook')}>
-                   {/* Replace with Facebook logo SVG or img */}
-                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.03992C6.5 2.03992 2 6.52992 2 12.0099C2 17.0599 5.54 21.2399 10.5 22.0099V14.2499H7.5V10.8099H10.5V8.23992C10.5 5.27992 12.32 3.64992 15.03 3.64992C16.33 3.64992 17.68 3.87992 17.68 3.87992V6.90992H16.14C14.68 6.90992 14.42 7.80992 14.42 8.73992V10.8099H17.5L17 14.2499H14.42V22.0099C19.36 21.2399 23 17.0599 23 12.0099C23 6.52992 18.5 2.03992 12 2.03992Z" fill="#1877F2"/></svg>
-                </Button>
-                 {/* Add other social login buttons here (e.g., Twitter, LinkedIn) */}
-              </div>
-
-
             </form>
           </CardContent>
         </Card>

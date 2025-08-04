@@ -5,6 +5,7 @@ import { CartDrawer } from "@/components/CartDrawer"; // Import CartDrawer
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuoteProvider, useQuote } from "@/context/QuoteContext"; // Import useQuote
+import { AuthProvider } from "@/context/AuthContext"; // Import AuthProvider
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -26,27 +27,21 @@ const queryClient = new QueryClient();
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <QuoteProvider>
-        <AppContent />
-      </QuoteProvider>
+      <AuthProvider>
+        <QuoteProvider>
+          <AppContent />
+        </QuoteProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };
 
 const AppContent = () => {
-  // Assuming CartDrawer state and handlers are managed elsewhere,
-  // possibly within a Layout component or a dedicated context if needed globally.
-  // For now, removing the direct usage and handler from AppContent
-  // as it caused the 'handleCheckout' error.
-
-
   return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-        {/* TODO: Add AuthProvider here */}
-        {/* Add AuthProvider here to use useAuth within ProtectedRoute */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/catalog" element={<Catalog />} />
@@ -56,14 +51,13 @@ const AppContent = () => {
           {/* Protected Dashboard Route */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} /> {/* Protected Dashboard Route */}
 
-          {/* Redirect authenticated users from login/register */}
+          {/* Auth routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/products/:productId" element={<ProductDetail />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
- <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 
           {/* Protected Profile Route */}
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} /> {/* Protected Profile Route */}
@@ -77,7 +71,7 @@ const AppContent = () => {
 };
 
 export default App;
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
 import React from "react";
 

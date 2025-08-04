@@ -1,19 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import { v4 as uuidv4 } from 'uuid'
 
-export interface UserProfile {
-  id: string
-  user_id: string
-  email: string
-  full_name?: string
-  phone?: string
-  address?: string
-  company_name?: string
-  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest'
-  created_at: string
-  updated_at: string
-}
-
 export interface Product {
   id: string
   name: string
@@ -275,7 +262,6 @@ export const mergeGuestCart = async () => {
   if (!sessionId) return
 
   const { data: { user } } = await supabase.auth.getUser()
-  // Use Edge Function for merging guest cart
   if (!user) return
 
   const { data: profile } = await supabase
@@ -292,83 +278,48 @@ export const mergeGuestCart = async () => {
     .select('id')
     .eq('session_id', sessionId)
     .single()
-    // Handle potential RLS error or no guest cart found
-    if (!guestCart) {
-        // No guest cart found, nothing to merge
-        return;
-    }
-
 
   if (!guestCart) return
 
-  // Call Edge Function for merging guest cart
-  const token = (await supabase.auth.getSession())?.data.session?.access_token;
-  if (!token) {
-    console.error('Authentication token not found for mergeGuestCart');
-    return;
-  }
+  // Get guest cart items
+  const { data: guestItems } = await supabase
+    .from('guest_cart_items')
+    .select('product_id, quantity')
+    .eq('guest_cart_id', guestCart.id)
 
-  const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart/merge-guest`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ session_id: sessionId }),
-  });
+  if (!guestItems || guestItems.length === 0) return
 
-  if (!response.ok) {
-    const data = await response.json();
-    console.error('Error merging guest cart via Edge Function:', data);
-    return;
-  }
+  // Get or create user cart
+  let { data: userCart } = await supabase
+    .from('carts')
+    .select('id')
+    .eq('user_id', profile.id)
+    .single()
 
-  // If merge is successful, clear guest session
-  localStorage.removeItem('guest_session_id');
-
-  // Note: The Edge Function needs to handle the actual merging logic server-side.
-  // This frontend code just sends the guest session ID to the backend.
-
-  /*
-    // Original merging logic (commented out as it's moved to Edge Function)
-    const { data: guestItems } = await supabase
-      .from('guest_cart_items')
-      .select('product_id, quantity')
-      .eq('guest_cart_id', guestCart.id)
-
-    if (!guestItems || guestItems.length === 0) return
-
-    // Get or create user cart
-    let { data: userCart } = await supabase
+  if (!userCart) {
+    const { data: newUserCart } = await supabase
       .from('carts')
+      .insert({ user_id: profile.id })
       .select('id')
-      .eq('user_id', profile.id)
+      .single()
+    userCart = newUserCart
+  }
+
+  // Merge items
+  for (const guestItem of guestItems) {
+    const { data: existingItem } = await supabase
+      .from('cart_items')
+      .select('id, quantity')
+      .eq('cart_id', userCart!.id)
+      .eq('product_id', guestItem.product_id)
       .single()
 
-    if (!userCart) {
-      const { data: newUserCart } = await supabase
-        .from('carts')
-        .insert({ user_id: profile.id })
-        .select('id')
-        .single()
-      userCart = newUserCart
-    }
-
-    // Merge items
-    for (const guestItem of guestItems) {
-      const { data: existingItem } = await supabase
+    if (existingItem) {
+      await supabase
         .from('cart_items')
-        .select('id, quantity')
-        .eq('cart_id', userCart!.id)
-        .eq('product_id', guestItem.product_id)
-        .single()
-
-      if (existingItem) {
-        await supabase
-          .from('cart_items')
-          .update({ quantity: existingItem.quantity + guestItem.quantity })
-          .eq('id', existingItem.id)
-      } else {
+        .update({ quantity: existingItem.quantity + guestItem.quantity })
+        .eq('id', existingItem.id)
+    } else {
       await supabase
         .from('cart_items')
         .insert({
@@ -376,9 +327,8 @@ export const mergeGuestCart = async () => {
           product_id: guestItem.product_id,
           quantity: guestItem.quantity
         })
-      }
     }
-  */
+  }
 
   // Delete guest cart
   await supabase
@@ -387,7 +337,7 @@ export const mergeGuestCart = async () => {
     .eq('id', guestCart.id)
 
   // Clear session
-  // localStorage.removeItem('guest_session_id') // Moved clearing session to after successful merge via Edge Function
+  localStorage.removeItem('guest_session_id')
 }
 
 export { supabase }

@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, mergeGuestCart, UserProfile } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
+import { mergeGuestCart } from '@/lib/supabase'
+import { toast } from 'sonner'
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  email: string
+  full_name?: string
+  phone?: string
+  address?: string
+  company_name?: string
+  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest'
+  created_at: string
+  updated_at: string
+}
 
 interface AuthContextType {
   user: User | null
@@ -119,7 +134,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const signUp = async (email: string, password: string, userData: Partial<UserProfile>) => {
-    const { data, error } = await supabase.auth.signUp({
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: userData.full_name,
+            phone: userData.phone,
+            company_name: userData.company_name
+          }
+        }
+      })
+      
+      if (error) {
+        toast.error(`Registration failed: ${error.message}`)
+        return { error }
+      }
+      
+      if (data.user && !data.user.email_confirmed_at) {
+        toast.success('Registration successful! Please check your email to confirm your account.')
+      } else if (data.user) {
+        toast.success('Registration successful! You can now sign in.')
+      }
+      
+      return { error: null }
+    } catch (error: any) {
+      toast.error(`Registration failed: ${error.message}`)
+      return { error }
+    }
+  }
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      
+      if (error) {
+        toast.error(`Sign in failed: ${error.message}`)
+        return { error }
+      }
+      
+      if (data.user) {
+        toast.success('Welcome back!')
+        // Merge guest cart if exists
+        await mergeGuestCart()
+      }
+      
+      return { error: null }
+    } catch (error: any) {
+      toast.error(`Sign in failed: ${error.message}`)
+      return { error }
+    }
+  }
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        toast.error(`Sign out failed: ${error.message}`)
+      } else {
+        toast.success('Signed out successfully')
+      }
+      
+      return { error }
+    } catch (error: any) {
+      toast.error(`Sign out failed: ${error.message}`)
+      return { error }
+    }
+  }
       email,
       password,
       options: {

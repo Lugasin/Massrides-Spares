@@ -41,20 +41,20 @@ export const Footer = () => {
       <div className="absolute inset-0 gradient-primary opacity-90"></div>
       <div className="absolute inset-0 bg-gradient-to-t from-primary via-transparent to-transparent"></div>
       {/* Main Footer Content */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+      <div className="container mx-auto px-4 py-12 lg:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Company Info */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3 mb-6">
-              <div className="bg-primary text-primary-foreground p-2 rounded-lg font-bold text-xl">
+              <div className="bg-primary text-primary-foreground p-1.5 lg:p-2 rounded-lg font-bold text-lg lg:text-xl">
                 MAR
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-primary-foreground">MASSRIDES</span>
+                <span className="font-bold text-base lg:text-lg text-primary-foreground">MASSRIDES</span>
                 <span className="text-xs text-primary-foreground/70">COMPANY LIMITED</span>
               </div>
             </div>
-            <p className="text-primary-foreground/80 mb-6 leading-relaxed relative z-10">
+            <p className="text-primary-foreground/80 mb-6 leading-relaxed relative z-10 text-sm lg:text-base">
               Massrides Company LTD is a leading procurement and supply chain management company dedicated to providing high-quality sourcing, logistics, and procurement solutions. We help businesses save costs, improve efficiency, and focus on growth.
             </p>
             
@@ -83,7 +83,7 @@ export const Footer = () => {
           </div>
 
           {/* Quick Links */}
-          <div className="relative z-10">
+          <div className="relative z-10 sm:col-span-1">
             <h3 className="font-bold text-lg text-primary-foreground mb-4">Quick Links</h3>
             <ul className="space-y-3">
               {quickLinks.map((link) => (
@@ -100,7 +100,7 @@ export const Footer = () => {
           </div>
 
           {/* Products */}
-          <div className="relative z-10">
+          <div className="relative z-10 sm:col-span-1">
             <h3 className="font-bold text-lg text-primary-foreground mb-4">Products</h3>
             <ul className="space-y-3">
               {productCategories.map((category) => (
@@ -117,7 +117,7 @@ export const Footer = () => {
           </div>
 
           {/* Services */}
-          <div className="relative z-10">
+          <div className="relative z-10 sm:col-span-2 lg:col-span-1">
             <h3 className="font-bold text-lg text-primary-foreground mb-4">Services</h3>
             <ul className="space-y-3">
               {services.map((service) => (
@@ -136,19 +136,19 @@ export const Footer = () => {
 
         {/* Newsletter Signup */}
         <div className="border-t border-background/20 pt-12 mb-12">
-          <div className="max-w-2xl mx-auto text-center">
-            <h3 className="text-2xl font-bold text-background mb-4">
+          <div className="max-w-2xl mx-auto text-center px-4">
+            <h3 className="text-xl lg:text-2xl font-bold text-background mb-4">
               Stay Updated with Massrides
             </h3>
-            <p className="text-background/80 mb-6">
+            <p className="text-background/80 mb-6 text-sm lg:text-base">
               Get the latest updates on new equipment, special offers, and farming tips delivered to your inbox.
             </p>
-            <div className="flex gap-3 max-w-md mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <Input 
                 placeholder="Enter your email address"
-                className="bg-background/10 border-background/30 text-background placeholder:text-background/60 focus:border-primary"
+                className="bg-background/10 border-background/30 text-background placeholder:text-background/60 focus:border-primary h-11 flex-1"
               />
-              <Button className="bg-primary hover:bg-primary-hover text-primary-foreground">
+              <Button className="bg-primary hover:bg-primary-hover text-primary-foreground h-11 px-6">
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
@@ -157,9 +157,9 @@ export const Footer = () => {
 
         {/* Social Media & Bottom */}
         <div className="border-t border-background/20 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
             {/* Social Media */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
               <span className="text-background/80 text-sm mr-2">Follow us:</span>
               <div className="flex gap-3">
                 <Button 
@@ -198,7 +198,7 @@ export const Footer = () => {
               <p className="text-background/80 text-sm">
                 © 2024 Massrides Company Limited. All rights reserved.
               </p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-background/60">
+              <div className="flex flex-wrap items-center justify-center gap-4 mt-2 text-xs text-background/60">
                 <a href="#privacy" className="hover:text-primary">Privacy Policy</a>
                 <span>•</span>
                 <a href="#terms" className="hover:text-primary">Terms of Service</a>

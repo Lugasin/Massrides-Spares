@@ -65,7 +65,7 @@ export const FeaturesSection = () => {
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
           {features.map((feature, index) => (
             <Card 
               key={feature.title}
@@ -75,17 +75,17 @@ export const FeaturesSection = () => {
               )}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <CardContent className="p-6">
+              <CardContent className="p-4 lg:p-6">
                 <div className={cn(
-                  "w-12 h-12 rounded-lg mb-4 flex items-center justify-center",
+                  "w-10 h-10 lg:w-12 lg:h-12 rounded-lg mb-4 flex items-center justify-center",
                   feature.gradient
                 )}>
-                  <feature.icon className="h-6 w-6 text-white" />
+                  <feature.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold mb-3 text-card-foreground">
+                <h3 className="text-base lg:text-lg font-semibold mb-3 text-card-foreground">
                   {feature.title}
                 </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
+                <p className="text-muted-foreground text-xs lg:text-sm leading-relaxed">
                   {feature.description}
                 </p>
               </CardContent>
@@ -94,7 +94,7 @@ export const FeaturesSection = () => {
         </div>
 
         {/* Stats Section */}
-        <div className="bg-white/50 dark:bg-black/20 rounded-2xl p-8 lg:p-12 backdrop-blur-sm border border-border/50">
+        <div className="bg-white/50 dark:bg-black/20 rounded-2xl p-6 lg:p-12 backdrop-blur-sm border border-border/50">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
               <div 
@@ -105,14 +105,14 @@ export const FeaturesSection = () => {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="flex justify-center mb-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <stat.icon className="h-6 w-6 text-primary" />
+                  <div className="w-10 h-10 lg:w-12 lg:h-12 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
                   </div>
                 </div>
-                <div className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
+                <div className="text-xl lg:text-3xl font-bold text-foreground mb-2">
                   {stat.value}
                 </div>
-                <div className="text-sm text-muted-foreground font-medium">
+                <div className="text-xs lg:text-sm text-muted-foreground font-medium">
                   {stat.label}
                 </div>
               </div>

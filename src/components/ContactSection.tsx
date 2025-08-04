@@ -58,7 +58,7 @@ export const ContactSection = () => {
 
         <div className="grid lg:grid-cols-3 gap-8 mb-16">
           {/* Contact Information */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 order-2 lg:order-1">
             <div className="space-y-6">
               {contactInfo.map((info, index) => (
                 <Card 
@@ -111,7 +111,7 @@ export const ContactSection = () => {
           </div>
 
           {/* Contact Form */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-1 lg:order-2">
             <Card className="border-border/50">
               <CardContent className="p-8">
                 <div className="mb-6">
@@ -131,7 +131,7 @@ export const ContactSection = () => {
                       </label>
                       <Input 
                         placeholder="Enter your first name"
-                        className="focus:ring-primary focus:border-primary"
+                        className="focus:ring-primary focus:border-primary h-11"
                       />
                     </div>
                     <div>
@@ -140,7 +140,7 @@ export const ContactSection = () => {
                       </label>
                       <Input 
                         placeholder="Enter your last name"
-                        className="focus:ring-primary focus:border-primary"
+                        className="focus:ring-primary focus:border-primary h-11"
                       />
                     </div>
                   </div>
@@ -153,7 +153,7 @@ export const ContactSection = () => {
                       <Input 
                         type="email"
                         placeholder="your.email@example.com"
-                        className="focus:ring-primary focus:border-primary"
+                        className="focus:ring-primary focus:border-primary h-11"
                       />
                     </div>
                     <div>
@@ -163,7 +163,7 @@ export const ContactSection = () => {
                       <Input 
                         type="tel"
                         placeholder="+260 XX XXX XXXX"
-                        className="focus:ring-primary focus:border-primary"
+                        className="focus:ring-primary focus:border-primary h-11"
                       />
                     </div>
                   </div>
@@ -172,7 +172,7 @@ export const ContactSection = () => {
                     <label className="text-sm font-medium text-foreground mb-2 block">
                       Equipment Interest
                     </label>
-                    <select className="w-full px-3 py-2 border border-input rounded-md focus:ring-primary focus:border-primary bg-background">
+                    <select className="w-full px-3 py-2 h-11 border border-input rounded-md focus:ring-primary focus:border-primary bg-background">
                       <option value="">Select equipment type</option>
                       <option value="tractors">Tractors</option>
                       <option value="planters">Planters</option>
@@ -208,7 +208,7 @@ export const ContactSection = () => {
                   <Button 
                     type="submit"
                     size="lg"
-                    className="bg-primary hover:bg-primary-hover shadow-primary group"
+                    className="bg-primary hover:bg-primary-hover shadow-primary group w-full sm:w-auto"
                   >
                     <Send className="h-4 w-4 mr-2" />
                     Send Message
