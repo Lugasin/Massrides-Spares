@@ -3,14 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Mail, Lock, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Mail, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import irrigationAerial from "@/assets/irrigation-aerial.jpg"; // Example background image
 import { supabase } from "@/lib/supabase";
 
 // Define a customizable background image URL - You can add more images to assets and change this
 const backgroundImage = irrigationAerial; 
-
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,6 +20,7 @@ export default function Login() {
     // TODO: Implement login logic
     console.log("Login attempt:", { email, password });
   };
+  const location = useLocation();
 
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -63,6 +63,11 @@ export default function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {location.search.includes('registration=success') && (
+              <div className="mb-4 text-green-600 text-center flex items-center justify-center gap-2">
+                <CheckCircle2 className="h-5 w-5" /> Registration successful! Please check your email for confirmation.
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
@@ -109,6 +114,14 @@ export default function Login() {
                 Sign In
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
+
+              {/* Link to Registration Page */}
+              <div className="text-center mt-4 text-sm">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-primary hover:underline">
+                  Sign Up
+                </Link>
+              </div>
 
               {/* Social Login Placeholders */}
               <div className="relative mt-6">

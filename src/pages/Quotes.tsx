@@ -50,11 +50,15 @@ interface QuoteDetails {
 }
 
 // Assuming your Supabase schema uses snake_case and matches these types
-type SupabaseQuote = Database['public']['Tables']['quotes']['Row'] & {
-  client: Database['public']['Tables']['user_profiles']['Row'] | null;
-  vendor: Database['public']['Tables']['user_profiles']['Row'] | null;
+type QuoteRow = Database['public']['Tables']['quotes']['Row'];
+type QuoteItemRow = Database['public']['Tables']['quote_items']['Row'];
+type UserProfileRow = Database['public']['Tables']['user_profiles']['Row'];
+
+type SupabaseQuote = QuoteRow & {
+ client: UserProfileRow | null;
+ vendor: UserProfileRow | null;
   items: Database['public']['Tables']['quote_items']['Row'][];
-};
+}; 
 
 const Quotes: React.FC = () => {
   const { toast } = useToast();
@@ -179,10 +183,7 @@ const Quotes: React.FC = () => {
       // Update quote items
       const itemUpdates = editableQuoteDetails.items.map(item => ({
         id: item.id,
-        quote_id: quoteId,
-        product_name: item.product_name,
         quantity: item.quantity,
-        price: item.price,
         created_at: item.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       }));
@@ -199,14 +200,7 @@ const Quotes: React.FC = () => {
       });
       
       // Refresh the quote list (realtime updates should handle this, but this is a fallback)
-      const { data: updatedQuotes } = await supabase
-        .from('quotes')
-        .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-        .order('created_at', { ascending: false });
-        
-      if (updatedQuotes) {
-        setQuotes(updatedQuotes as SupabaseQuote[]);
-      }
+     fetchQuotesList(); // Call the dedicated function to refetch the list
     } catch (error: any) {
       console.error('Error revising quote:', error);
       toast({ 
@@ -237,14 +231,7 @@ const Quotes: React.FC = () => {
       });
       
       // Refresh the quote list
-      const { data: updatedQuotes } = await supabase
-        .from('quotes')
-        .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-        .order('created_at', { ascending: false });
-        
-      if (updatedQuotes) {
-        setQuotes(updatedQuotes as SupabaseQuote[]);
-      }
+     fetchQuotesList(); // Call the dedicated function to refetch the list
     } catch (error: any) {
       console.error('Error rejecting quote:', error);
       toast({ 
@@ -275,13 +262,7 @@ const Quotes: React.FC = () => {
       });
       
       // Refresh the quote list
-      const { data: updatedQuotes } = await supabase
-        .from('quotes')
-        .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-        .order('created_at', { ascending: false });
-        
-      if (updatedQuotes) {
-        setQuotes(updatedQuotes as SupabaseQuote[]);
+     fetchQuotesList(); // Call the dedicated function to refetch the list
       }
     } catch (error: any) {
       console.error('Error accepting quote:', error);
@@ -380,41 +361,64 @@ const Quotes: React.FC = () => {
     setIsEditing(false);
   };
 
-  // Effect to fetch the list of quotes
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      setLoadingQuotes(true);
-      let query = supabase
-        .from('quotes')
-        .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)');
+  // Function to fetch the list of quotes with related data
+ const fetchQuotesList = useCallback(async () => {
+    setLoadingQuotes(true);
+    setErrorFetchingQuotes(null);
 
-      // Filter quotes based on user role
-      if (userRole === 'customer' && user) {
-        query = query.eq('client_id', user.id);
-      } else if (['vendor', 'admin', 'super_admin'].includes(userRole || '') && user) {
-        query = query.eq('vendor_id', user.id);
-      }
+    let query = supabase.from('quotes').select('*');
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching quotes:', error);
-        toast({
-          title: 'Error', 
-          description: `Failed to fetch quotes: ${error.message}`, 
-          variant: 'destructive'
-        });
-        setErrorFetchingQuotes(error.message);
-        setQuotes([]);
-      } else {
-        setQuotes(data as SupabaseQuote[] || []);
-      }
-      
+    // Filter quotes based on user role
+    if (userRole === 'customer' && user) {
+      query = query.eq('client_id', user.id);
+    } else if (['vendor', 'admin', 'super_admin'].includes(userRole || '') && user) {
+      query = query.eq('vendor_id', user.id);
+    }
+
+    const { data: quotesData, error: quotesError } = await query.order('created_at', { ascending: false });
+
+    if (quotesError) {
+      console.error('Error fetching quotes:', quotesError);
+      toast({
+        title: 'Error',
+        description: `Failed to fetch quotes: ${quotesError.message}`,
+        variant: 'destructive'
+      });
+      setErrorFetchingQuotes(quotesError.message);
+      setQuotes([]);
       setLoadingQuotes(false);
-    };
+      return;
+    }
 
+    if (!quotesData || quotesData.length === 0) {
+      setQuotes([]);
+      setLoadingQuotes(false);
+      return;
+    }
+
+    // Fetch related quote items, clients, and vendors concurrently
+    const quotesWithDetails = await Promise.all(quotesData.map(async (quote) => {
+      const [itemsResult, clientResult, vendorResult] = await Promise.all([
+        supabase.from('quote_items').select('*').eq('quote_id', quote.id),
+        supabase.from('user_profiles').select('*').eq('id', quote.client_id).single(),
+        supabase.from('user_profiles').select('*').eq('id', quote.vendor_id).single(),
+      ]);
+
+      return {
+        ...quote,
+        items: itemsResult.data || [],
+        client: clientResult.data,
+        vendor: vendorResult.data,
+      };
+    }));
+
+    setQuotes(quotesWithDetails as SupabaseQuote[]);
+    setLoadingQuotes(false);
+ }, [user, userRole, toast]);
+
+  useEffect(() => {
     if (user) {
-      fetchQuotes();
+      fetchQuotesList();
     } else { 
       setQuotes([]);
       setLoadingQuotes(false);
@@ -422,7 +426,7 @@ const Quotes: React.FC = () => {
   }, [user, userRole]);
 
   // Effect to fetch the details of the selected quote
-  useEffect(() => {
+  const fetchQuoteDetails = useCallback(async () => {
     const fetchQuoteDetails = async () => {
       setSelectedQuoteDetails(null);
       setLoadingQuoteDetails(true);
@@ -449,7 +453,7 @@ const Quotes: React.FC = () => {
       
       setLoadingQuoteDetails(false);
     };
-    
+
     fetchQuoteDetails();
   }, [selectedQuoteId]);
 
@@ -463,13 +467,14 @@ const Quotes: React.FC = () => {
         (payload) => {
           console.log('Quote change received!', payload);
           
+          // Refetch the list of quotes on any quote table change
           const fetchQuotes = async () => {
             let query = supabase
               .from('quotes')
               .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)');
-              
+
             if (userRole === 'customer' && user) {
-              query = query.eq('client_id', user.id);
+              query = query.eq('client_id', user.id); 
             } else if (['vendor', 'admin', 'super_admin'].includes(userRole || '') && user) {
               query = query.eq('vendor_id', user.id);
             }
@@ -485,48 +490,19 @@ const Quotes: React.FC = () => {
           
           fetchQuotes();
           
-          // If the change is for the currently selected quote, refetch details as well
+          // If the change is for the currently selected quote, refetch its details
           if (selectedQuoteId && 
               (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') && 
               payload.old?.id === selectedQuoteId) {
-              
             if (payload.eventType === 'DELETE') {
               setSelectedQuoteDetails(null);
               setSelectedQuoteId(null);
             } else {
-              const fetchQuoteDetails = async () => {
-                const { data, error } = await supabase
-                  .from('quotes')
-                  .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-                  .eq('id', selectedQuoteId)
-                  .single();
-                  
-                if (error) {
-                  console.error('Error refetching quote details:', error);
-                } else {
-                  setSelectedQuoteDetails(data as SupabaseQuote | null);
-                }
-              };
-              
-              fetchQuoteDetails();
+              fetchQuoteDetails(); // Use the dedicated function
             }
           } else if (selectedQuoteId && 
                      payload.eventType === 'INSERT' && 
                      payload.new?.id === selectedQuoteId) {
-            const fetchQuoteDetails = async () => {
-              const { data, error } = await supabase
-                .from('quotes')
-                .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-                .eq('id', selectedQuoteId)
-                .single();
-                
-              if (error) {
-                console.error('Error refetching quote details:', error);
-              } else {
-                setSelectedQuoteDetails(data as SupabaseQuote | null);
-              }
-            };
-            
             fetchQuoteDetails();
           }
         }
@@ -548,25 +524,10 @@ const Quotes: React.FC = () => {
               (payload.new?.quote_id === selectedQuoteId || 
                payload.old?.quote_id === selectedQuoteId)) {
             
-            const fetchQuoteDetails = async () => {
-              const { data, error } = await supabase
-                .from('quotes')
-                .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-                .eq('id', selectedQuoteId)
-                .single();
-                
-              if (error) {
-                console.error('Error refetching quote details:', error);
-              } else {
-                setSelectedQuoteDetails(data as SupabaseQuote | null);
-              }
-            };
-            
             fetchQuoteDetails();
           }
-        }
-      )
-      .subscribe();
+        })
+      .subscribe(); 
 
     // Cleanup function to unsubscribe 
     return () => {
@@ -574,7 +535,7 @@ const Quotes: React.FC = () => {
       supabase.removeChannel(quoteItemsChannel);
     };
   }, [selectedQuoteId, user, userRole]);
-
+  
   const openConfirmationDialog = useCallback((
     action: 'send' | 'revise' | 'reject' | 'accept', 
     quoteId: string
@@ -697,32 +658,7 @@ const Quotes: React.FC = () => {
                           variant="outline" 
                           className="mt-3"
                           onClick={() => {
-                            if (user) {
-                              const fetchQuotes = async () => {
-                                setLoadingQuotes(true);
-                                let query = supabase
-                                  .from('quotes')
-                                  .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)');
-
-                                if (userRole === 'customer' && user) {
-                                  query = query.eq('client_id', user.id);
-                                } else if (['vendor', 'admin', 'super_admin'].includes(userRole || '') && user) {
-                                  query = query.eq('vendor_id', user.id);
-                                }
-
-                                const { data, error } = await query.order('created_at', { ascending: false });
-                                
-                                if (error) {
-                                  setErrorFetchingQuotes(error.message);
-                                  setQuotes([]);
-                                } else {
-                                  setQuotes(data as SupabaseQuote[] || []);
-                                }
-                                
-                                setLoadingQuotes(false);
-                              };
-                              fetchQuotes();
-                            }
+                            if (user) fetchQuotesList();
                           }}
                         >
                           Try Again
@@ -1003,30 +939,6 @@ const Quotes: React.FC = () => {
                     className="mt-3"
                     onClick={() => {
                       const fetchQuoteDetails = async () => {
-                        setLoadingQuoteDetails(true);
-                        
-                        if (!selectedQuoteId) return;
-                        
-                        const { data, error } = await supabase
-                          .from('quotes')
-                          .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-                          .eq('id', selectedQuoteId)
-                          .single();
-
-                        if (error) {
-                          console.error('Error refetching quote details:', error);
-                          toast({
-                            title: 'Error', 
-                            description: `Failed to fetch quote details: ${error.message}`, 
-                            variant: 'destructive'
-                          });
-                          setSelectedQuoteDetails(null);
-                        } else {
-                          setSelectedQuoteDetails(data as SupabaseQuote | null);
-                        }
-                        
-                        setLoadingQuoteDetails(false);
-                      };
                       fetchQuoteDetails();
                     }}
                   >
@@ -1060,31 +972,6 @@ const Quotes: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={() => {
-                      const fetchQuoteDetails = async () => {
-                        setLoadingQuoteDetails(true);
-                        
-                        if (!selectedQuoteId) return;
-                        
-                        const { data, error } = await supabase
-                          .from('quotes')
-                          .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
-                          .eq('id', selectedQuoteId)
-                          .single();
-
-                        if (error) {
-                          console.error('Error refetching quote details:', error);
-                          toast({
-                            title: 'Error', 
-                            description: `Failed to fetch quote details: ${error.message}`, 
-                            variant: 'destructive'
-                          });
-                          setSelectedQuoteDetails(null);
-                        } else {
-                          setSelectedQuoteDetails(data as SupabaseQuote | null);
-                        }
-                        
-                        setLoadingQuoteDetails(false);
-                      };
                       fetchQuoteDetails();
                     }}
                   >
