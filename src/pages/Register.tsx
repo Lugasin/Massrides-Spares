@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Mail, Lock, User, Phone, ArrowRight } from "lucide-react";
+import { supabase } from "@/lib/supabase"; // Import supabase
 import { Link } from "react-router-dom";
 import tractorPlowing from "@/assets/tractor-plowing.jpg"; // Example background image
 
@@ -27,6 +28,16 @@ export default function Register() {
     e.preventDefault();
     // TODO: Implement registration logic
     console.log("Registration attempt:", formData);
+  };
+
+  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`, // Redirect after successful social login
+      },
+    });
+    if (error) console.error(`Error signing up with ${provider}:`, error);
   };
 
   return (
@@ -161,12 +172,12 @@ export default function Register() {
               </div>
               <div className="flex gap-4 justify-center">
                 {/* Google Login Button */}
-                <Button variant="outline" size="icon" className="rounded-full">
+                <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleSocialLogin('google')}>
                    {/* Replace with Google logo SVG or img */}
                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12.0003 4.75C14.0003 4.75 15.6333 5.45 16.9003 6.61667L19.5003 4.01667C17.767 2.35 15.2003 1.25 12.0003 1.25C7.73366 1.25 4.00033 3.25833 1.83366 6.33333L6.25033 9.15833C7.29199 6.21667 9.417 4.75 12.0003 4.75Z" fill="#EA4335"/><path d="M23.5837 12.2167C23.5837 11.4167 23.5087 10.75 23.3587 10.0833H12.0003V14.5167H18.4337C18.167 15.9167 17.317 17.1833 16.0003 18.0667C16.0003 18.1417 16.0003 18.1417 16.0003 18.1417L20.467 21.4167C23.017 19.05 24.5837 15.6833 24.5837 12.2167H23.5837Z" fill="#4285F4"/><path d="M6.25037 14.525C5.7337 13.1333 5.7337 11.6333 6.25037 10.2417L1.8337 7.41667C0.0670396 11.1 0.0670396 15.6 1.8337 19.2833L6.25037 16.4583C6.00037 15.7667 6.00037 15.1417 6.25037 14.525Z" fill="#FBBC05"/><path d="M16.0004 18.0667C14.767 18.9667 13.2004 19.5834 11.417 19.5834C8.84199 19.5834 6.717 18.1084 5.67533 15.1667L1.25866 18.0417C3.14199 21.2417 7.15033 23.7501 11.417 23.7501C15.1837 23.7501 18.3504 22.3417 20.467 19.0501L16.0004 18.0667Z" fill="#34A853"/></svg>
                 </Button>
                 {/* Facebook Login Button */}
-                 <Button variant="outline" size="icon" className="rounded-full">
+                 <Button variant="outline" size="icon" className="rounded-full" onClick={() => handleSocialLogin('facebook')}>
                    {/* Replace with Facebook logo SVG or img */}
                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.03992C6.5 2.03992 2 6.52992 2 12.0099C2 17.0599 5.54 21.2399 10.5 22.0099V14.2499H7.5V10.8099H10.5V8.23992C10.5 5.27992 12.32 3.64992 15.03 3.64992C16.33 3.64992 17.68 3.87992 17.68 3.87992V6.90992H16.14C14.68 6.90992 14.42 7.80992 14.42 8.73992V10.8099H17.5L17 14.2499H14.42V22.0099C19.36 21.2399 23 17.0599 23 12.0099C23 6.52992 18.5 2.03992 12 2.03992Z" fill="#1877F2"/></svg>
                 </Button>

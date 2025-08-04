@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input"; // Import Input
 import { 
@@ -9,11 +11,13 @@ import {
   X, 
   Search,
   Mail,
-  Leaf
+  Leaf,
+  LogOut,
+  LayoutDashboard
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useQuote } from '@/context/QuoteContext'; // Import useQuote
-import { Link, useNavigate, useLocation } from "react-router-dom"; // Import Link, useNavigate, and useLocation
+import { cn } from "@/lib/utils"; // Utility for conditional classnames
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { Link, useNavigate, useLocation } from "react-router-dom";
 
 interface HeaderProps {
   cartItemsCount?: number;
@@ -29,7 +33,7 @@ export const Header = ({
   onSearchChange
 }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { openCart } = useQuote();
+  const { user, userRole, signOut } = useAuth(); // Get user, userRole, and signOut from useAuth context
   const navigate = useNavigate();
   const location = useLocation(); // Initialize useLocation
 
@@ -41,6 +45,7 @@ export const Header = ({
     { label: "Home", href: "/" },
     { label: "About Us", href: "/#about" },
     { label: "Catalog", href: "/catalog" },
+    { label: "Quotes/Messaging", href: "/dashboard/quotes" }, // Added Quotes/Messaging link
     { label: "Contact", href: "/#contact" }
   ];
 
@@ -121,7 +126,8 @@ export const Header = ({
             )}
 
             {/* Cart with badge */}
-            <Button variant="ghost" size="sm" onClick={openCart} className="relative">
+             {/* TODO: openCart should come from a CartContext */}
+            <Button variant="ghost" size="sm" /*onClick={openCart}*/ className="relative">
               <ShoppingCart className="h-5 w-5" />
               {cartItemsCount > 0 && (
                 <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
@@ -142,10 +148,39 @@ export const Header = ({
             )}
 
             {/* User account */}
-            <Button variant="outline" size="sm" onClick={onAuthClick}>
-              <User className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Account</span>
-            </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <User className="h-4 w-4 mr-1" />
+                    <span className="hidden md:inline">Account</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </DropdownMenuItem>
+                  {(userRole === 'vendor' || userRole === 'admin') && (
+                    <DropdownMenuItem onClick={() => navigate('/dashboard/products')}>
+                       <span>Product Management</span>
+                    </DropdownMenuItem>
+                  )}
+                  {(userRole === 'admin' || userRole === 'super_admin') && (
+                     <DropdownMenuItem onClick={() => navigate('/dashboard/users')}>
+                       <span>User Management</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut}>
+                     <LogOut className="mr-2 h-4 w-4" /> {/* Using Lucide icon */}
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="outline" size="sm" onClick={onAuthClick}>Login / Register</Button>
+            )}
 
             {/* Mobile menu toggle */}
             <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -175,6 +210,25 @@ export const Header = ({
               </a>
             ))}
             <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+               {user ? (
+                 <div className="flex flex-col gap-2">
+                    <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-2">Dashboard</Link>
+                     {(userRole === 'vendor' || userRole === 'admin') && (
+                       <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-2">Product Management</Link>
+                     )}
+                     {(userRole === 'admin' || userRole === 'super_admin') && (
+                       <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-2">User Management</Link>
+                     )}
+                     <Button variant="ghost" className="justify-start px-0" onClick={() => {
+                         signOut();
+                         setIsMobileMenuOpen(false); // Close mobile menu on logout
+                     }}>Logout</Button>
+                 </div>
+               ) : (
+                 <Button variant="ghost" className="justify-start px-0 py-2" onClick={() => { onAuthClick?.(); setIsMobileMenuOpen(false); }}>Login / Register</Button>
+               )}
+            </div>
+            <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground border-t border-border mt-2 pt-2">
               <Mail className="h-4 w-4" />
               <span>info@massrides.co.zm</span>
             </div>

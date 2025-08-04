@@ -1,0 +1,79 @@
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function hasRole(r) { return request.auth.token.role == r; }
+    function inRoles(rList) {
+      return rList.some(r => request.auth.token.role == r);
+    }
+    function isOwner(field) { return request.auth.uid == resource.data[field]; }
+
+    // Products
+    match /products/{pid} {
+      allow read: if true;
+      allow create: if inRoles(['vendor','admin','super_admin']);
+      allow update, delete:
+        if inRoles(['admin','super_admin']) ||
+           (hasRole('vendor') && isOwner('vendorId'));
+    }
+
+    // Product Images
+    match /products/{pid}/images/{iid} {
+      allow read: if true;
+      allow create: if inRoles(['vendor','admin','super_admin']);
+      allow update, delete:
+        if inRoles(['admin','super_admin']) ||
+           (hasRole('vendor') && get(/databases/$(db)/documents/products/$(pid)).data.vendorId == request.auth.uid);
+    }
+
+
+    // Cart Items (user)
+    match /carts/{uid}/items/{iid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+    // Guest Cart Items
+    match /guestCarts/{anon}/items/{iid} {
+      allow read, write: if request.auth.uid == anon;
+    }
+
+    // Orders
+    match /orders/{uid}/orders/{oid} {
+      allow read: if request.auth.uid == uid || inRoles(['admin','super_admin']);
+      allow create: if request.auth.uid == uid;
+      allow update: if inRoles(['admin','super_admin']);
+    }
+
+    // Quotes (user)
+    match /quotes/{uid}/items/{iid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+    // Guest Quotes
+    match /guestQuotes/{anon}/items/{iid} {
+      allow read, write: if request.auth.uid == anon;
+    }
+
+    // Ads
+    match /ads/{adId} {
+      allow read: if true;
+      allow write: if inRoles(['admin', 'super_admin']);
+    }
+
+    // Partners
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow write: if inRoles(['admin', 'super_admin']);
+    }
+
+    // Notifications
+    match /notifications/{uid}/notifications/{notifId} {
+      allow read: if request.auth.uid == uid || inRoles(['admin', 'super_admin', 'support']);
+      allow create: if request.auth.uid == uid || inRoles(['admin', 'super_admin']);
+      allow update: if request.auth.uid == uid || inRoles(['admin', 'super_admin', 'support']);
+      allow delete: if inRoles(['admin', 'super_admin']);
+    }
+
+    // Error Logs (Assuming Cloud Logging is primary, but keeping this for domain-level if needed)
+    match /logs/errors/{logId} {
+       allow read: if inRoles(['admin', 'super_admin', 'support']);
+       allow write: if false; // Logs should be written by backend only
+    }
+  }
+}
