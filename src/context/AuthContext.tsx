@@ -204,38 +204,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       toast.error(`Sign out failed: ${error.message}`)
       return { error }
-    }
-  }
-      email,
-      password,
-      options: {
-        data: userData
-      }
-    })
-    
-    if (!error && data.user) {
-      // Profile will be created automatically by trigger
-      // Wait a moment for the trigger to complete
-      setTimeout(() => loadUserProfile(data.user!.id), 1000)
-    }
-    
-    return { error }
-  }
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    
-    return { error }
-  }
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
-  }
-
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: new Error('No user logged in') }
 

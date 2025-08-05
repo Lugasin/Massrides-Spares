@@ -135,7 +135,6 @@ export const HeroCarousel: React.FC = () => {
             <div className="relative z-10 h-full flex items-center">
               <div className="container mx-auto px-4 lg:px-8">
                 <div className="max-w-2xl">
-                  <h1 className={`text-4xl md:text-6xl font-bold text-white mb-6 transition-all duration-1000 delay-300 ${
                   <h1 className={`text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 lg:mb-6 transition-all duration-1000 delay-300 ${
                     index === currentSlide 
                       ? 'opacity-100 translate-y-0' 
