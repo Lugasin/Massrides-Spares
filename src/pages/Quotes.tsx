@@ -262,8 +262,7 @@ const Quotes: React.FC = () => {
       });
       
       // Refresh the quote list
-     fetchQuotesList(); // Call the dedicated function to refetch the list
-      }
+      fetchQuotesList(); // Call the dedicated function to refetch the list
     } catch (error: any) {
       console.error('Error accepting quote:', error);
       toast({ 
@@ -938,7 +937,6 @@ const Quotes: React.FC = () => {
                     variant="outline" 
                     className="mt-3"
                     onClick={() => {
-                      const fetchQuoteDetails = async () => {
                       fetchQuoteDetails();
                     }}
                   >
