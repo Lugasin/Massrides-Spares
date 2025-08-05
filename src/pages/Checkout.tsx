@@ -23,6 +23,7 @@ import { useQuote } from "@/context/QuoteContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Checkout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
@@ -315,7 +316,7 @@ const Checkout = () => {
                         <Checkbox 
                           id="useShippingAddress" 
                           checked={useShippingAddress}
-                          onCheckedChange={setUseShippingAddress}
+                          onCheckedChange={(checked) => setUseShippingAddress(checked === true)}
                         />
                         <Label htmlFor="useShippingAddress">
                           Ship to a different address

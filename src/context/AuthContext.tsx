@@ -102,32 +102,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserProfile = async (userId: string) => {
     try {
-      // Get user profile - simplified since we don't have roles/permissions tables yet
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
+      // Get user from the existing users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single()
 
-      if (profileError) {
-        console.error('Error loading user profile:', profileError)
+      if (userError || !userData) {
+        console.error('Error loading user:', userError)
         return
       }
 
-      if (profileData) {
-        setProfile(profileData)
-        setUserRole(profileData.role || 'customer')
-        
-        // Set basic permissions based on role
-        const rolePermissions: Record<string, string[]> = {
-          'super_admin': ['all'],
-          'admin': ['view_dashboard', 'manage_products', 'manage_orders'],
-          'vendor': ['manage_own_products', 'view_own_orders'],
-          'customer': ['place_orders', 'view_own_orders']
-        }
-        
-        setUserPermissions(rolePermissions[profileData.role] || [])
+      // Map to UserProfile format
+      const profileData: UserProfile = {
+        id: userData.id,
+        user_id: userData.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        phone: userData.phone,
+        company_name: '', // Not in users table yet
+        address: '', // Not in users table yet
+        role: userData.role as UserProfile['role'],
+        created_at: userData.created_at,
+        updated_at: userData.created_at // Use created_at since updated_at doesn't exist
       }
+
+      setProfile(profileData)
+      setUserRole(userData.role || 'customer')
+      
+      // Set basic permissions based on role
+      const rolePermissions: Record<string, string[]> = {
+        'super_admin': ['all'],
+        'admin': ['view_dashboard', 'manage_products', 'manage_orders'],
+        'vendor': ['manage_own_products', 'view_own_orders'],
+        'customer': ['place_orders', 'view_own_orders']
+      }
+      
+      setUserPermissions(rolePermissions[userData.role] || [])
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
     }
@@ -211,9 +223,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const { error } = await supabase
-      .from('user_profiles')
-      .update(updates)
-        .eq('user_id', user.id)
+        .from('users')
+        .update({
+          full_name: updates.full_name,
+          phone: updates.phone
+          // company_name and address not available in users table yet
+        })
+        .eq('id', user.id)
 
       if (error) {
         toast.error(`Failed to update profile: ${error.message}`)
