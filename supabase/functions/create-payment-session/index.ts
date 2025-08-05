@@ -25,32 +25,18 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
-
-    // Get authenticated user
-    const authHeader = req.headers.get('Authorization')!
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    
-    if (authError || !user) {
-      throw new Error('Unauthorized')
-    }
 
     const body: PaymentSessionRequest = await req.json()
 
-    // Get TJ credentials from Supabase secrets
-    const TJ_CLIENT_ID = Deno.env.get('TJ_OAUTH_CLIENT_ID')
-    const TJ_CLIENT_SECRET = Deno.env.get('TJ_OAUTH_CLIENT_SECRET')
+    // Get TJ credentials from environment
+    const TJ_CLIENT_ID = Deno.env.get('TJ_CLIENT_ID')
+    const TJ_CLIENT_SECRET = Deno.env.get('TJ_CLIENT_SECRET')
     const TJ_API_BASE = Deno.env.get('TJ_API_BASE') || 'https://secure.transactionjunction.com'
 
     if (!TJ_CLIENT_ID || !TJ_CLIENT_SECRET) {
-      throw new Error('TJ credentials not configured')
+      throw new Error('Transaction Junction credentials not configured')
     }
 
     // Get OAuth token
@@ -68,7 +54,9 @@ serve(async (req) => {
     })
 
     if (!tokenResponse.ok) {
-      throw new Error('Failed to get TJ access token')
+      const errorText = await tokenResponse.text()
+      console.error('TJ OAuth Error:', errorText)
+      throw new Error('Failed to authenticate with Transaction Junction')
     }
 
     const tokenData = await tokenResponse.json()
@@ -103,7 +91,7 @@ serve(async (req) => {
 
     if (!sessionResponse.ok) {
       const errorData = await sessionResponse.text()
-      console.error('TJ API Error:', errorData)
+      console.error('TJ Session Creation Error:', errorData)
       throw new Error('Failed to create payment session')
     }
 
@@ -113,12 +101,8 @@ serve(async (req) => {
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        payment_gateway: 'transaction_junction',
-        gateway_transaction_id: sessionData.data.session_id,
-        payment_data: {
-          session_id: sessionData.data.session_id,
-          payment_url: sessionData.data.redirect_url
-        }
+        payment_intent_id: sessionData.data?.session_id || sessionData.ipgwSId,
+        stripe_session_id: sessionData.data?.session_id || sessionData.ipgwSId // Reusing this field for TJ session
       })
       .eq('order_number', body.merchant_ref)
 
@@ -129,8 +113,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        session_id: sessionData.data.session_id,
-        payment_url: sessionData.data.redirect_url
+        session_id: sessionData.data?.session_id || sessionData.ipgwSId,
+        payment_url: sessionData.data?.redirect_url || sessionData.redirectUrl
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

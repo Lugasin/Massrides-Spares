@@ -4,11 +4,12 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { UserProfile } from '@/lib/supabase'; // Assuming UserProfile is defined here
+import { UserProfile } from '@/context/AuthContext';
 import { toast } from 'sonner'; // Assuming you have sonner installed for toasts
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { DashboardLayout } from '@/components/DashboardLayout';
 
 // Define Zod schema for profile validation
 const profileSchema = z.object({
@@ -22,7 +23,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const Profile: React.FC = () => {
-  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+  const { user, profile, loading: authLoading, updateProfile, userRole } = useAuth();
 
   // State for managing form submission loading
   const [isSaving, setIsSaving] = React.useState(false);
@@ -60,6 +61,7 @@ const Profile: React.FC = () => {
     ) as Partial<UserProfile>;
 
     const { error } = await updateProfile(updates);
+    setIsSaving(false);
   }
 
   if (!user) {
@@ -68,74 +70,77 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-2xl font-bold">User Profile</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form id="profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-             <div className="space-y-2">
-              {/* Email is typically managed via Supabase Auth, read-only here */}
-              <Input id="email" type="email" value={user.email || ''} disabled readOnly />
-            </div>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-bold">User Profile</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form id="profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+               <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                {/* Email is typically managed via Supabase Auth, read-only here */}
+                <Input id="email" type="email" value={user.email || ''} disabled readOnly />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full Name</Label>
-              <Input
-                id="full_name"
-                type="text"
-                {...register('full_name')}
-              />
-              {errors.full_name && (<p className="text-red-500 text-sm">{errors.full_name.message}</p>)}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input
+                  id="full_name"
+                  type="text"
+                  {...register('full_name')}
+                />
+                {errors.full_name && (<p className="text-red-500 text-sm">{errors.full_name.message}</p>)}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                {...register('phone')}
-              />
-              {errors.phone && (<p className="text-red-500 text-sm">{errors.phone.message}</p>)}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  {...register('phone')}
+                />
+                {errors.phone && (<p className="text-red-500 text-sm">{errors.phone.message}</p>)}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                type="text"
-                {...register('address')}
-              />
-              {errors.address && (<p className="text-red-500 text-sm">{errors.address.message}</p>)}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  type="text"
+                  {...register('address')}
+                />
+                {errors.address && (<p className="text-red-500 text-sm">{errors.address.message}</p>)}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="company_name">Company/Farm Name</Label>
-              <Input
-                id="company_name"
-                type="text"
-                {...register('company_name')}
-              />
-              {errors.company_name && (<p className="text-red-500 text-sm">{errors.company_name.message}</p>)}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="company_name">Company/Farm Name</Label>
+                <Input
+                  id="company_name"
+                  type="text"
+                  {...register('company_name')}
+                />
+                {errors.company_name && (<p className="text-red-500 text-sm">{errors.company_name.message}</p>)}
+              </div>
 
-            {/* Display Role (Read-only) */}
-             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Input id="role" type="text" value={profile?.role || 'customer'} disabled readOnly />
-            </div>
+              {/* Display Role (Read-only) */}
+               <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Input id="role" type="text" value={profile?.role || 'customer'} disabled readOnly />
+              </div>
 
 
-          </form>
-        </CardContent>
-        <CardFooter className="flex justify-end pt-4">
-          <Button type="submit" form="profile-form" disabled={isSubmitting || isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+            </form>
+          </CardContent>
+          <CardFooter className="flex justify-end pt-4">
+            <Button type="submit" form="profile-form" disabled={isSubmitting || isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    </DashboardLayout>
   );
 };
 

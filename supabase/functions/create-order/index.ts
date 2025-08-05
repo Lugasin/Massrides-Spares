@@ -10,23 +10,23 @@ interface CreateOrderRequest {
   customer_info: {
     email: string;
     phone?: string;
-    first_name: string;
-    last_name: string;
+    firstName: string;
+    lastName: string;
     company?: string;
     address: string;
     city: string;
     state: string;
-    zip_code: string;
+    zipCode: string;
     country: string;
   };
   shipping_info?: {
-    first_name?: string;
-    last_name?: string;
+    firstName?: string;
+    lastName?: string;
     company?: string;
     address?: string;
     city?: string;
     state?: string;
-    zip_code?: string;
+    zipCode?: string;
     country?: string;
   };
   guest_session_id?: string;
@@ -40,76 +40,85 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     // Try to get authenticated user (may be null for guest checkout)
     let user = null
+    let profile = null
     const authHeader = req.headers.get('Authorization')
+    
     if (authHeader) {
-      const { data: { user: authUser } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+      const userSupabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          global: { headers: { Authorization: authHeader } },
+          auth: { persistSession: false }
+        }
+      )
+      
+      const { data: { user: authUser } } = await userSupabase.auth.getUser()
       user = authUser
+      
+      if (user) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+        profile = userProfile
+      }
     }
 
     const body: CreateOrderRequest = await req.json()
     const { customer_info, shipping_info, guest_session_id } = body
 
-    // Rate limiting check
-    if (!user) {
-      // For guest users, implement basic rate limiting
-      // In production, you might want to use Redis or a more sophisticated solution
-      console.log('Guest checkout attempt from:', req.headers.get('x-forwarded-for'))
-    }
-
     // Get cart items (either from user cart or guest cart)
     let cartItems: any[] = []
     
-    if (user) {
+    if (user && profile) {
       // Get user cart items
-      const { data: userCartItems, error: cartError } = await supabase
-        .from('cart_items')
-        .select(`
-          *,
-          product:products(*)
-        `)
-        .eq('cart_id', (await supabase
-          .from('carts')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-        ).data?.id)
+      const { data: cart } = await supabase
+        .from('carts')
+        .select('id')
+        .eq('user_id', profile.id)
+        .single()
 
-      if (cartError && cartError.code !== 'PGRST116') {
-        throw new Error(`Failed to fetch cart: ${cartError.message}`)
+      if (cart) {
+        const { data: userCartItems } = await supabase
+          .from('cart_items')
+          .select(`
+            id,
+            product_id,
+            quantity,
+            product:products(*)
+          `)
+          .eq('cart_id', cart.id)
+
+        cartItems = userCartItems || []
       }
-      
-      cartItems = userCartItems || []
     } else if (guest_session_id) {
       // Get guest cart items
-      const { data: guestCartItems, error: cartError } = await supabase
-        .from('guest_cart_items')
-        .select(`
-          *,
-          product:products(*)
-        `)
-        .eq('cart_id', (await supabase
-          .from('guest_carts')
-          .select('id')
-          .eq('session_id', guest_session_id)
-          .single()
-        ).data?.id)
+      const { data: guestCart } = await supabase
+        .from('guest_carts')
+        .select('id')
+        .eq('session_id', guest_session_id)
+        .single()
 
-      if (cartError && cartError.code !== 'PGRST116') {
-        throw new Error(`Failed to fetch guest cart: ${cartError.message}`)
+      if (guestCart) {
+        const { data: guestCartItems } = await supabase
+          .from('guest_cart_items')
+          .select(`
+            id,
+            product_id,
+            quantity,
+            product:products(*)
+          `)
+          .eq('guest_cart_id', guestCart.id)
+
+        cartItems = guestCartItems || []
       }
-      
-      cartItems = guestCartItems || []
     }
 
     if (!cartItems || cartItems.length === 0) {
@@ -117,8 +126,8 @@ serve(async (req) => {
     }
 
     // Calculate totals
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    const taxAmount = subtotal * 0.15 // 15% tax rate - adjust as needed
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
+    const taxAmount = subtotal * 0.15 // 15% tax rate
     const shippingAmount = subtotal > 50000 ? 0 : 2500 // Free shipping over $500
     const totalAmount = subtotal + taxAmount + shippingAmount
 
@@ -127,37 +136,35 @@ serve(async (req) => {
 
     // Create order
     const orderData = {
-      user_id: user?.id || null,
+      user_id: profile?.id || null,
       order_number: orderNumber,
       status: 'pending',
-      currency: 'USD',
-      subtotal,
-      tax_amount: taxAmount,
-      shipping_amount: shippingAmount,
+      payment_status: 'pending',
       total_amount: totalAmount,
       
-      customer_email: customer_info.email,
-      customer_phone: customer_info.phone,
+      shipping_address: {
+        firstName: shipping_info?.firstName || customer_info.firstName,
+        lastName: shipping_info?.lastName || customer_info.lastName,
+        company: shipping_info?.company || customer_info.company,
+        address: shipping_info?.address || customer_info.address,
+        city: shipping_info?.city || customer_info.city,
+        state: shipping_info?.state || customer_info.state,
+        zipCode: shipping_info?.zipCode || customer_info.zipCode,
+        country: shipping_info?.country || customer_info.country
+      },
       
-      billing_first_name: customer_info.first_name,
-      billing_last_name: customer_info.last_name,
-      billing_company: customer_info.company,
-      billing_address: customer_info.address,
-      billing_city: customer_info.city,
-      billing_state: customer_info.state,
-      billing_zip_code: customer_info.zip_code,
-      billing_country: customer_info.country,
-      
-      shipping_first_name: shipping_info?.first_name || customer_info.first_name,
-      shipping_last_name: shipping_info?.last_name || customer_info.last_name,
-      shipping_company: shipping_info?.company || customer_info.company,
-      shipping_address: shipping_info?.address || customer_info.address,
-      shipping_city: shipping_info?.city || customer_info.city,
-      shipping_state: shipping_info?.state || customer_info.state,
-      shipping_zip_code: shipping_info?.zip_code || customer_info.zip_code,
-      shipping_country: shipping_info?.country || customer_info.country,
-      
-      payment_status: 'pending'
+      billing_address: {
+        firstName: customer_info.firstName,
+        lastName: customer_info.lastName,
+        company: customer_info.company,
+        address: customer_info.address,
+        city: customer_info.city,
+        state: customer_info.state,
+        zipCode: customer_info.zipCode,
+        country: customer_info.country,
+        email: customer_info.email,
+        phone: customer_info.phone
+      }
     }
 
     const { data: order, error: orderError } = await supabase
@@ -174,11 +181,8 @@ serve(async (req) => {
     const orderItems = cartItems.map(item => ({
       order_id: order.id,
       product_id: item.product.id,
-      product_name: item.product.name,
-      product_sku: item.product.sku,
       quantity: item.quantity,
-      price: item.price,
-      total: item.price * item.quantity
+      price: item.product.price
     }))
 
     const { error: itemsError } = await supabase
@@ -189,35 +193,13 @@ serve(async (req) => {
       throw new Error(`Failed to create order items: ${itemsError.message}`)
     }
 
-    // Clear cart after successful order creation
-    if (user) {
-      const { data: userCart } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (userCart) {
-        await supabase
-          .from('cart_items')
-          .delete()
-          .eq('cart_id', userCart.id)
-      }
-    } else if (guest_session_id) {
-      await supabase
-        .from('guest_carts')
-        .delete()
-        .eq('session_id', guest_session_id)
-    }
-
     // Send notification if user is logged in
-    if (user) {
+    if (user && profile) {
       await supabase.from('notifications').insert({
-        user_id: user.id,
+        user_id: profile.id,
         title: 'Order Created',
         message: `Your order ${orderNumber} has been created and is pending payment.`,
-        type: 'info',
-        data: { order_id: order.id, order_number: orderNumber }
+        type: 'info'
       })
     }
 

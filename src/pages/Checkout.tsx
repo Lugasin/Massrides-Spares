@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   CreditCard, 
   Lock, 
@@ -15,23 +16,38 @@ import {
   User,
   MapPin,
   Phone,
-  Mail
+  Mail,
+  ExternalLink
 } from "lucide-react";
 import { useQuote } from "@/context/QuoteContext";
+import { useAuth } from "@/context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const Checkout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [useShippingAddress, setUseShippingAddress] = useState(false);
   
   const [customerInfo, setCustomerInfo] = useState({
+    firstName: profile?.full_name?.split(' ')[0] || "",
+    lastName: profile?.full_name?.split(' ').slice(1).join(' ') || "",
+    email: user?.email || "",
+    phone: profile?.phone || "",
+    company: profile?.company_name || "",
+    address: profile?.address || "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "Zambia"
+  });
+
+  const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
     lastName: "",
-    email: "",
-    phone: "",
     company: "",
     address: "",
     city: "",
@@ -40,29 +56,75 @@ const Checkout = () => {
     country: "Zambia"
   });
 
-  const [paymentInfo, setPaymentInfo] = useState({
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
-    nameOnCard: ""
-  });
-
   const handleCustomerInfoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStep(2);
   };
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
+  const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     
-    // Simulate payment processing
-    setTimeout(() => {
-      clearCart();
+    try {
+      // Create order first
+      const orderData = {
+        customer_info: customerInfo,
+        shipping_info: useShippingAddress ? shippingInfo : null,
+        guest_session_id: !user ? localStorage.getItem('guest_session_id') : null
+      };
+
+      const token = user ? (await supabase.auth.getSession())?.data.session?.access_token : null;
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      const orderResult = await response.json();
+      
+      if (!orderResult.success) {
+        throw new Error(orderResult.error || 'Failed to create order');
+      }
+
+      // Create TJ payment session
+      const paymentSessionData = {
+        amount: total,
+        currency: 'USD',
+        customer_email: customerInfo.email,
+        customer_name: `${customerInfo.firstName} ${customerInfo.lastName}`,
+        merchant_ref: orderResult.order.order_number,
+        success_url: `${window.location.origin}/checkout/success?order=${orderResult.order.order_number}`,
+        cancel_url: `${window.location.origin}/checkout/cancel?order=${orderResult.order.order_number}`,
+        webhook_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/handle-payment-webhook`
+      };
+
+      const paymentResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payment-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(paymentSessionData)
+      });
+
+      const paymentResult = await paymentResponse.json();
+      
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || 'Failed to create payment session');
+      }
+
+      // Redirect to TJ hosted payment page
+      window.location.href = paymentResult.payment_url;
+      
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      toast.error(error.message || 'Failed to process checkout');
       setIsProcessing(false);
-      setStep(3);
-      toast.success("Order placed successfully!");
-    }, 2000);
+    }
   };
 
   if (items.length === 0 && step !== 3) {
@@ -243,59 +305,108 @@ const Checkout = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Payment Information
+                      <MapPin className="h-5 w-5" />
+                      Shipping Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                      <div>
-                        <Label htmlFor="nameOnCard">Name on Card *</Label>
-                        <Input
-                          id="nameOnCard"
-                          required
-                          value={paymentInfo.nameOnCard}
-                          onChange={(e) => setPaymentInfo({...paymentInfo, nameOnCard: e.target.value})}
+                    <form onSubmit={handleCreateOrder} className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="useShippingAddress" 
+                          checked={useShippingAddress}
+                          onCheckedChange={setUseShippingAddress}
                         />
+                        <Label htmlFor="useShippingAddress">
+                          Ship to a different address
+                        </Label>
                       </div>
                       
-                      <div>
-                        <Label htmlFor="cardNumber">Card Number *</Label>
-                        <Input
-                          id="cardNumber"
-                          placeholder="1234 5678 9012 3456"
-                          required
-                          value={paymentInfo.cardNumber}
-                          onChange={(e) => setPaymentInfo({...paymentInfo, cardNumber: e.target.value})}
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="expiryDate">Expiry Date *</Label>
-                          <Input
-                            id="expiryDate"
-                            placeholder="MM/YY"
-                            required
-                            value={paymentInfo.expiryDate}
-                            onChange={(e) => setPaymentInfo({...paymentInfo, expiryDate: e.target.value})}
-                          />
+                      {useShippingAddress && (
+                        <div className="space-y-4 p-4 border rounded-lg">
+                          <h4 className="font-medium">Shipping Address</h4>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="shippingFirstName">First Name *</Label>
+                              <Input
+                                id="shippingFirstName"
+                                required
+                                value={shippingInfo.firstName}
+                                onChange={(e) => setShippingInfo({...shippingInfo, firstName: e.target.value})}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="shippingLastName">Last Name *</Label>
+                              <Input
+                                id="shippingLastName"
+                                required
+                                value={shippingInfo.lastName}
+                                onChange={(e) => setShippingInfo({...shippingInfo, lastName: e.target.value})}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="shippingCompany">Company/Farm Name</Label>
+                            <Input
+                              id="shippingCompany"
+                              value={shippingInfo.company}
+                              onChange={(e) => setShippingInfo({...shippingInfo, company: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="shippingAddress">Address *</Label>
+                            <Input
+                              id="shippingAddress"
+                              required
+                              value={shippingInfo.address}
+                              onChange={(e) => setShippingInfo({...shippingInfo, address: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <Label htmlFor="shippingCity">City *</Label>
+                              <Input
+                                id="shippingCity"
+                                required
+                                value={shippingInfo.city}
+                                onChange={(e) => setShippingInfo({...shippingInfo, city: e.target.value})}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="shippingState">State/Province *</Label>
+                              <Input
+                                id="shippingState"
+                                required
+                                value={shippingInfo.state}
+                                onChange={(e) => setShippingInfo({...shippingInfo, state: e.target.value})}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="shippingZipCode">ZIP/Postal Code *</Label>
+                              <Input
+                                id="shippingZipCode"
+                                required
+                                value={shippingInfo.zipCode}
+                                onChange={(e) => setShippingInfo({...shippingInfo, zipCode: e.target.value})}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="cvv">CVV *</Label>
-                          <Input
-                            id="cvv"
-                            placeholder="123"
-                            required
-                            value={paymentInfo.cvv}
-                            onChange={(e) => setPaymentInfo({...paymentInfo, cvv: e.target.value})}
-                          />
-                        </div>
-                      </div>
+                      )}
                       
                       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
                         <Lock className="h-4 w-4" />
-                        Your payment information is secure and encrypted
+                        Secure payment processing via Transaction Junction
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          You will be redirected to our secure payment partner to complete your purchase.
+                        </p>
                       </div>
                       
                       <div className="flex gap-4">
@@ -311,9 +422,14 @@ const Checkout = () => {
                         <Button
                           type="submit"
                           disabled={isProcessing}
-                          className="flex-1"
+                          className="flex-1 bg-primary hover:bg-primary-hover"
                         >
-                          {isProcessing ? "Processing..." : "Place Order"}
+                          {isProcessing ? "Creating Order..." : (
+                            <>
+                              Proceed to Payment
+                              <ExternalLink className="h-4 w-4 ml-2" />
+                            </>
+                          )}
                         </Button>
                       </div>
                     </form>

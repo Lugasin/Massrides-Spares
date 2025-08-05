@@ -111,7 +111,7 @@ const Dashboard = () => {
               <div className="space-y-4">
                 {topProducts.map((product, index) => (
                   <div key={product.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div className="flex items-center gap-3">\
+                    <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-sm">
                         {index + 1}
                       </div>

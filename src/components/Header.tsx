@@ -166,6 +166,10 @@ export const Header = ({
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/profile/${userRole}`)}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>{userRole?.charAt(0).toUpperCase() + userRole?.slice(1)} Profile</span>
+                  </DropdownMenuItem>
                   {(userRole === 'vendor' || userRole === 'admin') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/products')}>
                       <span>Product Management</span>

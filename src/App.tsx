@@ -17,6 +17,11 @@ import ProductDetail from "./pages/ProductDetail"; // Import ProductDetail page
 import Profile from "./pages/Profile"; // Import Profile page
 import Products from "./pages/Products"; // Import Products page
 import AddProduct from "./pages/AddProduct"; // Import AddProduct page
+import CheckoutSuccess from "./pages/CheckoutSuccess";
+import CheckoutCancel from "./pages/CheckoutCancel";
+import AdminProfile from "./pages/AdminProfile";
+import VendorProfile from "./pages/VendorProfile";
+import CustomerProfile from "./pages/CustomerProfile";
 
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
 import UserManagement from './pages/UserManagement'; // Import UserManagement page
@@ -47,6 +52,8 @@ const AppContent = () => {
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
 
           {/* Protected Dashboard Route */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} /> {/* Protected Dashboard Route */}
@@ -61,6 +68,9 @@ const AppContent = () => {
 
           {/* Protected Profile Route */}
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} /> {/* Protected Profile Route */}
+          <Route path="/profile/admin" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<AdminProfile />} />} />
+          <Route path="/profile/vendor" element={<ProtectedRoute allowedRoles={['vendor']} element={<VendorProfile />} />} />
+          <Route path="/profile/customer" element={<ProtectedRoute allowedRoles={['customer']} element={<CustomerProfile />} />} />
           <Route path="/dashboard/products/add" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<AddProduct />} />} /> {/* Protected Add Product Route */}
           <Route path="/dashboard/products" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<Products />} />} /> {/* Protected Products Management Route */}
           <Route path="/dashboard/users" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<UserManagement />} />} /> {/* Protected User Management Route */}

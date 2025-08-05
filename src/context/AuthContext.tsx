@@ -209,17 +209,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: new Error('No user logged in') }
 
-    const { error } = await supabase
+    try {
+      const { error } = await supabase
       .from('user_profiles')
       .update(updates)
-      .eq('id', user.id)
+        .eq('user_id', user.id)
 
-    if (!error) {
+      if (error) {
+        toast.error(`Failed to update profile: ${error.message}`)
+        return { error }
+      }
+
       setProfile(prev => prev ? { ...prev, ...updates } : null)
+      toast.success('Profile updated successfully!')
+      return { error: null }
+    } catch (error: any) {
+      toast.error(`Failed to update profile: ${error.message}`)
+      return { error }
     }
-
-    return { error }
   }
+
 
   const hasPermission = (permission: string): boolean => {
     return userPermissions.includes(permission) || userPermissions.includes('all')
