@@ -273,5 +273,7 @@ export const Header = ({
         </div>
       </div>
     </header>
+  );
+};
 
 // Note: For global lazy loading, wrap <img> tags with loading="lazy", and implement a separate <Loader> component with a rotating tractor wheel and smoke animations for full-page loads.
