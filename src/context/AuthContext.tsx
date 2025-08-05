@@ -204,6 +204,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       toast.error(`Sign out failed: ${error.message}`)
       return { error }
+    }
+  }
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: new Error('No user logged in') }
 
