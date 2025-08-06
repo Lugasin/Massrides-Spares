@@ -80,7 +80,7 @@ const VendorDashboard: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProducts(data || []);
+      setProducts((data || []) as any);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Failed to fetch products');
@@ -95,7 +95,13 @@ const VendorDashboard: React.FC = () => {
     try {
       const productData = {
         ...productForm,
-        vendor_id: profile?.id
+        vendor_id: profile?.id,
+        slug: productForm.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
+        category: 'general',
+        in_stock: true,
+        stock_quantity: 1,
+        discount: 0,
+        image_url: ''
       };
 
       if (editingProduct) {
@@ -111,7 +117,7 @@ const VendorDashboard: React.FC = () => {
         // Create new product
         const { error } = await supabase
           .from('products')
-          .insert(productData);
+          .insert([productData as any]);
 
         if (error) throw error;
         toast.success('Product created successfully');

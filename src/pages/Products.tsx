@@ -27,7 +27,7 @@ const Products: React.FC = () => {
         setError(error.message);
         setProducts([]);
       } else {
-        setProducts(data || []);
+        setProducts((data || []) as any);
       }
       setLoading(false);
     };

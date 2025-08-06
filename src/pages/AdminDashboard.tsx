@@ -68,10 +68,10 @@ const AdminDashboard: React.FC = () => {
 
       // Fetch stats
       const [usersResponse, productsResponse, ordersResponse, quotesResponse] = await Promise.all([
-        supabase.from('user_profiles').select('id', { count: 'exact' }),
+        (supabase as any).from('user_profiles').select('id', { count: 'exact' }),
         supabase.from('products').select('id', { count: 'exact' }),
         supabase.from('orders').select('id, total_amount', { count: 'exact' }),
-        supabase.from('quotes').select('id').eq('status', 'pending')
+        (supabase as any).from('quotes').select('id').eq('status', 'pending')
       ]);
 
       // Calculate total revenue
@@ -86,7 +86,7 @@ const AdminDashboard: React.FC = () => {
       });
 
       // Fetch recent users
-      const { data: usersData } = await supabase
+      const { data: usersData } = await (supabase as any)
         .from('user_profiles')
         .select('id, email, full_name, role, created_at')
         .order('created_at', { ascending: false })
@@ -97,11 +97,11 @@ const AdminDashboard: React.FC = () => {
       // Fetch recent products
       const { data: productsData } = await supabase
         .from('products')
-        .select('id, name, price, vendor_id, featured, availability_status')
+        .select('id, name, price, vendor_id')
         .order('created_at', { ascending: false })
         .limit(10);
 
-      setProducts(productsData || []);
+      setProducts((productsData || []) as any);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -112,7 +112,7 @@ const AdminDashboard: React.FC = () => {
 
   if (userRole !== 'admin' && userRole !== 'super_admin') {
     return (
-      <DashboardLayout userRole={userRole} userName={profile?.full_name || user?.email || 'User'}>
+      <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
         <div className="p-6 text-center">
           <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>

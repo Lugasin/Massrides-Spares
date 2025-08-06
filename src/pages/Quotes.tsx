@@ -49,16 +49,16 @@ interface QuoteDetails {
   items: QuoteItem[];
 }
 
-// Assuming your Supabase schema uses snake_case and matches these types
-type QuoteRow = Database['public']['Tables']['quotes']['Row'];
-type QuoteItemRow = Database['public']['Tables']['quote_items']['Row'];
-type UserProfileRow = Database['public']['Tables']['user_profiles']['Row'];
+// Temporarily use any for new tables until types sync
+type QuoteRow = any;
+type QuoteItemRow = any;  
+type UserProfileRow = any;
 
 type SupabaseQuote = QuoteRow & {
  client: UserProfileRow | null;
  vendor: UserProfileRow | null;
-  items: Database['public']['Tables']['quote_items']['Row'][];
-}; 
+  items: any[];
+};
 
 const Quotes: React.FC = () => {
   const { toast } = useToast();
@@ -139,7 +139,7 @@ const Quotes: React.FC = () => {
   const handleSendQuote = async (quoteId: string) => {
     if (!quoteId) return;
     
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('quotes')
       .update({ status: 'sent' })
       .eq('id', quoteId)
@@ -167,7 +167,7 @@ const Quotes: React.FC = () => {
     
     try {
       // Update quote status and notes
-      const { data: quoteData, error: quoteError } = await supabase
+      const { data: quoteData, error: quoteError } = await (supabase as any).from('quotes')
         .from('quotes')
         .update({ 
           status: 'revised', 
@@ -188,7 +188,7 @@ const Quotes: React.FC = () => {
         updated_at: new Date().toISOString()
       }));
       
-      const { error: itemsError } = await supabase.from('quote_items').upsert(itemUpdates, {
+      const { error: itemsError } = await (supabase as any).from('quote_items').upsert(itemUpdates, {
         onConflict: 'id'
       });
       if (itemsError) throw itemsError;
@@ -215,7 +215,7 @@ const Quotes: React.FC = () => {
     if (!quoteId) return;
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('quotes')
         .update({ status: 'rejected' })
         .eq('id', quoteId)
@@ -246,7 +246,7 @@ const Quotes: React.FC = () => {
     if (!quoteId) return;
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('quotes')
         .update({ status: 'accepted' })
         .eq('id', quoteId)
@@ -291,7 +291,7 @@ const Quotes: React.FC = () => {
 
     try {
       // 1. Update the quotes table (notes and total_amount)
-      const { data: quoteData, error: quoteError } = await supabase
+      const { data: quoteData, error: quoteError } = await (supabase as any)
         .from('quotes')
         .update({
           notes: editableQuoteDetails.notes,
@@ -312,7 +312,7 @@ const Quotes: React.FC = () => {
         // Only update if quantity or price has changed
         const originalItem = selectedQuoteDetails.items.find(orig => orig.id === item.id);
         if (originalItem && (originalItem.quantity !== item.quantity || originalItem.price !== item.price)) {
-          const { data: itemData, error: itemError } = await supabase
+          const { data: itemData, error: itemError } = await (supabase as any)
             .from('quote_items')
             .update({ quantity: item.quantity, price: item.price })
             .eq('id', item.id)
@@ -365,7 +365,7 @@ const Quotes: React.FC = () => {
     setLoadingQuotes(true);
     setErrorFetchingQuotes(null);
 
-    let query = supabase.from('quotes').select('*');
+    let query = (supabase as any).from('quotes').select('*');
 
     // Filter quotes based on user role
     if (userRole === 'customer' && user) {
@@ -398,9 +398,9 @@ const Quotes: React.FC = () => {
     // Fetch related quote items, clients, and vendors concurrently
     const quotesWithDetails = await Promise.all(quotesData.map(async (quote) => {
       const [itemsResult, clientResult, vendorResult] = await Promise.all([
-        supabase.from('quote_items').select('*').eq('quote_id', quote.id),
-        supabase.from('user_profiles').select('*').eq('id', quote.client_id).single(),
-        supabase.from('user_profiles').select('*').eq('id', quote.vendor_id).single(),
+        (supabase as any).from('quote_items').select('*').eq('quote_id', quote.id),
+        (supabase as any).from('user_profiles').select('*').eq('id', quote.client_id).single(),
+        (supabase as any).from('user_profiles').select('*').eq('id', quote.vendor_id).single(),
       ]);
 
       return {
@@ -432,7 +432,7 @@ const Quotes: React.FC = () => {
       
       if (!selectedQuoteId) return;
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('quotes')
         .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
         .eq('id', selectedQuoteId)
@@ -468,7 +468,7 @@ const Quotes: React.FC = () => {
           
           // Refetch the list of quotes on any quote table change
           const fetchQuotes = async () => {
-            let query = supabase
+            let query = (supabase as any)
               .from('quotes')
               .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)');
 
@@ -520,8 +520,8 @@ const Quotes: React.FC = () => {
               (payload.eventType === 'INSERT' || 
                payload.eventType === 'UPDATE' || 
                payload.eventType === 'DELETE') && 
-              (payload.new?.quote_id === selectedQuoteId || 
-               payload.old?.quote_id === selectedQuoteId)) {
+               ((payload.new as any)?.quote_id === selectedQuoteId || 
+                (payload.old as any)?.quote_id === selectedQuoteId)) {
             
             fetchQuoteDetails();
           }

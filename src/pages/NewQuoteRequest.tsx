@@ -129,7 +129,7 @@ const NewQuoteRequest: React.FC = () => {
       // Generate quote number
       const quoteNumber = `Q${Date.now().toString().slice(-8)}`;
       
-      const { data: quoteData, error: quoteError } = await supabase
+      const { data: quoteData, error: quoteError } = await (supabase as any)
         .from('quotes')
         .insert([{
           quote_number: quoteNumber,
@@ -161,7 +161,7 @@ const NewQuoteRequest: React.FC = () => {
         price: productPrices[index]
       }));
 
-      const { error: itemsError } = await supabase.from('quote_items').insert(quoteItemsToInsert);
+      const { error: itemsError } = await (supabase as any).from('quote_items').insert(quoteItemsToInsert);
 
       if (itemsError) throw itemsError;
 

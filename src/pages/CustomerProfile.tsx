@@ -12,7 +12,8 @@ import {
   Package,
   CreditCard,
   MapPin,
-  Phone
+  Phone,
+  DollarSign
 } from 'lucide-react';
 
 const CustomerProfile: React.FC = () => {
