@@ -6,15 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface PaymentSessionRequest {
-  amount: number;
-  currency: string;
-  customer_email: string;
-  customer_name: string;
-  merchant_ref: string;
-  success_url: string;
-  cancel_url: string;
-  webhook_url: string;
+interface RefundRequest {
+  transaction_id: string;
+  amount?: number; // Optional for partial refunds
+  reason?: string;
 }
 
 serve(async (req) => {
@@ -28,9 +23,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const body: PaymentSessionRequest = await req.json()
-
-    // Get TJ credentials from environment
+    const body: RefundRequest = await req.json()
+    
+    // Get TJ credentials
     const TJ_CLIENT_ID = Deno.env.get('TJ_CLIENT_ID')
     const TJ_CLIENT_SECRET = Deno.env.get('TJ_CLIENT_SECRET')
     const TJ_API_BASE = Deno.env.get('TJ_API_BASE') || 'https://secure.transactionjunction.com'
@@ -39,7 +34,7 @@ serve(async (req) => {
       throw new Error('Transaction Junction credentials not configured')
     }
 
-    // Get OAuth token following TJ's OAuth flow
+    // Get OAuth token
     const tokenResponse = await fetch(`${TJ_API_BASE}/oauth/token`, {
       method: 'POST',
       headers: {
@@ -61,60 +56,69 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
     const accessToken = tokenData.access_token
 
-    // Create payment session following TJ's HPP format
-    const sessionPayload = {
-      amount: Math.round(body.amount * 100), // Convert to cents
-      currency: body.currency,
-      customerEmail: body.customer_email,
-      customerName: body.customer_name,
-      merchantRef: body.merchant_ref,
-      redirectSuccessUrl: body.success_url,
-      redirectFailedUrl: body.cancel_url,
-      webhookUrl: body.webhook_url,
-      paymentMethods: ['CARD', 'EFT', 'INSTANT_EFT'],
-      expiresIn: 3600, // 1 hour
-      description: `Payment for order ${body.merchant_ref}`,
-      metadata: {
-        source: 'massrides-ecommerce',
-        order_id: body.merchant_ref
-      }
+    // Perform refund
+    const refundPayload: any = {
+      transactionId: body.transaction_id,
+      reason: body.reason || 'Customer refund request'
     }
 
-    const sessionResponse = await fetch(`${TJ_API_BASE}/v1/hosted-payments/sessions`, {
+    // Add amount for partial refunds
+    if (body.amount) {
+      refundPayload.amount = Math.round(body.amount * 100)
+    }
+
+    const refundResponse = await fetch(`${TJ_API_BASE}/v1/transactions/${body.transaction_id}/refund`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(sessionPayload)
+      body: JSON.stringify(refundPayload)
     })
 
-    if (!sessionResponse.ok) {
-      const errorData = await sessionResponse.text()
-      console.error('TJ Session Creation Error:', errorData)
-      throw new Error('Failed to create payment session')
+    if (!refundResponse.ok) {
+      const errorData = await refundResponse.text()
+      console.error('TJ Refund Error:', errorData)
+      throw new Error('Failed to process refund')
     }
 
-    const sessionData = await sessionResponse.json()
+    const refundData = await refundResponse.json()
 
-    // Store payment session reference in order
+    // Update order status in database
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        payment_intent_id: sessionData.data?.session_id || sessionData.ipgwSId,
-        stripe_session_id: sessionData.data?.session_id || sessionData.ipgwSId // Reusing this field for TJ session
+        payment_status: body.amount ? 'partially_refunded' : 'refunded',
+        updated_at: new Date().toISOString()
       })
-      .eq('order_number', body.merchant_ref)
+      .eq('payment_intent_id', body.transaction_id)
 
     if (updateError) {
-      console.error('Failed to update order with payment session:', updateError)
+      console.error('Failed to update order status:', updateError)
+    }
+
+    // Add refund notification for user
+    const { data: order } = await supabase
+      .from('orders')
+      .select('user_id, order_number')
+      .eq('payment_intent_id', body.transaction_id)
+      .single()
+
+    if (order?.user_id) {
+      await supabase.from('notifications').insert({
+        user_id: order.user_id,
+        title: 'Refund Processed',
+        message: `Your refund for order ${order.order_number} has been processed successfully.`,
+        type: 'info'
+      })
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        session_id: sessionData.data?.session_id || sessionData.ipgwSId,
-        payment_url: sessionData.data?.redirect_url || sessionData.redirectUrl
+        transaction_id: body.transaction_id,
+        refund_amount: body.amount,
+        result: refundData
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -123,7 +127,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error creating payment session:', error)
+    console.error('Refund error:', error)
     return new Response(
       JSON.stringify({
         success: false,

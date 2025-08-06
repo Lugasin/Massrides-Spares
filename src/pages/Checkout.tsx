@@ -76,20 +76,15 @@ const Checkout = () => {
 
       const token = user ? (await supabase.auth.getSession())?.data.session?.access_token : null;
       
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        },
-        body: JSON.stringify(orderData)
+      const response = await supabase.functions.invoke('create-order', {
+        body: orderData
       });
 
-      const orderResult = await response.json();
-      
-      if (!orderResult.success) {
-        throw new Error(orderResult.error || 'Failed to create order');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to create order');
       }
+      
+      const orderResult = response.data;
 
       // Create TJ payment session
       const paymentSessionData = {
@@ -100,26 +95,21 @@ const Checkout = () => {
         merchant_ref: orderResult.order.order_number,
         success_url: `${window.location.origin}/checkout/success?order=${orderResult.order.order_number}`,
         cancel_url: `${window.location.origin}/checkout/cancel?order=${orderResult.order.order_number}`,
-        webhook_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/handle-payment-webhook`
+        webhook_url: `https://biipyscibeygppqqybay.supabase.co/functions/v1/handle-payment-webhook`
       };
 
-      const paymentResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payment-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        },
-        body: JSON.stringify(paymentSessionData)
+      const paymentResponse = await supabase.functions.invoke('create-payment-session', {
+        body: paymentSessionData
       });
 
-      const paymentResult = await paymentResponse.json();
-      
-      if (!paymentResult.success) {
-        throw new Error(paymentResult.error || 'Failed to create payment session');
+      if (paymentResponse.error) {
+        throw new Error(paymentResponse.error.message || 'Failed to create payment session');
       }
+      
+      const paymentResult = paymentResponse.data;
 
-      // Redirect to TJ hosted payment page
-      window.location.href = paymentResult.payment_url;
+      // Open TJ hosted payment page in new tab (following best practices)
+      window.open(paymentResult.payment_url, '_blank');
       
     } catch (error: any) {
       console.error('Checkout error:', error);

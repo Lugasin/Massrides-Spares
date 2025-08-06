@@ -6,15 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface PaymentSessionRequest {
-  amount: number;
-  currency: string;
-  customer_email: string;
-  customer_name: string;
-  merchant_ref: string;
-  success_url: string;
-  cancel_url: string;
-  webhook_url: string;
+interface SettlementRequest {
+  transaction_id: string;
+  action: 'settle' | 'reverse';
+  amount?: number; // Optional for partial settlements
 }
 
 serve(async (req) => {
@@ -28,9 +23,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const body: PaymentSessionRequest = await req.json()
-
-    // Get TJ credentials from environment
+    const body: SettlementRequest = await req.json()
+    
+    // Get TJ credentials
     const TJ_CLIENT_ID = Deno.env.get('TJ_CLIENT_ID')
     const TJ_CLIENT_SECRET = Deno.env.get('TJ_CLIENT_SECRET')
     const TJ_API_BASE = Deno.env.get('TJ_API_BASE') || 'https://secure.transactionjunction.com'
@@ -39,7 +34,7 @@ serve(async (req) => {
       throw new Error('Transaction Junction credentials not configured')
     }
 
-    // Get OAuth token following TJ's OAuth flow
+    // Get OAuth token
     const tokenResponse = await fetch(`${TJ_API_BASE}/oauth/token`, {
       method: 'POST',
       headers: {
@@ -61,60 +56,53 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
     const accessToken = tokenData.access_token
 
-    // Create payment session following TJ's HPP format
-    const sessionPayload = {
-      amount: Math.round(body.amount * 100), // Convert to cents
-      currency: body.currency,
-      customerEmail: body.customer_email,
-      customerName: body.customer_name,
-      merchantRef: body.merchant_ref,
-      redirectSuccessUrl: body.success_url,
-      redirectFailedUrl: body.cancel_url,
-      webhookUrl: body.webhook_url,
-      paymentMethods: ['CARD', 'EFT', 'INSTANT_EFT'],
-      expiresIn: 3600, // 1 hour
-      description: `Payment for order ${body.merchant_ref}`,
-      metadata: {
-        source: 'massrides-ecommerce',
-        order_id: body.merchant_ref
-      }
+    // Perform settlement or reversal
+    const endpoint = body.action === 'settle' ? 'settle' : 'reverse'
+    const settlementPayload: any = {
+      transactionId: body.transaction_id
     }
 
-    const sessionResponse = await fetch(`${TJ_API_BASE}/v1/hosted-payments/sessions`, {
+    // Add amount for partial settlements
+    if (body.amount && body.action === 'settle') {
+      settlementPayload.amount = Math.round(body.amount * 100)
+    }
+
+    const settlementResponse = await fetch(`${TJ_API_BASE}/v1/transactions/${body.transaction_id}/${endpoint}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(sessionPayload)
+      body: JSON.stringify(settlementPayload)
     })
 
-    if (!sessionResponse.ok) {
-      const errorData = await sessionResponse.text()
-      console.error('TJ Session Creation Error:', errorData)
-      throw new Error('Failed to create payment session')
+    if (!settlementResponse.ok) {
+      const errorData = await settlementResponse.text()
+      console.error(`TJ ${endpoint} Error:`, errorData)
+      throw new Error(`Failed to ${endpoint} transaction`)
     }
 
-    const sessionData = await sessionResponse.json()
+    const settlementData = await settlementResponse.json()
 
-    // Store payment session reference in order
+    // Update order status in database
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        payment_intent_id: sessionData.data?.session_id || sessionData.ipgwSId,
-        stripe_session_id: sessionData.data?.session_id || sessionData.ipgwSId // Reusing this field for TJ session
+        payment_status: body.action === 'settle' ? 'settled' : 'reversed',
+        updated_at: new Date().toISOString()
       })
-      .eq('order_number', body.merchant_ref)
+      .eq('payment_intent_id', body.transaction_id)
 
     if (updateError) {
-      console.error('Failed to update order with payment session:', updateError)
+      console.error('Failed to update order status:', updateError)
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        session_id: sessionData.data?.session_id || sessionData.ipgwSId,
-        payment_url: sessionData.data?.redirect_url || sessionData.redirectUrl
+        action: body.action,
+        transaction_id: body.transaction_id,
+        result: settlementData
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -123,7 +111,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error creating payment session:', error)
+    console.error(`Settlement/Reversal error:`, error)
     return new Response(
       JSON.stringify({
         success: false,
