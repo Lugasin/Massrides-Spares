@@ -26,7 +26,12 @@ import CustomerProfile from "./pages/CustomerProfile";
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
 import UserManagement from './pages/UserManagement'; // Import UserManagement page
 import Dashboard from "./pages/Dashboard";
-import VendorMedia from './pages/VendorMedia'; // Import VendorMedia page
+import VendorMedia from './pages/VendorMedia'; 
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import { BackToTop } from './components/BackToTop';
+import { ScrollToTop } from './components/ScrollToTop';
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -47,6 +52,8 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <ScrollToTop />
+        <BackToTop />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/catalog" element={<Catalog />} />
@@ -61,6 +68,8 @@ const AppContent = () => {
           {/* Auth routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/products/:productId" element={<ProductDetail />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}

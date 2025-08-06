@@ -45,7 +45,7 @@ export const Header = ({
     { label: "Home", href: "/" },
     { label: "About Us", href: "/#about" },
     { label: "Catalog", href: "/catalog" },
-    { label: "Quotes/Messaging", href: "/dashboard/quotes" }, // Added Quotes/Messaging link
+    ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
     { label: "Contact", href: "/#contact" }
   ];
 
@@ -188,15 +188,29 @@ export const Header = ({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onAuthClick}
-                className="text-xs lg:text-sm"
-              >
-                <span className="hidden sm:inline">Login / Register</span>
-                <span className="sm:hidden">Login</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                {localStorage.getItem('guest_session_id') && (
+                  <Badge variant="secondary" className="text-xs">Guest</Badge>
+                )}
+                <Link to="/login">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs lg:text-sm"
+                  >
+                    <span className="hidden sm:inline">Login</span>
+                    <span className="sm:hidden">Login</span>
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button 
+                    size="sm" 
+                    className="text-xs lg:text-sm hidden sm:flex"
+                  >
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
             )}
 
             {/* Mobile menu toggle */}
@@ -260,13 +274,27 @@ export const Header = ({
                        <LogOut className="mr-2 h-4 w-4" />
                        Logout
                      </Button>
-                 </div>
-               ) : (
-                 <Button variant="ghost" className="justify-start px-2 py-3 h-auto w-full" onClick={() => { onAuthClick?.(); setIsMobileMenuOpen(false); }}>
-                   <User className="mr-2 h-4 w-4" />
-                   Login / Register
-                 </Button>
-               )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {localStorage.getItem('guest_session_id') && (
+                      <div className="px-2 py-1">
+                        <Badge variant="secondary" className="text-xs">Guest User</Badge>
+                      </div>
+                    )}
+                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                      <Button variant="ghost" className="justify-start px-2 py-3 h-auto w-full">
+                        <User className="mr-2 h-4 w-4" />
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                      <Button variant="outline" className="justify-start px-2 py-3 h-auto w-full">
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+                )}
             </div>
             
             <div className="flex items-center gap-2 py-2 px-2 text-sm text-muted-foreground border-t border-border mt-2 pt-3">
