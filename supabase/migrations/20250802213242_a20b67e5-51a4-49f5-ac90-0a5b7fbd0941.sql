@@ -7,10 +7,15 @@ DROP TABLE IF EXISTS public.students CASCADE;
 DROP TABLE IF EXISTS public.admins CASCADE;
 
 -- Create roles enum
-CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'vendor', 'customer', 'guest');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+        CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'vendor', 'customer', 'guest');
+    END IF;
+END$$;
 
 -- Create user profiles table
-CREATE TABLE public.user_profiles (
+CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE NOT NULL,
   email TEXT NOT NULL,
@@ -24,7 +29,7 @@ CREATE TABLE public.user_profiles (
 );
 
 -- Create categories table
-CREATE TABLE public.categories (
+CREATE TABLE IF NOT EXISTS public.categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
@@ -33,7 +38,7 @@ CREATE TABLE public.categories (
 );
 
 -- Create products table
-CREATE TABLE public.products (
+CREATE TABLE IF NOT EXISTS public.products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
@@ -53,7 +58,7 @@ CREATE TABLE public.products (
 );
 
 -- Create guest carts table
-CREATE TABLE public.guest_carts (
+CREATE TABLE IF NOT EXISTS public.guest_carts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id TEXT UNIQUE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -61,7 +66,7 @@ CREATE TABLE public.guest_carts (
 );
 
 -- Create guest cart items table
-CREATE TABLE public.guest_cart_items (
+CREATE TABLE IF NOT EXISTS public.guest_cart_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   guest_cart_id UUID REFERENCES public.guest_carts(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
@@ -70,7 +75,7 @@ CREATE TABLE public.guest_cart_items (
 );
 
 -- Create user carts table
-CREATE TABLE public.carts (
+CREATE TABLE IF NOT EXISTS public.carts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.user_profiles(id) ON DELETE CASCADE UNIQUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -78,7 +83,7 @@ CREATE TABLE public.carts (
 );
 
 -- Create cart items table
-CREATE TABLE public.cart_items (
+CREATE TABLE IF NOT EXISTS public.cart_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cart_id UUID REFERENCES public.carts(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
@@ -88,7 +93,7 @@ CREATE TABLE public.cart_items (
 );
 
 -- Create orders table
-CREATE TABLE public.orders (
+CREATE TABLE IF NOT EXISTS public.orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.user_profiles(id),
   order_number TEXT UNIQUE NOT NULL,
@@ -105,7 +110,7 @@ CREATE TABLE public.orders (
 );
 
 -- Create order items table
-CREATE TABLE public.order_items (
+CREATE TABLE IF NOT EXISTS public.order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.products(id),
@@ -115,7 +120,7 @@ CREATE TABLE public.order_items (
 );
 
 -- Create quotes table
-CREATE TABLE public.quotes (
+CREATE TABLE IF NOT EXISTS public.quotes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.user_profiles(id),
   quote_number TEXT UNIQUE NOT NULL,
@@ -128,7 +133,7 @@ CREATE TABLE public.quotes (
 );
 
 -- Create quote items table
-CREATE TABLE public.quote_items (
+CREATE TABLE IF NOT EXISTS public.quote_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quote_id UUID REFERENCES public.quotes(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.products(id),
@@ -138,7 +143,7 @@ CREATE TABLE public.quote_items (
 );
 
 -- Create company partners table
-CREATE TABLE public.company_partners (
+CREATE TABLE IF NOT EXISTS public.company_partners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   logo_url TEXT,
@@ -149,7 +154,7 @@ CREATE TABLE public.company_partners (
 );
 
 -- Create notifications table
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.user_profiles(id),
   title TEXT NOT NULL,
@@ -181,91 +186,117 @@ RETURNS app_role AS $$
 $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
 -- RLS Policies for user_profiles
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.user_profiles;
 CREATE POLICY "Users can view their own profile" ON public.user_profiles
   FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
 CREATE POLICY "Users can update their own profile" ON public.user_profiles
   FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
 CREATE POLICY "Admins can view all profiles" ON public.user_profiles
   FOR ALL USING (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
 -- RLS Policies for categories (public read)
+DROP POLICY IF EXISTS "Anyone can view categories" ON public.categories;
 CREATE POLICY "Anyone can view categories" ON public.categories
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage categories" ON public.categories;
 CREATE POLICY "Admins can manage categories" ON public.categories
   FOR ALL USING (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
 -- RLS Policies for products (public read)
+DROP POLICY IF EXISTS "Anyone can view products" ON public.products;
 CREATE POLICY "Anyone can view products" ON public.products
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Vendors can manage their own products" ON public.products;
 CREATE POLICY "Vendors can manage their own products" ON public.products
   FOR ALL USING (vendor_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins can manage all products" ON public.products;
 CREATE POLICY "Admins can manage all products" ON public.products
   FOR ALL USING (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
 -- RLS Policies for guest carts (public access)
+DROP POLICY IF EXISTS "Anyone can manage guest carts" ON public.guest_carts;
 CREATE POLICY "Anyone can manage guest carts" ON public.guest_carts
   FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Anyone can manage guest cart items" ON public.guest_cart_items;
 CREATE POLICY "Anyone can manage guest cart items" ON public.guest_cart_items
   FOR ALL USING (true);
 
 -- RLS Policies for user carts
+DROP POLICY IF EXISTS "Users can manage their own cart" ON public.carts;
 CREATE POLICY "Users can manage their own cart" ON public.carts
   FOR ALL USING (user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can manage their own cart items" ON public.cart_items;
 CREATE POLICY "Users can manage their own cart items" ON public.cart_items
   FOR ALL USING (cart_id IN (SELECT id FROM public.carts WHERE user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid())));
 
 -- RLS Policies for orders
+DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
 CREATE POLICY "Users can view their own orders" ON public.orders
   FOR SELECT USING (user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can create orders" ON public.orders;
 CREATE POLICY "Users can create orders" ON public.orders
   FOR INSERT WITH CHECK (user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins can view all orders" ON public.orders;
 CREATE POLICY "Admins can view all orders" ON public.orders
   FOR ALL USING (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
 -- RLS Policies for order items
+DROP POLICY IF EXISTS "Users can view their own order items" ON public.order_items;
 CREATE POLICY "Users can view their own order items" ON public.order_items
   FOR SELECT USING (order_id IN (SELECT id FROM public.orders WHERE user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid())));
 
+DROP POLICY IF EXISTS "Order items can be created with orders" ON public.order_items;
 CREATE POLICY "Order items can be created with orders" ON public.order_items
   FOR INSERT WITH CHECK (true);
 
 -- RLS Policies for quotes
+DROP POLICY IF EXISTS "Users can view their own quotes" ON public.quotes;
 CREATE POLICY "Users can view their own quotes" ON public.quotes
   FOR SELECT USING (user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can create quotes" ON public.quotes;
 CREATE POLICY "Users can create quotes" ON public.quotes
   FOR INSERT WITH CHECK (user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins can manage all quotes" ON public.quotes;
 CREATE POLICY "Admins can manage all quotes" ON public.quotes
   FOR ALL USING (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
 -- RLS Policies for quote items
+DROP POLICY IF EXISTS "Users can view their own quote items" ON public.quote_items;
 CREATE POLICY "Users can view their own quote items" ON public.quote_items
   FOR SELECT USING (quote_id IN (SELECT id FROM public.quotes WHERE user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid())));
 
+DROP POLICY IF EXISTS "Quote items can be created with quotes" ON public.quote_items;
 CREATE POLICY "Quote items can be created with quotes" ON public.quote_items
   FOR INSERT WITH CHECK (true);
 
 -- RLS Policies for company partners (public read)
+DROP POLICY IF EXISTS "Anyone can view company partners" ON public.company_partners;
 CREATE POLICY "Anyone can view company partners" ON public.company_partners
   FOR SELECT USING (active = true);
 
+DROP POLICY IF EXISTS "Admins can manage company partners" ON public.company_partners;
 CREATE POLICY "Admins can manage company partners" ON public.company_partners
   FOR ALL USING (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
 -- RLS Policies for notifications
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" ON public.notifications
   FOR SELECT USING (user_id IN (SELECT id FROM public.user_profiles WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins can create notifications" ON public.notifications;
 CREATE POLICY "Admins can create notifications" ON public.notifications
   FOR INSERT WITH CHECK (get_user_role(auth.uid()) IN ('admin', 'super_admin'));
 
@@ -284,6 +315,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger for new user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
