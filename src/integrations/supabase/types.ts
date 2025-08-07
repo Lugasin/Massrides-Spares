@@ -36,82 +36,67 @@ export type Database = {
           token?: string
           user_id?: string
         }
+        Relationships: []
+      }
+      cart_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string
+          quantity: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id: string
+          quantity?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          quantity?: number
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "account_claim_tokens_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
       }
-      banners: {
+      company_partners: {
         Row: {
           active: boolean | null
           created_at: string | null
+          display_order: number | null
           id: string
-          image_url: string | null
-          link: string | null
-          position: string | null
-          title: string | null
+          logo_url: string | null
+          name: string
+          website_url: string | null
         }
         Insert: {
           active?: boolean | null
           created_at?: string | null
+          display_order?: number | null
           id?: string
-          image_url?: string | null
-          link?: string | null
-          position?: string | null
-          title?: string | null
+          logo_url?: string | null
+          name: string
+          website_url?: string | null
         }
         Update: {
           active?: boolean | null
           created_at?: string | null
+          display_order?: number | null
           id?: string
-          image_url?: string | null
-          link?: string | null
-          position?: string | null
-          title?: string | null
-        }
-        Relationships: []
-      }
-      conversations: {
-        Row: {
-          created_at: string | null
-          id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-        }
-        Relationships: []
-      }
-      error_logs: {
-        Row: {
-          context: string | null
-          created_at: string | null
-          id: string
-          message: string | null
-          stack_trace: string | null
-        }
-        Insert: {
-          context?: string | null
-          created_at?: string | null
-          id?: string
-          message?: string | null
-          stack_trace?: string | null
-        }
-        Update: {
-          context?: string | null
-          created_at?: string | null
-          id?: string
-          message?: string | null
-          stack_trace?: string | null
+          logo_url?: string | null
+          name?: string
+          website_url?: string | null
         }
         Relationships: []
       }
@@ -145,13 +130,6 @@ export type Database = {
             referencedRelation: "guest_carts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "guest_cart_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
         ]
       }
       guest_carts: {
@@ -172,67 +150,31 @@ export type Database = {
         }
         Relationships: []
       }
-      messages: {
-        Row: {
-          content: string | null
-          conversation_id: string | null
-          created_at: string | null
-          id: string
-          sender_id: string | null
-        }
-        Insert: {
-          content?: string | null
-          conversation_id?: string | null
-          created_at?: string | null
-          id?: string
-          sender_id?: string | null
-        }
-        Update: {
-          content?: string | null
-          conversation_id?: string | null
-          created_at?: string | null
-          id?: string
-          sender_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       notifications: {
         Row: {
           created_at: string | null
           id: string
-          message: string | null
+          message: string
           read: boolean | null
+          title: string
           type: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
-          message?: string | null
+          message: string
           read?: boolean | null
+          title: string
           type?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
-          message?: string | null
+          message?: string
           read?: boolean | null
+          title?: string
           type?: string | null
           user_id?: string | null
         }
@@ -241,31 +183,34 @@ export type Database = {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
       }
       order_items: {
         Row: {
+          created_at: string | null
           id: string
-          order_id: string | null
+          order_id: string
           price: number
-          product_id: string | null
+          product_id: string
           quantity: number
         }
         Insert: {
+          created_at?: string | null
           id?: string
-          order_id?: string | null
+          order_id: string
           price: number
-          product_id?: string | null
+          product_id: string
           quantity: number
         }
         Update: {
+          created_at?: string | null
           id?: string
-          order_id?: string | null
+          order_id?: string
           price?: number
-          product_id?: string | null
+          product_id?: string
           quantity?: number
         }
         Relationships: [
@@ -287,233 +232,325 @@ export type Database = {
       }
       orders: {
         Row: {
+          billing_address: Json | null
           created_at: string | null
-          crop_types: string[] | null
-          equipment_needs: string[] | null
-          farm_size: string | null
-          gateway_reference: string | null
           id: string
-          merchant_reference: string | null
-          payment_method: string | null
-          shipping_address: string | null
+          notes: string | null
+          order_number: string | null
+          payment_intent_id: string | null
+          payment_status: string | null
+          shipping_address: Json | null
           status: string | null
-          total_amount: number | null
-          tracking_number: string | null
-          transaction_id: string | null
+          total_amount: number
           updated_at: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
+          billing_address?: Json | null
           created_at?: string | null
-          crop_types?: string[] | null
-          equipment_needs?: string[] | null
-          farm_size?: string | null
-          gateway_reference?: string | null
           id?: string
-          merchant_reference?: string | null
-          payment_method?: string | null
-          shipping_address?: string | null
+          notes?: string | null
+          order_number?: string | null
+          payment_intent_id?: string | null
+          payment_status?: string | null
+          shipping_address?: Json | null
           status?: string | null
-          total_amount?: number | null
-          tracking_number?: string | null
-          transaction_id?: string | null
+          total_amount: number
           updated_at?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
+          billing_address?: Json | null
           created_at?: string | null
-          crop_types?: string[] | null
-          equipment_needs?: string[] | null
-          farm_size?: string | null
-          gateway_reference?: string | null
           id?: string
-          merchant_reference?: string | null
-          payment_method?: string | null
-          shipping_address?: string | null
+          notes?: string | null
+          order_number?: string | null
+          payment_intent_id?: string | null
+          payment_status?: string | null
+          shipping_address?: Json | null
           status?: string | null
-          total_amount?: number | null
-          tracking_number?: string | null
-          transaction_id?: string | null
+          total_amount?: number
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "orders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      participants: {
+      payment_intents: {
         Row: {
-          conversation_id: string | null
+          amount: number
+          created_at: string | null
+          currency: string
           id: string
-          user_id: string | null
+          order_id: string
+          status: string
+          stripe_payment_intent_id: string
+          user_id: string
         }
         Insert: {
-          conversation_id?: string | null
+          amount: number
+          created_at?: string | null
+          currency: string
           id?: string
-          user_id?: string | null
+          order_id: string
+          status: string
+          stripe_payment_intent_id: string
+          user_id: string
         }
         Update: {
-          conversation_id?: string | null
+          amount?: number
+          created_at?: string | null
+          currency?: string
           id?: string
-          user_id?: string | null
+          order_id?: string
+          status?: string
+          stripe_payment_intent_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "participants_conversation_id_fkey"
-            columns: ["conversation_id"]
+            foreignKeyName: "payment_intents_order_id_fkey"
+            columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "participants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
+      }
+      permissions: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       products: {
         Row: {
-          category: string | null
+          availability_status: string | null
+          brand: string | null
+          category_id: string | null
+          condition: string | null
           created_at: string | null
           description: string | null
-          discount: number | null
+          featured: boolean | null
           id: string
-          image_url: string | null
-          in_stock: boolean | null
+          images: string[] | null
+          model: string | null
           name: string
           price: number
-          slug: string
-          stock_quantity: number | null
+          specifications: Json | null
           updated_at: string | null
           vendor_id: string | null
+          year: number | null
         }
         Insert: {
-          category?: string | null
+          availability_status?: string | null
+          brand?: string | null
+          category_id?: string | null
+          condition?: string | null
           created_at?: string | null
           description?: string | null
-          discount?: number | null
+          featured?: boolean | null
           id?: string
-          image_url?: string | null
-          in_stock?: boolean | null
+          images?: string[] | null
+          model?: string | null
           name: string
           price: number
-          slug: string
-          stock_quantity?: number | null
+          specifications?: Json | null
           updated_at?: string | null
           vendor_id?: string | null
+          year?: number | null
         }
         Update: {
-          category?: string | null
+          availability_status?: string | null
+          brand?: string | null
+          category_id?: string | null
+          condition?: string | null
           created_at?: string | null
           description?: string | null
-          discount?: number | null
+          featured?: boolean | null
           id?: string
-          image_url?: string | null
-          in_stock?: boolean | null
+          images?: string[] | null
+          model?: string | null
           name?: string
           price?: number
-          slug?: string
-          stock_quantity?: number | null
+          specifications?: Json | null
           updated_at?: string | null
           vendor_id?: string | null
+          year?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "products_vendor_id_fkey"
-            columns: ["vendor_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      reviews: {
+      quote_items: {
         Row: {
-          comment: string | null
           created_at: string | null
           id: string
-          product_id: string | null
-          rating: number | null
-          user_id: string | null
+          price: number
+          product_id: string
+          product_name: string
+          quantity: number
+          quote_id: string
+          updated_at: string | null
         }
         Insert: {
-          comment?: string | null
           created_at?: string | null
           id?: string
-          product_id?: string | null
-          rating?: number | null
-          user_id?: string | null
+          price: number
+          product_id: string
+          product_name: string
+          quantity?: number
+          quote_id: string
+          updated_at?: string | null
         }
         Update: {
-          comment?: string | null
           created_at?: string | null
           id?: string
-          product_id?: string | null
-          rating?: number | null
-          user_id?: string | null
+          price?: number
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          quote_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "reviews_product_id_fkey"
+            foreignKeyName: "quote_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "quote_items_quote_id_fkey"
+            columns: ["quote_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
       }
-      users: {
+      quotes: {
         Row: {
-          avatar_url: string | null
+          client_id: string
           created_at: string | null
-          crop_types: string[] | null
+          id: string
+          notes: string | null
+          quote_number: string
+          status: string | null
+          total_amount: number | null
+          updated_at: string | null
+          valid_until: string | null
+          vendor_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          quote_number: string
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          valid_until?: string | null
+          vendor_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          quote_number?: string
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+          valid_until?: string | null
+          vendor_id?: string
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          created_at: string | null
+          permission_id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string | null
+          permission_id: string
+          role: string
+        }
+        Update: {
+          created_at?: string | null
+          permission_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          address: string | null
+          company_name: string | null
+          created_at: string | null
           email: string
-          equipment_needs: string[] | null
-          farm_size: string | null
           full_name: string | null
           id: string
           phone: string | null
           role: string
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          avatar_url?: string | null
+          address?: string | null
+          company_name?: string | null
           created_at?: string | null
-          crop_types?: string[] | null
           email: string
-          equipment_needs?: string[] | null
-          farm_size?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
           role?: string
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          avatar_url?: string | null
+          address?: string | null
+          company_name?: string | null
           created_at?: string | null
-          crop_types?: string[] | null
           email?: string
-          equipment_needs?: string[] | null
-          farm_size?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
           role?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -522,16 +559,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_conversation_and_return_id: {
-        Args: { vendor_id: string; user_id: string }
+      get_guest_session_id: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
-      get_user_conversations: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          id: string
-          other_participant: string
-        }[]
+      get_role_permissions: {
+        Args: { user_role: string }
+        Returns: string[]
+      }
+      verify_tj_webhook_signature: {
+        Args: { payload: string; signature: string }
+        Returns: boolean
       }
     }
     Enums: {

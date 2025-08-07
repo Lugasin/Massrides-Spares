@@ -11,8 +11,15 @@ export interface UserProfile {
   full_name?: string
   phone?: string
   address?: string
+  city?: string
+  state?: string
+  zip_code?: string
+  country?: string
   company_name?: string
   role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest'
+  website_url?: string
+  avatar_url?: string
+  bio?: string
   created_at: string
   updated_at: string
 }
@@ -103,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadUserProfile = async (userId: string) => {
     try {
       // Get user from the user_profiles table
-      const { data: userData, error: userError } = await (supabase as any)
+      const { data: userData, error: userError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
@@ -126,6 +133,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         phone: userProfileData.phone,
         company_name: userProfileData.company_name || '',
         address: userProfileData.address || '',
+        city: userProfileData.city || '',
+        state: userProfileData.state || '',
+        zip_code: userProfileData.zip_code || '',
+        country: userProfileData.country || 'Zambia',
+        website_url: userProfileData.website_url || '',
+        avatar_url: userProfileData.avatar_url || '',
+        bio: userProfileData.bio || '',
         role: userProfileData.role as UserProfile['role'],
         created_at: userProfileData.created_at,
         updated_at: userProfileData.updated_at || userProfileData.created_at
@@ -225,13 +239,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return { error: new Error('No user logged in') }
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('user_profiles')
         .update({
           full_name: updates.full_name,
           phone: updates.phone,
           company_name: updates.company_name,
-          address: updates.address
+          address: updates.address,
+          city: updates.city,
+          state: updates.state,
+          zip_code: updates.zip_code,
+          country: updates.country,
+          website_url: updates.website_url,
+          avatar_url: updates.avatar_url,
+          bio: updates.bio
         })
         .eq('user_id', user.id)
 

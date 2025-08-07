@@ -29,6 +29,8 @@ import Dashboard from "./pages/Dashboard";
 import VendorMedia from './pages/VendorMedia'; 
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import About from './pages/About';
+import Contact from './pages/Contact';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 
@@ -70,6 +72,8 @@ const AppContent = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/products/:productId" element={<ProductDetail />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}

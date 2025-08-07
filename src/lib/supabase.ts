@@ -188,27 +188,47 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     const { data: items } = await supabase
       .from('guest_cart_items')
-      .select(`
-        id,
-        guest_cart_id,
-        product_id,
-        quantity,
-        product:products(*)
-      `)
+      .select('id, product_id, quantity')
       .eq('guest_cart_id', guestCart.id)
 
-    // Map the data to match CartItem interface
-    const cartItems = (items || []).map(item => ({
-      id: item.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      product: item.product ? {
-        ...item.product,
-        condition: 'new',
-        availability_status: 'available', 
-        featured: false
-      } : undefined
-    }))
+    // Get products separately and match them
+    const cartItems: CartItem[] = []
+    if (items && items.length > 0) {
+      const productIds = items.map(item => item.product_id)
+      const { data: products } = await supabase
+        .from('products')
+        .select('*')
+        .in('id', productIds)
+
+      const productsMap = new Map(products?.map(p => [p.id, p]) || [])
+
+      for (const item of items) {
+        const product = productsMap.get(item.product_id)
+        cartItems.push({
+          id: item.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          product: product ? {
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            category_id: product.category_id,
+            vendor_id: product.vendor_id,
+            brand: product.brand,
+            model: product.model,
+            year: product.year,
+            condition: product.condition || 'new',
+            availability_status: product.availability_status || 'available',
+            featured: product.featured || false,
+            images: product.images || [],
+            specifications: product.specifications,
+            created_at: product.created_at,
+            updated_at: product.updated_at
+          } : undefined
+        })
+      }
+    }
 
     return cartItems
   }
@@ -258,9 +278,9 @@ export const mergeGuestCart = async () => {
   if (!user) return
 
   const { data: profile } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', user.id)
+    .from('user_profiles')
+    .select('id, user_id')
+    .eq('user_id', user.id)
     .single()
 
   if (!profile) return
