@@ -22,6 +22,7 @@ import CheckoutCancel from "./pages/CheckoutCancel";
 import AdminProfile from "./pages/AdminProfile";
 import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
+import UsedEquipment from "./pages/UsedEquipment"; // Import UsedEquipment
 
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
 import UserManagement from './pages/UserManagement'; // Import UserManagement page
@@ -75,13 +76,22 @@ const AppContent = () => {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/products/:productId" element={<ProductDetail />} />
+          {/* Route for Used Equipment */}
+          <Route path="/used-equipment" element={<UsedEquipment />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
+
+          {/* Placeholder routes for future pages */}
+          <Route path="/orders" element={<div>Coming Soon: Orders History</div>} />
+          <Route path="/wishlist" element={<div>Coming Soon: Wishlist</div>} />
+          <Route path="/analytics" element={<div>Coming Soon: Analytics</div>} />
+ <Route path="/messages" element={<div>Coming Soon: Messages</div>} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 
           {/* Protected Profile Route */}
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} /> {/* Protected Profile Route */}
           <Route path="/profile/admin" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<AdminProfile />} />} />
+          <Route path="/profile/guest" element={<Profile />} /> {/* Route for Guest Profile */}
           <Route path="/profile/vendor" element={<ProtectedRoute allowedRoles={['vendor']} element={<VendorProfile />} />} />
           <Route path="/profile/customer" element={<ProtectedRoute allowedRoles={['customer']} element={<CustomerProfile />} />} />
           <Route path="/dashboard/products/add" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<AddProduct />} />} /> {/* Protected Add Product Route */}

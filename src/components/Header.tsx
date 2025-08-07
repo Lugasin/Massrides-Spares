@@ -43,10 +43,11 @@ export const Header = ({
   // Streamlined navigation options
   const navItems = [
     { label: "Home", href: "/" },
-    { label: "About Us", href: "/#about" },
+    { label: "About Us", href: "/about" },
     { label: "Catalog", href: "/catalog" },
+ { label: "Used Equipment", href: "/used-equipment" },
     ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
-    { label: "Contact", href: "/#contact" }
+    { label: "Contact", href: "/contact" }
   ];
 
   // Handle navigation for hash links and routes

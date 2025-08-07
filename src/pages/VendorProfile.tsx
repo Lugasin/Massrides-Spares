@@ -12,6 +12,7 @@ import {
   Star,
   Users
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const VendorProfile: React.FC = () => {
   const { user, profile, userRole } = useAuth();
@@ -20,6 +21,7 @@ const VendorProfile: React.FC = () => {
     return (
       <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
         <div className="p-6 text-center">
+
           <Store className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Vendor Access Required</h2>
           <p className="text-muted-foreground">You need vendor privileges to view this page.</p>
@@ -35,6 +37,7 @@ const VendorProfile: React.FC = () => {
     { icon: Star, label: 'Rating', value: '4.8', change: '125 reviews' }
   ];
 
+  const navigate = useNavigate();
   return (
     <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Vendor'}>
       <div className="space-y-6">
@@ -98,15 +101,15 @@ const VendorProfile: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button className="h-20 flex-col gap-2">
+              <Button className="h-20 flex-col gap-2" onClick={() => navigate('/dashboard/products/add')}>
                 <Package className="h-6 w-6" />
                 Add New Product
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2">
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/analytics')}>
                 <TrendingUp className="h-6 w-6" />
                 View Analytics
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2">
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/messages')}>
                 <Users className="h-6 w-6" />
                 Customer Messages
               </Button>
@@ -130,6 +133,22 @@ const VendorProfile: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+        {/* Additional Vendor Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>More Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button variant="secondary" onClick={() => navigate('/dashboard/products')}>View All Products</Button>
+               <Button variant="secondary" onClick={() => navigate('/analytics')}>Detailed Analytics</Button>
+               <Button variant="secondary" onClick={() => navigate('/messages')}>All Messages</Button>
+              <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+            </div>
+          </CardContent>
+        </Card>
+
     </DashboardLayout>
   );
 };

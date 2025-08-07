@@ -9,6 +9,7 @@ import { toast } from 'sonner'; // Assuming you have sonner installed for toasts
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 
 // Define Zod schema for profile validation
@@ -24,6 +25,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const Profile: React.FC = () => {
   const { user, profile, loading: authLoading, updateProfile, userRole } = useAuth();
+  const navigate = useNavigate();
 
   // State for managing form submission loading
   const [isSaving, setIsSaving] = React.useState(false);
@@ -133,7 +135,27 @@ const Profile: React.FC = () => {
 
             </form>
           </CardContent>
-          <CardFooter className="flex justify-end pt-4">
+          <CardFooter className="flex justify-between pt-4">
+            <div className="flex gap-2">
+              {user && ( // Show 'Back to Dashboard' for logged-in users
+                <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                  Back to Dashboard
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => navigate('/catalog')}>
+                Shop Now
+              </Button>
+              {userRole && userRole !== 'guest' && ( // Conditionally render role-specific profile link
+                <Button variant="ghost" onClick={() => navigate(`/profile/${userRole}`)}>
+                  View {userRole.charAt(0).toUpperCase() + userRole.slice(1)} Profile
+                </Button>
+              )}
+               {!user && localStorage.getItem('guest_session_id') && ( // Show 'Back to Home' for guests
+                 <Button variant="outline" onClick={() => navigate('/')}>
+                   Back to Home
+                 </Button>
+               )}
+            </div>
             <Button type="submit" form="profile-form" disabled={isSubmitting || isSaving}>
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>

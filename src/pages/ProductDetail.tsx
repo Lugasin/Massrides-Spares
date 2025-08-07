@@ -122,6 +122,30 @@ const ProductDetail = () => {
               </ul>
             </div>
 
+            {/* Compatibility */}
+            <div className="mb-6">
+               <h3 className="text-xl font-semibold text-foreground mb-3">Compatibility</h3>
+               <p className="text-muted-foreground">
+                 {/* Placeholder: Add actual compatibility data here */}
+                 This equipment is compatible with standard tractor models (e.g., John Deere 7000 series, Case IH Puma).
+               </p>
+            </div>
+
+            {/* Warranty */}
+            <div className="mb-6">
+               <h3 className="text-xl font-semibold text-foreground mb-3">Warranty</h3>
+               <p className="text-muted-foreground">
+                 {/* Placeholder: Add actual warranty data here */}
+                 Includes a 2-year manufacturer's warranty covering parts and labor. Extended warranty options available.
+               </p>
+            </div>
+
+            {/* Financing Options */}
+            <div className="mb-6">
+               <h3 className="text-xl font-semibold text-foreground mb-3">Financing Options</h3>
+               <p className="text-muted-foreground"> {/* Placeholder: Add actual financing info or link here */} Learn about our flexible financing options starting at 4.9% APR. <a href="/financing" className="text-primary hover:underline">View details</a>.</p>
+            </div>
+
             {/* More Details/Vendor Info (Placeholder) */}
             <div>
                <h3 className="text-xl font-semibold text-foreground mb-3">More Details</h3>

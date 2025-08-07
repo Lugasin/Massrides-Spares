@@ -7,7 +7,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { 
   User, 
   ShoppingCart, 
-  Heart, 
+  Heart, // Keep Heart for wishlist CTA
   MessageSquare,
   Package,
   CreditCard,
@@ -15,12 +15,14 @@ import {
   Phone,
   DollarSign
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const CustomerProfile: React.FC = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate(); // Initialize navigate
 
   const customerStats = [
-    { icon: ShoppingCart, label: 'Total Orders', value: '12', change: 'Last order: 2 days ago' },
+    { icon: ShoppingCart, label: 'Total Orders', value: '12', change: 'Last order: 2 days ago' }, // Keep for stats
     { icon: DollarSign, label: 'Total Spent', value: '$45,230', change: 'This year' },
     { icon: Heart, label: 'Saved Items', value: '8', change: 'In wishlist' },
     { icon: MessageSquare, label: 'Active Quotes', value: '3', change: 'Pending responses' }
@@ -124,19 +126,28 @@ const CustomerProfile: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button className="h-20 flex-col gap-2">
+              <Button className="h-20 flex-col gap-2" onClick={() => navigate('/catalog')}>
                 <ShoppingCart className="h-6 w-6" />
                 Browse Catalog
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2">
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/new-quote')}>
                 <MessageSquare className="h-6 w-6" />
                 Request Quote
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2">
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/orders')}>
                 <Package className="h-6 w-6" />
                 Track Orders
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Additional CTAs */}
+        <Card>
+          <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button variant="secondary" onClick={() => navigate('/orders')}>View All Orders</Button>
+              <Button variant="secondary" onClick={() => navigate('/wishlist')}>View Saved Items/Wishlist</Button>
+              <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
           </CardContent>
         </Card>
       </div>

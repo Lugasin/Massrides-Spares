@@ -12,6 +12,7 @@ import {
   Activity,
   Bell
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const AdminProfile: React.FC = () => {
   const { user, profile, userRole } = useAuth();

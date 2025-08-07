@@ -15,6 +15,13 @@ export interface Product {
   description: string;
   inStock: boolean;
   featured: boolean;
+  brand?: string; // Added brand field for filtering
+}
+
+export interface UsedEquipment extends Product {
+  year: number;
+  hours_of_use: number;
+  condition: string; // e.g., "Excellent", "Good", "Fair"
 }
 
 export const products: Product[] = [
@@ -25,6 +32,7 @@ export const products: Product[] = [
     image: tractorPlowing,
     specs: ["120 HP", "4WD", "PTO", "Air Conditioning"],
     category: "Tractors",
+    brand: "John Deere",
     description: "Powerful and reliable tractor perfect for large-scale farming operations.",
     inStock: true,
     featured: true,
@@ -36,6 +44,7 @@ export const products: Product[] = [
     image: planterSeeding,
     specs: ["12 Row", "GPS Ready", "Variable Rate"],
     category: "Planters",
+    brand: "Precision",
     description: "Advanced planting technology for optimal seed placement and crop yields.",
     inStock: true,
     featured: true,
@@ -47,6 +56,7 @@ export const products: Product[] = [
     image: heroCombine,
     specs: ["300 HP", "10m Header", "GPS Guided"],
     category: "Harvesters",
+    brand: "Case IH",
     description: "High-capacity combine harvester for efficient grain harvesting.",
     inStock: true,
     featured: true,
@@ -58,6 +68,7 @@ export const products: Product[] = [
     image: irrigationAerial,
     specs: ["125 Acre Coverage", "Variable Rate", "Remote Control"],
     category: "Irrigation",
+    brand: "Valley",
     description: "Efficient water management system for precision irrigation.",
     inStock: true,
     featured: false,
@@ -69,6 +80,7 @@ export const products: Product[] = [
     image: farmerTractor,
     specs: ["85 HP", "Hydrostatic", "Loader Ready"],
     category: "Tractors",
+    brand: "Kubota",
     description: "Versatile tractor ideal for medium-sized farming operations.",
     inStock: true,
     featured: false,
@@ -80,6 +92,7 @@ export const products: Product[] = [
     image: tractorWheel,
     specs: ["R1W Tread", "710/70R42", "Radial"],
     category: "Parts",
+    brand: "Goodyear",
     description: "Durable tractor wheels designed for maximum traction and longevity.",
     inStock: true,
     featured: false,
@@ -93,4 +106,37 @@ export const categories = [
   "Harvesters",
   "Irrigation",
   "Parts"
+];
+
+export const usedEquipmentData: UsedEquipment[] = [
+  {
+    id: 101,
+    name: "Used John Deere 7R Series Tractor",
+    price: 150000,
+    image: tractorPlowing, // Using existing image for now
+    specs: ["210 HP", "MFWD", "IVT Transmission"],
+    category: "Tractors",
+    brand: "John Deere",
+    description: "Well-maintained used tractor with low hours.",
+    inStock: true,
+    featured: false,
+    year: 2018,
+    hours_of_use: 1500,
+    condition: "Excellent",
+  },
+  {
+    id: 102,
+    name: "Used Case IH Axial-Flow Combine",
+    price: 250000,
+    image: heroCombine, // Using existing image for now
+    specs: ["350 HP", "12m Header"],
+    category: "Harvesters",
+    brand: "Case IH",
+    description: "Used combine in good working condition.",
+    inStock: true,
+    featured: false,
+    year: 2015,
+    hours_of_use: 2500,
+    condition: "Good",
+  },
 ];

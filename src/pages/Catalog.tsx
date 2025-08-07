@@ -16,12 +16,21 @@ const Catalog = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("name");
+  const [selectedBrand, setSelectedBrand] = useState("All"); // New state for brand filter
+  const [minPrice, setMinPrice] = useState(""); // New state for min price
+  const [maxPrice, setMaxPrice] = useState(""); // New state for max price
   const { addItem, itemCount } = useQuote();
+
+  // Extract unique brands from products for the brand filter
+  const brands = ["All", ...Array.from(new Set(products.map(product => product.brand))).sort()];
 
   const filteredProducts = products
     .filter(product => 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       (selectedCategory === "All" || product.category === selectedCategory)
+      && (selectedBrand === "All" || product.brand === selectedBrand) // Filter by brand
+      && (minPrice === "" || product.price >= parseFloat(minPrice)) // Filter by min price
+      && (maxPrice === "" || product.price <= parseFloat(maxPrice)) // Filter by max price
     )
     .sort((a, b) => {
       switch (sortBy) {
@@ -66,7 +75,7 @@ const Catalog = () => {
         </div>
 
         {/* Filters - Made Sticky and Centered */}
-        <div className="sticky top-16 z-10 mb-8 p-6 bg-card rounded-lg border shadow-sm w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="sticky top-16 z-10 mb-8 p-6 bg-card rounded-lg border shadow-sm w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
           <div className="relative col-span-full md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
