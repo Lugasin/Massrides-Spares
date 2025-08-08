@@ -15,7 +15,7 @@ import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
 import { useQuote } from "@/context/QuoteContext";
 import { useNavigate, Link } from "react-router-dom";
-import { products, Product } from "@/data/products";
+import { products as spareParts, Product } from "@/data/products";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [suggestedProducts, setSuggestedProducts] = useState<SparePart[]>([]);
+  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const { itemCount, addItem } = useQuote();
 
