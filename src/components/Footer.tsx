@@ -19,19 +19,19 @@ const quickLinks = [
 ];
 
 const productCategories = [
-  { label: "Tractors", href: "/catalog?category=Tractors" }, // Changed to route to Catalog page with filter
-  { label: "Planters", href: "#planters" },
-  { label: "Irrigation Systems", href: "#irrigation" },
-  { label: "Parts & Accessories", href: "#parts" },
-  { label: "Used Equipment", href: "#used" }
+  { label: "Engine Parts", href: "/catalog?category=Engine+Parts" },
+  { label: "Hydraulic Parts", href: "/catalog?category=Hydraulic+Parts" },
+  { label: "Electrical Parts", href: "/catalog?category=Electrical+Parts" },
+  { label: "Brake Parts", href: "/catalog?category=Brake+Parts" },
+  { label: "Used Parts", href: "/used-parts" }
 ];
 
 const services = [
-  { label: "Equipment Sales", href: "#sales" },
-  { label: "Maintenance & Repair", href: "#service" },
+  { label: "Spare Parts Sales", href: "#sales" },
+  { label: "Technical Support", href: "#support" },
   { label: "Financing Options", href: "#financing" },
-  { label: "Training Programs", href: "#training" },
-  { label: "Technical Support", href: "#support" }
+  { label: "Installation Service", href: "#installation" },
+  { label: "Warranty Claims", href: "#warranty" }
 ];
 
 export const Footer = () => {
@@ -47,15 +47,15 @@ export const Footer = () => {
           <div className="flex flex-col items-start">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-primary text-primary-foreground p-1.5 lg:p-2 rounded-lg font-bold text-lg lg:text-xl">
-                MAR
+                MSP
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-base lg:text-lg text-primary-foreground">MASSRIDES</span>
-                <span className="text-xs text-primary-foreground/70">COMPANY LIMITED</span>
+                <span className="text-xs text-primary-foreground/70">SPARE PARTS</span>
               </div>
             </div>
             <p className="text-primary-foreground/80 mb-4 leading-relaxed relative z-10 text-sm">
-              Massrides Company LTD is a leading procurement and supply chain management company dedicated to providing high-quality sourcing, logistics, and procurement solutions. We help businesses save costs, improve efficiency, and focus on growth.
+              Massrides Spare Parts is a leading supplier of agricultural spare parts dedicated to providing high-quality components, fast delivery, and expert technical support. We help farmers and mechanics keep their equipment running efficiently.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ export const Footer = () => {
               Stay Updated with Massrides
             </h3>
             <p className="text-background/80 mb-6 text-sm lg:text-base">
-              Get the latest updates on new equipment, special offers, and farming tips delivered to your inbox.
+              Get the latest updates on new spare parts, special offers, and technical tips delivered to your inbox.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <Input

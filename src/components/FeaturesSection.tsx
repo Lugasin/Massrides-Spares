@@ -15,34 +15,34 @@ import { cn } from "@/lib/utils";
 const features = [
   {
     icon: Tractor,
-    title: "Premium Equipment",
-    description: "Top-quality agricultural machinery from trusted manufacturers worldwide.",
+    title: "Genuine Parts",
+    description: "Top-quality genuine and aftermarket spare parts from trusted manufacturers worldwide.",
     gradient: "gradient-primary"
   },
   {
     icon: Wrench,
-    title: "Expert Service",
-    description: "Professional maintenance and repair services by certified technicians.",
+    title: "Technical Support",
+    description: "Expert parts identification and compatibility guidance by certified technicians.",
     gradient: "gradient-earth"
   },
   {
     icon: Truck,
     title: "Fast Delivery",
-    description: "Reliable delivery across Zambia with real-time tracking and support.",
+    description: "Quick parts delivery across Zambia with real-time tracking and urgent shipping options.",
     gradient: "gradient-field"
   },
   {
     icon: Shield,
     title: "Quality Guarantee",
-    description: "Comprehensive warranty and quality assurance on all our products.",
+    description: "Comprehensive warranty and quality assurance on all our spare parts.",
     gradient: "gradient-primary"
   }
 ];
 
 const stats = [
-  { icon: Users, value: "500+", label: "Happy Farmers" },
+  { icon: Users, value: "500+", label: "Happy Customers" },
   { icon: Award, value: "15+", label: "Years Experience" },
-  { icon: Truck, value: "1000+", label: "Deliveries Made" },
+  { icon: Truck, value: "10,000+", label: "Parts Delivered" },
   { icon: MapPin, value: "10+", label: "Service Centers" }
 ];
 
@@ -56,11 +56,11 @@ export const FeaturesSection = () => {
             Why Choose Massrides
           </span>
           <h2 className="text-3xl lg:text-4xl font-bold mb-6 text-foreground">
-            Your Trusted Agriculture Partner
+            Your Trusted Spare Parts Partner
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We provide comprehensive agricultural solutions with quality equipment, 
-            expert service, and reliable support across Zambia.
+            We provide comprehensive agricultural spare parts solutions with quality components, 
+            expert technical support, and reliable delivery across Zambia.
           </p>
         </div>
 
@@ -123,24 +123,24 @@ export const FeaturesSection = () => {
         {/* CTA Section */}
         <div className="text-center mt-16 animate-fade-in">
           <h3 className="text-2xl font-bold mb-4 text-foreground">
-            Ready to Modernize Your Farm?
+            Need Spare Parts for Your Equipment?
           </h3>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Explore our complete range of agricultural equipment and find the perfect solutions for your farming needs.
+            Explore our complete range of agricultural spare parts and find the exact components you need to keep your equipment running.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg" 
               className="bg-primary hover:bg-primary-hover shadow-primary"
             >
-              Browse Equipment
+              Browse Parts
             </Button>
             <Button 
               size="lg" 
               variant="outline"
               className="border-primary text-primary hover:bg-primary/10"
             >
-              Contact Sales
+              Get Technical Help
             </Button>
           </div>
         </div>

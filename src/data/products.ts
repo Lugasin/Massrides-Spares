@@ -5,7 +5,7 @@ import irrigationAerial from "@/assets/irrigation-aerial.jpg";
 import farmerTractor from "@/assets/farmer-tractor.jpg";
 import tractorWheel from "@/assets/tractor-wheel.jpg";
 
-export interface Product {
+export interface SparePart {
   id: number;
   name: string;
   price: number;
@@ -15,128 +15,161 @@ export interface Product {
   description: string;
   inStock: boolean;
   featured: boolean;
-  brand?: string; // Added brand field for filtering
+  brand?: string;
+  partNumber?: string; // Added part number for spare parts
+  compatibility?: string[]; // Added compatibility info
+  warranty?: string; // Added warranty info
 }
 
-export interface UsedEquipment extends Product {
-  year: number;
-  hours_of_use: number;
-  condition: string; // e.g., "Excellent", "Good", "Fair"
+export interface UsedSparePart extends SparePart {
+  condition: string; // e.g., "New", "Used", "Refurbished"
+  originalEquipment?: string; // What equipment it came from
 }
 
-export const products: Product[] = [
+export const spareParts: SparePart[] = [
   {
     id: 1,
-    name: "John Deere 6M Series Tractor",
-    price: 85000,
+    name: "John Deere Engine Oil Filter",
+    price: 45,
     image: tractorPlowing,
-    specs: ["120 HP", "4WD", "PTO", "Air Conditioning"],
-    category: "Tractors",
+    specs: ["OEM Quality", "High Filtration", "Long Life", "Easy Installation"],
+    category: "Engine Parts",
     brand: "John Deere",
-    description: "Powerful and reliable tractor perfect for large-scale farming operations.",
+    partNumber: "RE504836",
+    compatibility: ["6M Series", "7R Series", "8R Series"],
+    warranty: "12 months",
+    description: "Genuine John Deere engine oil filter for optimal engine protection and performance.",
     inStock: true,
     featured: true,
   },
   {
     id: 2,
-    name: "Precision Seed Planter Pro",
-    price: 45000,
+    name: "Hydraulic Pump Assembly",
+    price: 850,
     image: planterSeeding,
-    specs: ["12 Row", "GPS Ready", "Variable Rate"],
-    category: "Planters",
-    brand: "Precision",
-    description: "Advanced planting technology for optimal seed placement and crop yields.",
+    specs: ["High Pressure", "Durable", "OEM Replacement", "2 Year Warranty"],
+    category: "Hydraulic Parts",
+    brand: "Parker",
+    partNumber: "PGP511A0280",
+    compatibility: ["Case IH", "New Holland", "John Deere"],
+    warranty: "24 months",
+    description: "High-performance hydraulic pump assembly for agricultural equipment.",
     inStock: true,
     featured: true,
   },
   {
     id: 3,
-    name: "Case IH Combine Harvester",
-    price: 320000,
+    name: "Alternator 12V 95A",
+    price: 285,
     image: heroCombine,
-    specs: ["300 HP", "10m Header", "GPS Guided"],
-    category: "Harvesters",
+    specs: ["12V Output", "95 Amp", "Heavy Duty", "Weather Resistant"],
+    category: "Electrical Parts",
     brand: "Case IH",
-    description: "High-capacity combine harvester for efficient grain harvesting.",
+    partNumber: "87540915",
+    compatibility: ["Magnum Series", "Puma Series", "Farmall Series"],
+    warranty: "18 months",
+    description: "Heavy-duty alternator for Case IH tractors and combines.",
     inStock: true,
     featured: true,
   },
   {
     id: 4,
-    name: "Center Pivot Irrigation System",
-    price: 75000,
+    name: "Radiator Assembly",
+    price: 420,
     image: irrigationAerial,
-    specs: ["125 Acre Coverage", "Variable Rate", "Remote Control"],
-    category: "Irrigation",
-    brand: "Valley",
-    description: "Efficient water management system for precision irrigation.",
+    specs: ["Aluminum Core", "Plastic Tank", "OEM Fit", "Pressure Tested"],
+    category: "Cooling System",
+    brand: "Kubota",
+    partNumber: "1C010-17114",
+    compatibility: ["M Series", "L Series", "Grand L Series"],
+    warranty: "12 months",
+    description: "High-quality radiator assembly for Kubota tractors.",
     inStock: true,
     featured: false,
   },
   {
     id: 5,
-    name: "Utility Farm Tractor",
-    price: 55000,
+    name: "Fuel Injection Pump",
+    price: 1250,
     image: farmerTractor,
-    specs: ["85 HP", "Hydrostatic", "Loader Ready"],
-    category: "Tractors",
-    brand: "Kubota",
-    description: "Versatile tractor ideal for medium-sized farming operations.",
+    specs: ["High Precision", "Rebuilt", "Tested", "Core Exchange"],
+    category: "Fuel System",
+    brand: "Massey Ferguson",
+    partNumber: "3641832M91",
+    compatibility: ["MF 6400", "MF 7400", "MF 8400"],
+    warranty: "12 months",
+    description: "Remanufactured fuel injection pump for Massey Ferguson tractors.",
     inStock: true,
     featured: false,
   },
   {
     id: 6,
-    name: "Heavy Duty Tractor Wheels",
-    price: 1200,
+    name: "Brake Pad Set",
+    price: 95,
     image: tractorWheel,
-    specs: ["R1W Tread", "710/70R42", "Radial"],
-    category: "Parts",
-    brand: "Goodyear",
-    description: "Durable tractor wheels designed for maximum traction and longevity.",
+    specs: ["Ceramic Compound", "Low Dust", "Quiet Operation", "Long Lasting"],
+    category: "Brake Parts",
+    brand: "Fendt",
+    partNumber: "F916200060110",
+    compatibility: ["Fendt 700", "Fendt 800", "Fendt 900"],
+    warranty: "6 months",
+    description: "High-performance brake pads for Fendt tractors.",
     inStock: true,
     featured: false,
   },
 ];
+
+// Keep products as alias for backward compatibility
+export const products = spareParts;
+export type Product = SparePart;
 
 export const categories = [
   "All",
-  "Tractors", 
-  "Planters",
-  "Harvesters",
-  "Irrigation",
-  "Parts"
+  "Engine Parts",
+  "Hydraulic Parts", 
+  "Electrical Parts",
+  "Cooling System",
+  "Fuel System",
+  "Brake Parts"
 ];
 
-export const usedEquipmentData: UsedEquipment[] = [
+export const usedSparePartsData: UsedSparePart[] = [
   {
     id: 101,
-    name: "Used John Deere 7R Series Tractor",
-    price: 150000,
-    image: tractorPlowing, // Using existing image for now
-    specs: ["210 HP", "MFWD", "IVT Transmission"],
-    category: "Tractors",
+    name: "Used Transmission Assembly",
+    price: 2500,
+    image: tractorPlowing,
+    specs: ["Rebuilt", "Tested", "6 Month Warranty", "Core Required"],
+    category: "Transmission Parts",
     brand: "John Deere",
-    description: "Well-maintained used tractor with low hours.",
+    partNumber: "RE234567",
+    compatibility: ["7R Series", "8R Series"],
+    warranty: "6 months",
+    description: "Remanufactured transmission assembly from John Deere 7R series.",
     inStock: true,
     featured: false,
-    year: 2018,
-    hours_of_use: 1500,
-    condition: "Excellent",
+    condition: "Refurbished",
+    originalEquipment: "John Deere 7R 290",
   },
   {
     id: 102,
-    name: "Used Case IH Axial-Flow Combine",
-    price: 250000,
-    image: heroCombine, // Using existing image for now
-    specs: ["350 HP", "12m Header"],
-    category: "Harvesters",
+    name: "Used Hydraulic Cylinder",
+    price: 450,
+    image: heroCombine,
+    specs: ["Resealed", "Pressure Tested", "90 Day Warranty"],
+    category: "Hydraulic Parts",
     brand: "Case IH",
-    description: "Used combine in good working condition.",
+    partNumber: "87540123",
+    compatibility: ["Magnum Series", "Puma Series"],
+    warranty: "3 months",
+    description: "Resealed hydraulic cylinder from Case IH Magnum tractor.",
     inStock: true,
     featured: false,
-    year: 2015,
-    hours_of_use: 2500,
-    condition: "Good",
+    condition: "Used",
+    originalEquipment: "Case IH Magnum 340",
   },
 ];
+
+// Keep backward compatibility
+export const usedEquipmentData = usedSparePartsData;
+export type UsedEquipment = UsedSparePart;

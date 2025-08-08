@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client'
 import { v4 as uuidv4 } from 'uuid'
 
-export interface Product {
+export interface SparePart {
   id: string
   name: string
   description?: string
@@ -10,15 +10,27 @@ export interface Product {
   vendor_id?: string
   brand?: string
   model?: string
-  year?: number
+  part_number?: string
+  oem_part_number?: string
+  aftermarket_part_number?: string
+  weight_kg?: number
+  dimensions_cm?: string
+  material?: string
+  warranty_months?: number
   condition: string
   availability_status: string
   featured: boolean
   images?: string[]
-  specifications?: any
+  technical_specs?: any
+  installation_notes?: string
+  stock_quantity?: number
+  location_in_warehouse?: string
   created_at: string
   updated_at: string
 }
+
+// Keep Product as alias for backward compatibility
+export type Product = SparePart;
 
 export interface Category {
   id: string
@@ -32,7 +44,7 @@ export interface CartItem {
   id: string
   product_id: string
   quantity: number
-  product?: Product
+  product?: SparePart
 }
 
 export interface Order {
@@ -203,28 +215,28 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       const productsMap = new Map(products?.map(p => [p.id, p]) || [])
 
       for (const item of items) {
-        const product = productsMap.get(item.product_id)
+        const sparePart = productsMap.get(item.product_id)
         cartItems.push({
           id: item.id,
           product_id: item.product_id,
           quantity: item.quantity,
-          product: product ? {
-            id: product.id,
-            name: product.name,
-            description: product.description,
-            price: product.price,
-            category_id: product.category_id,
-            vendor_id: product.vendor_id,
-            brand: product.brand,
-            model: product.model,
-            year: product.year,
-            condition: product.condition || 'new',
-            availability_status: product.availability_status || 'available',
-            featured: product.featured || false,
-            images: product.images || [],
-            specifications: product.specifications,
-            created_at: product.created_at,
-            updated_at: product.updated_at
+          product: sparePart ? {
+            id: sparePart.id,
+            name: sparePart.name,
+            description: sparePart.description,
+            price: sparePart.price,
+            category_id: sparePart.category_id,
+            vendor_id: sparePart.vendor_id,
+            brand: sparePart.brand,
+            model: sparePart.model,
+            part_number: sparePart.part_number,
+            condition: sparePart.condition || 'new',
+            availability_status: sparePart.availability_status || 'available',
+            featured: sparePart.featured || false,
+            images: sparePart.images || [],
+            technical_specs: sparePart.technical_specs,
+            created_at: sparePart.created_at,
+            updated_at: sparePart.updated_at
           } : undefined
         })
       }

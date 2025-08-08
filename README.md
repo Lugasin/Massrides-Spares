@@ -1,16 +1,16 @@
-# Massrides Agriculture PWA
+# Massrides Agricultural Spare Parts PWA
 
 ## Project Description
 
-Massrides Agriculture PWA is a progressive web application designed to showcase agriculture equipment with features like product browsing, filtering, sorting, a global shopping cart, and a dynamic search experience.
+Massrides Agricultural Spare Parts PWA is a progressive web application designed to showcase agricultural spare parts with features like parts browsing, compatibility checking, filtering, sorting, a global shopping cart, and a dynamic search experience.
 
 ## Features
 
-*   **Product Catalog:** Browse a catalog of agriculture equipment with filtering by category and sorting options (name, price).
-*   **Global Cart:** Add products to a persistent shopping cart, update quantities, and remove items. The cart state is maintained globally.
+*   **Spare Parts Catalog:** Browse a catalog of agricultural spare parts with filtering by category, compatibility, and sorting options (part number, price).
+*   **Global Cart:** Add spare parts to a persistent shopping cart, update quantities, and remove items. The cart state is maintained globally.
 *   **Sticky Catalog Filter:** The filter and search section on the Catalog page remains visible at the top while scrolling.
 *   **Header with Navigation:** Includes navigation links to key sections/pages, a cart item count indicator, and an authentication link.
-*   **Landing Page Search with Suggestions:** A search bar in the header on the landing page that provides real-time product suggestions with product cards in an overlay, replacing the hero section when active.
+*   **Landing Page Search with Suggestions:** A search bar in the header on the landing page that provides real-time spare parts suggestions with part cards in an overlay, replacing the hero section when active.
 *   **Responsive Design:** The application is designed to be viewable and functional across various devices.
 
 ## Technologies Used

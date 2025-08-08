@@ -111,7 +111,7 @@ export default function Register() {
           <div className="text-white text-center">
             <h1 className="text-2xl lg:text-4xl font-bold mb-2 lg:mb-4">Join Massrides</h1>
             <p className="text-sm lg:text-xl opacity-90">
-              Start your agriculture equipment journey today
+              Start your agricultural spare parts journey today
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function Register() {
           <CardHeader className="text-center">
             <CardTitle className="text-xl lg:text-2xl font-bold text-primary">Create Account</CardTitle>
             <CardDescription>
-              Join our agriculture equipment platform
+              Join our agricultural spare parts platform
             </CardDescription>
           </CardHeader>
           <CardContent>

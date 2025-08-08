@@ -41,7 +41,7 @@ const Cart = () => {
             <h1 className="text-3xl font-bold text-foreground">Shopping Cart</h1>
             {itemCount > 0 && (
               <Badge className="bg-primary text-primary-foreground text-lg px-3 py-1">
-                {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                {itemCount} {itemCount === 1 ? 'part' : 'parts'}
               </Badge>
             )}
           </div>
@@ -54,13 +54,13 @@ const Cart = () => {
                 Your cart is empty
               </h2>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Start browsing our extensive catalog of agricultural equipment to find the perfect machinery for your farm.
+                Start browsing our extensive catalog of agricultural spare parts to find the components you need for your equipment.
               </p>
               <div className="flex gap-4 justify-center">
                 <Button asChild size="lg" className="bg-primary hover:bg-primary-hover">
                   <Link to="/catalog">
                     <ArrowLeft className="h-4 w-4 mr-2" />
-                    Browse Catalog
+                    Browse Parts
                   </Link>
                 </Button>
                 <Button asChild variant="outline" size="lg">
@@ -162,7 +162,7 @@ const Cart = () => {
                     
                     <div className="space-y-3 mb-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Items ({itemCount})</span>
+                        <span className="text-muted-foreground">Parts ({itemCount})</span>
                         <span className="font-medium">${total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">

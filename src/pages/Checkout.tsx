@@ -128,12 +128,12 @@ const Checkout = () => {
               Your cart is empty
             </h1>
             <p className="text-muted-foreground mb-8">
-              Add some items to your cart before proceeding to checkout.
+              Add some spare parts to your cart before proceeding to checkout.
             </p>
             <Button asChild size="lg">
               <Link to="/catalog">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Browse Catalog
+                Browse Parts
               </Link>
             </Button>
           </div>
@@ -441,7 +441,7 @@ const Checkout = () => {
                     <div className="flex gap-4 justify-center">
                       <Button asChild size="lg">
                         <Link to="/catalog">
-                          Continue Shopping
+                          Continue Shopping for Parts
                         </Link>
                       </Button>
                       <Button asChild variant="outline" size="lg">

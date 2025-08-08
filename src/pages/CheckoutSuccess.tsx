@@ -71,7 +71,7 @@ const CheckoutSuccess = () => {
                   <Button asChild size="lg">
                     <Link to="/catalog">
                       <Package className="h-4 w-4 mr-2" />
-                      Continue Shopping
+                      Continue Shopping for Parts
                     </Link>
                   </Button>
                   <Button asChild variant="outline" size="lg">

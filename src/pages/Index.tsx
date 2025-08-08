@@ -24,12 +24,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const Index = () => {
-  const { itemCount, addItem } = useQuote();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
+  const [suggestedProducts, setSuggestedProducts] = useState<SparePart[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const { itemCount, addItem } = useQuote();
 
   const handleAuthClick = () => {
     navigate('/login');
@@ -37,10 +37,10 @@ const Index = () => {
 
   // Enhanced categories with icons
   const categories = [
-    { id: "All", label: "All Equipment", icon: <Wheat className="h-4 w-4" /> },
-    { id: "Tractors", label: "Tractors", icon: <Tractor className="h-4 w-4" /> },
-    { id: "Planters", label: "Planters", icon: <Wrench className="h-4 w-4" /> },
-    { id: "Irrigation", label: "Irrigation", icon: <Droplets className="h-4 w-4" /> }
+    { id: "All", label: "All Parts", icon: <Wheat className="h-4 w-4" /> },
+    { id: "Engine Parts", label: "Engine Parts", icon: <Tractor className="h-4 w-4" /> },
+    { id: "Hydraulic Parts", label: "Hydraulic Parts", icon: <Wrench className="h-4 w-4" /> },
+    { id: "Electrical Parts", label: "Electrical Parts", icon: <Droplets className="h-4 w-4" /> }
   ];
 
   // Sample partner data
@@ -81,8 +81,9 @@ const Index = () => {
   useEffect(() => {
     const handler = setTimeout(() => {
       if (searchTerm) {
-        const filtered = products.filter(product =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase())
+        const filtered = spareParts.filter(part =>
+          part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase())
         ).slice(0, 4);
         setSuggestedProducts(filtered);
         setShowSuggestions(true);
@@ -98,21 +99,21 @@ const Index = () => {
   }, [searchTerm]);
 
   // Filter products based on active category
-  const filteredProducts = products.filter(
-    product => activeCategory === "All" || product.category === activeCategory
+  const filteredProducts = spareParts.filter(
+    part => activeCategory === "All" || part.category === activeCategory
   );
 
   // Handle adding item to cart from suggestion card
-  const handleAddToCartFromSuggestion = (product: Product) => {
+  const handleAddToCartFromSuggestion = (part: SparePart) => {
     addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      specs: product.specs,
-      category: product.category
+      id: part.id,
+      name: part.name,
+      price: part.price,
+      image: part.image,
+      specs: part.specs,
+      category: part.category
     });
-    toast.success(`${product.name} added to cart!`);
+    toast.success(`${part.name} added to cart!`);
   };
 
   return (
@@ -149,18 +150,18 @@ const Index = () => {
               onCategoryChange={setActiveCategory}
             />
             
-            {/* Featured Products with Masonry Grid */}
-            <section id="featured-products" className="py-20 bg-background">
+            {/* Featured Spare Parts with Masonry Grid */}
+            <section id="featured-parts" className="py-20 bg-background">
               <div className="container mx-auto px-4">
                 <div className="text-center mb-16 animate-fade-in">
                   <span className="inline-block bg-secondary/10 text-secondary px-4 py-2 rounded-full text-sm font-medium mb-4">
-                    Our Equipment
+                    Our Spare Parts
                   </span>
                   <h2 className="text-3xl lg:text-4xl font-bold mb-6 text-foreground">
-                    Premium Agriculture Machinery
+                    Premium Agricultural Spare Parts
                   </h2>
                   <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Discover our curated selection of high-quality farming equipment designed to boost your productivity and efficiency.
+                    Discover our curated selection of high-quality agricultural spare parts designed to keep your equipment running efficiently.
                   </p>
                 </div>
 
@@ -174,7 +175,7 @@ const Index = () => {
                     className="bg-primary hover:bg-primary-hover group"
                   >
                     <Link to="/catalog">
-                      View All Equipment
+                      View All Parts
                       <ShoppingCart className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
@@ -192,22 +193,22 @@ const Index = () => {
           <section className="container mx-auto px-4 py-8">
             {suggestedProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {suggestedProducts.map((product) => (
-                   <Card key={product.id} className="group overflow-hidden hover:shadow-earth transition-all duration-300 hover-scale border-border/50">
-                    <Link to={`/products/${product.id}`} className="block">
+                {suggestedProducts.map((part) => (
+                   <Card key={part.id} className="group overflow-hidden hover:shadow-earth transition-all duration-300 hover-scale border-border/50">
+                    <Link to={`/parts/${part.id}`} className="block">
                       <div className="relative overflow-hidden">
                         <img
-                          src={product.image}
-                          alt={product.name}
+                          src={part.image}
+                          alt={part.name}
                           className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="absolute top-3 left-3 flex gap-2">
-                          {product.featured && (
+                          {part.featured && (
                             <Badge className="bg-primary text-primary-foreground">
                               Featured
                             </Badge>
                           )}
-                          {product.inStock && (
+                          {part.inStock && (
                             <Badge className="bg-success text-success-foreground">
                               In Stock
                             </Badge>
@@ -231,22 +232,27 @@ const Index = () => {
                         </div>
 
                         <h3 className="text-lg font-semibold mb-1 text-card-foreground">
-                          {product.name}
+                          {part.name}
                         </h3>
+                        {part.partNumber && (
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Part #: {part.partNumber}
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                          {product.description}
+                          {part.description}
                         </p>
 
                         <div className="flex items-center gap-2">
                           <span className="text-xl font-bold text-primary">
-                            ${product.price.toLocaleString()}
+                            ${part.price.toLocaleString()}
                           </span>
                         </div>
                       </CardContent>
 
                       <CardFooter className="p-4 pt-0">
                          <Button 
-                          onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(product); }}
+                          onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(part); }}
                           className="w-full bg-primary hover:bg-primary-hover"
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
@@ -260,7 +266,7 @@ const Index = () => {
             ) : ( searchTerm && (
               <div className="text-center py-12">
                 <h3 className="text-lg font-medium text-foreground mb-2">
-                  No products found for "{searchTerm}"
+                  No spare parts found for "{searchTerm}"
                 </h3>
                 <p className="text-muted-foreground">
                   Try a different search term.

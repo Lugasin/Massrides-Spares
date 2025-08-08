@@ -33,8 +33,8 @@ const About = () => {
         <section className="text-center mb-16">
           <h1 className="text-4xl font-bold text-foreground mb-6">About MassRides</h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Empowering African agriculture through innovative technology and sustainable farming solutions. 
-            We're bridging the gap between modern agricultural equipment and local farming communities.
+            Empowering African agriculture through reliable spare parts and technical expertise. 
+            We're bridging the gap between equipment maintenance needs and quality spare parts availability.
           </p>
         </section>
 
@@ -47,9 +47,9 @@ const About = () => {
                 <h2 className="text-2xl font-bold">Our Mission</h2>
               </div>
               <p className="text-muted-foreground">
-                To democratize access to high-quality agricultural equipment across Africa, 
-                enabling farmers to increase productivity, improve crop yields, and build 
-                sustainable livelihoods through technology-driven farming solutions.
+                To democratize access to high-quality agricultural spare parts across Africa, 
+                enabling farmers to maintain their equipment efficiently, reduce downtime, and build 
+                sustainable operations through reliable parts supply and technical support.
               </p>
             </CardContent>
           </Card>
@@ -61,9 +61,9 @@ const About = () => {
                 <h2 className="text-2xl font-bold">Our Vision</h2>
               </div>
               <p className="text-muted-foreground">
-                A future where every farmer in Africa has access to the tools and technology 
-                they need to thrive, creating food security and economic prosperity across 
-                the continent while preserving our environment for future generations.
+                A future where every farmer in Africa has access to the spare parts and technical support 
+                they need to keep their equipment running, creating food security and economic prosperity 
+                across the continent while minimizing equipment downtime.
               </p>
             </CardContent>
           </Card>
@@ -80,8 +80,8 @@ const About = () => {
               <div>
                 <h3 className="text-xl font-semibold mb-2">2020 - The Beginning</h3>
                 <p className="text-muted-foreground">
-                  Founded with a vision to revolutionize agricultural equipment access in Zambia. 
-                  Started with a small team of agricultural engineers and technology enthusiasts.
+                  Founded with a vision to revolutionize agricultural spare parts access in Zambia. 
+                  Started with a small team of parts specialists and agricultural technicians.
                 </p>
               </div>
             </div>
@@ -93,8 +93,8 @@ const About = () => {
               <div>
                 <h3 className="text-xl font-semibold mb-2">2021 - First Partnerships</h3>
                 <p className="text-muted-foreground">
-                  Established partnerships with leading agricultural equipment manufacturers. 
-                  Launched our first digital platform connecting farmers with quality equipment.
+                  Established partnerships with leading spare parts suppliers and OEM manufacturers. 
+                  Launched our first digital platform connecting farmers with quality spare parts.
                 </p>
               </div>
             </div>
@@ -106,8 +106,8 @@ const About = () => {
               <div>
                 <h3 className="text-xl font-semibold mb-2">2023 - Regional Expansion</h3>
                 <p className="text-muted-foreground">
-                  Expanded operations across Southern Africa, serving over 10,000 farmers 
-                  and providing access to modern farming equipment and irrigation systems.
+                  Expanded operations across Southern Africa, serving over 10,000 farmers and mechanics
+                  with access to genuine and aftermarket agricultural spare parts.
                 </p>
               </div>
             </div>
@@ -120,7 +120,7 @@ const About = () => {
                 <h3 className="text-xl font-semibold mb-2">2024 - Digital Innovation</h3>
                 <p className="text-muted-foreground">
                   Launched our comprehensive e-commerce platform with advanced features 
-                  including equipment financing, maintenance support, and farmer training programs.
+                  including parts compatibility checking, technical support, and mechanic training programs.
                 </p>
               </div>
             </div>
@@ -138,8 +138,8 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Agricultural Engineers</h3>
                 <p className="text-muted-foreground">
-                  Expert team with decades of experience in agricultural machinery 
-                  and sustainable farming practices.
+                  Expert team with decades of experience in agricultural equipment 
+                  and spare parts compatibility across all major brands.
                 </p>
               </CardContent>
             </Card>
@@ -152,7 +152,7 @@ const About = () => {
                 <h3 className="text-xl font-semibold mb-2">Technology Specialists</h3>
                 <p className="text-muted-foreground">
                   Innovative developers and designers creating user-friendly platforms 
-                  that make agricultural technology accessible to all.
+                  that make spare parts identification and ordering accessible to all.
                 </p>
               </CardContent>
             </Card>
@@ -164,8 +164,8 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Local Partners</h3>
                 <p className="text-muted-foreground">
-                  Network of local distributors and service providers ensuring 
-                  farmers get the support they need, when they need it.
+                  Network of local parts dealers and mechanics ensuring 
+                  farmers get the spare parts and technical support they need, when they need it.
                 </p>
               </CardContent>
             </Card>
@@ -180,7 +180,7 @@ const About = () => {
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Innovation</h3>
                 <p className="text-sm text-muted-foreground">
-                  Embracing cutting-edge technology to solve agricultural challenges.
+                  Embracing cutting-edge technology to solve spare parts supply challenges.
                 </p>
               </CardContent>
             </Card>
@@ -189,7 +189,7 @@ const About = () => {
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Sustainability</h3>
                 <p className="text-sm text-muted-foreground">
-                  Promoting eco-friendly farming practices for future generations.
+                  Promoting equipment longevity and reducing waste through quality spare parts.
                 </p>
               </CardContent>
             </Card>
@@ -198,7 +198,7 @@ const About = () => {
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Community</h3>
                 <p className="text-sm text-muted-foreground">
-                  Building strong relationships with farming communities across Africa.
+                  Building strong relationships with farming and mechanic communities across Africa.
                 </p>
               </CardContent>
             </Card>
@@ -207,7 +207,7 @@ const About = () => {
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Excellence</h3>
                 <p className="text-sm text-muted-foreground">
-                  Delivering the highest quality equipment and services.
+                  Delivering the highest quality spare parts and technical services.
                 </p>
               </CardContent>
             </Card>
@@ -218,19 +218,19 @@ const About = () => {
         <section className="text-center">
           <Card>
             <CardContent className="p-12">
-              <h2 className="text-2xl font-bold mb-4">Ready to Transform Your Farm?</h2>
+              <h2 className="text-2xl font-bold mb-4">Need Spare Parts for Your Equipment?</h2>
               <p className="text-muted-foreground mb-8">
-                Join thousands of farmers who have already modernized their operations with MassRides.
+                Join thousands of farmers and mechanics who trust MassRides for their spare parts needs.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg">
                   <Link to="/catalog">
-                    Browse Equipment
+                    Browse Parts
                   </Link>
                 </Button>
                 <Button asChild variant="outline" size="lg">
                   <Link to="/contact">
-                    Contact Us
+                    Get Technical Help
                   </Link>
                 </Button>
               </div>

@@ -82,8 +82,8 @@ const Contact = () => {
         <section className="text-center mb-16">
           <h1 className="text-4xl font-bold text-foreground mb-6">Contact Us</h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Have questions about our agricultural equipment or need assistance? 
-            We're here to help you find the perfect solutions for your farming needs.
+            Have questions about our agricultural spare parts or need technical assistance? 
+            We're here to help you find the exact parts you need for your equipment.
           </p>
         </section>
 
@@ -177,8 +177,8 @@ const Contact = () => {
                     <h3 className="font-semibold mb-2">Phone Numbers</h3>
                     <div className="space-y-1 text-muted-foreground">
                       <p>Main Office: +260 211 123 456</p>
-                      <p>Sales Team: +260 977 123 456</p>
-                      <p>Support: +260 966 123 456</p>
+                      <p>Parts Hotline: +260 977 123 456</p>
+                      <p>Technical Support: +260 966 123 456</p>
                     </div>
                   </div>
                 </div>
@@ -193,8 +193,8 @@ const Contact = () => {
                     <h3 className="font-semibold mb-2">Email Addresses</h3>
                     <div className="space-y-1 text-muted-foreground">
                       <p>General: info@massrides.zm</p>
-                      <p>Sales: sales@massrides.zm</p>
-                      <p>Support: support@massrides.zm</p>
+                      <p>Parts: parts@massrides.zm</p>
+                      <p>Technical: technical@massrides.zm</p>
                     </div>
                   </div>
                 </div>
@@ -211,7 +211,7 @@ const Contact = () => {
                       <p>Monday - Friday: 8:00 AM - 6:00 PM</p>
                       <p>Saturday: 9:00 AM - 4:00 PM</p>
                       <p>Sunday: Closed</p>
-                      <p className="text-sm mt-2 text-primary">Emergency support available 24/7</p>
+                      <p className="text-sm mt-2 text-primary">Emergency parts hotline available 24/7</p>
                     </div>
                   </div>
                 </div>
@@ -225,13 +225,13 @@ const Contact = () => {
           <div className="grid md:grid-cols-3 gap-8">
             <Card>
               <CardContent className="p-8 text-center">
-                <h3 className="text-xl font-semibold mb-4">Sales Inquiries</h3>
+                <h3 className="text-xl font-semibold mb-4">Parts Inquiries</h3>
                 <p className="text-muted-foreground mb-6">
-                  Looking for specific equipment or need a custom quote? Our sales team is ready to help.
+                  Looking for specific spare parts or need help with compatibility? Our parts team is ready to help.
                 </p>
                 <Button asChild variant="outline">
                   <Link to="/catalog">
-                    Browse Equipment
+                    Browse Parts
                   </Link>
                 </Button>
               </CardContent>
@@ -241,10 +241,10 @@ const Contact = () => {
               <CardContent className="p-8 text-center">
                 <h3 className="text-xl font-semibold mb-4">Technical Support</h3>
                 <p className="text-muted-foreground mb-6">
-                  Need help with installation, maintenance, or troubleshooting? Our experts are here for you.
+                  Need help with part identification, installation, or compatibility? Our experts are here for you.
                 </p>
                 <Button variant="outline">
-                  Get Support
+                  Get Technical Help
                 </Button>
               </CardContent>
             </Card>
@@ -253,7 +253,7 @@ const Contact = () => {
               <CardContent className="p-8 text-center">
                 <h3 className="text-xl font-semibold mb-4">Partnership</h3>
                 <p className="text-muted-foreground mb-6">
-                  Interested in becoming a dealer or partner? Let's discuss opportunities together.
+                  Interested in becoming a parts dealer or supplier? Let's discuss opportunities together.
                 </p>
                 <Button variant="outline">
                   Partner With Us
@@ -273,7 +273,7 @@ const Contact = () => {
                   <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">Interactive map coming soon</p>
                   <p className="text-sm text-muted-foreground">
-                    Visit us at 123 Agricultural Plaza, Lusaka, Zambia
+                    Visit our parts warehouse at 123 Agricultural Plaza, Lusaka, Zambia
                   </p>
                 </div>
               </div>

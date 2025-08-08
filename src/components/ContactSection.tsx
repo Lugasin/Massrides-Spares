@@ -52,7 +52,7 @@ export const ContactSection = () => {
             Contact Massrides Today
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ready to modernize your farm? Our team is here to help you find the perfect agricultural equipment for your needs.
+            Need spare parts for your equipment? Our team is here to help you find the exact components you need to keep your machinery running.
           </p>
         </div>
 
@@ -97,14 +97,14 @@ export const ContactSection = () => {
                 <div className="flex items-center gap-3 mb-4">
                   <MessageCircle className="h-6 w-6 text-secondary" />
                   <h3 className="font-semibold text-card-foreground">
-                    Need Quick Support?
+                    Need Quick Parts Help?
                   </h3>
                 </div>
                 <p className="text-muted-foreground text-sm mb-4">
-                  For urgent equipment inquiries or technical support, our team is ready to assist you.
+                  Come see our spare parts warehouse and meet our expert team in Lusaka.
                 </p>
                 <Button variant="outline" size="sm" className="border-secondary text-secondary hover:bg-secondary/10">
-                  WhatsApp Support
+                  WhatsApp Parts Help
                 </Button>
               </CardContent>
             </Card>
@@ -119,7 +119,7 @@ export const ContactSection = () => {
                     Send Us a Message
                   </h3>
                   <p className="text-muted-foreground">
-                    Fill out the form below and we'll get back to you within 24 hours.
+                    H763+3HQ, Los Angeles Rd, Lusaka, Zambia - Parts Warehouse
                   </p>
                 </div>
 
@@ -188,7 +188,7 @@ export const ContactSection = () => {
                       Message *
                     </label>
                     <Textarea 
-                      placeholder="Tell us about your farming operation and equipment needs..."
+                      placeholder="Tell us about your equipment and the spare parts you need..."
                       rows={5}
                       className="focus:ring-primary focus:border-primary"
                     />
@@ -201,7 +201,7 @@ export const ContactSection = () => {
                       className="rounded border-input focus:ring-primary"
                     />
                     <label htmlFor="newsletter" className="text-sm text-muted-foreground">
-                      I'd like to receive updates about new equipment and special offers
+                      I'd like to receive updates about new spare parts and special offers
                     </label>
                   </div>
 

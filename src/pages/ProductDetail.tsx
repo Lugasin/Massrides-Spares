@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { products, Product } from "@/data/products"; // Import products and Product interface
+import { spareParts, SparePart } from "@/data/products"; // Import spareParts and SparePart interface
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
@@ -10,35 +10,36 @@ import { ShoppingCart, Star } from "lucide-react";
 import { useQuote } from "@/context/QuoteContext";
 import { toast } from "sonner";
 
-const ProductDetail = () => {
-  const { productId } = useParams<{ productId: string }>();
-  const [product, setProduct] = useState<Product | undefined>(undefined);
+const SparePartDetail = () => {
+  const { productId, partId } = useParams<{ productId?: string; partId?: string }>();
+  const [sparePart, setSparePart] = useState<SparePart | undefined>(undefined);
   const { addItem, itemCount } = useQuote();
 
   useEffect(() => {
-    // Find the product by ID
-    const foundProduct = products.find(p => p.id === Number(productId));
-    setProduct(foundProduct);
-  }, [productId]);
+    // Find the spare part by ID (support both productId and partId for backward compatibility)
+    const id = productId || partId;
+    const foundPart = spareParts.find(p => p.id === Number(id));
+    setSparePart(foundPart);
+  }, [productId, partId]);
 
   const handleAddToCart = () => {
-    if (product) {
+    if (sparePart) {
        addItem({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        image: product.image,
-        specs: product.specs,
-        category: product.category
+        id: sparePart.id,
+        name: sparePart.name,
+        price: sparePart.price,
+        image: sparePart.image,
+        specs: sparePart.specs,
+        category: sparePart.category
       });
-      toast.success(`${product.name} added to cart!`);
+      toast.success(`${sparePart.name} added to cart!`);
     }
   };
 
-  if (!product) {
+  if (!sparePart) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Product not found.</p>
+        <p className="text-muted-foreground">Spare part not found.</p>
       </div>
     );
   }
@@ -49,29 +50,36 @@ const ProductDetail = () => {
       
       <main className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Product Images */}
+          {/* Spare Part Images */}
           <div className="">
             {/* Main Image */}
             <img 
-              src={product.image}
-              alt={product.name}
+              src={sparePart.image}
+              alt={sparePart.name}
               className="w-full h-96 object-cover rounded-lg shadow-lg"
             />
             {/* Thumbnails (Add more images to product data later) */}
             <div className="flex gap-4 mt-4">
               {/* Example thumbnail - replace with actual image map if multiple images */}
                <img 
-                src={product.image}
-                alt={`${product.name} thumbnail`}
+                src={sparePart.image}
+                alt={`${sparePart.name} thumbnail`}
                 className="w-20 h-20 object-cover rounded-md cursor-pointer border-2 border-primary"
               />
               {/* Add more thumbnails here */}
             </div>
           </div>
 
-          {/* Product Details */}
+          {/* Spare Part Details */}
           <div className="">
-            <h1 className="text-3xl font-bold text-foreground mb-3">{product.name}</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-3">{sparePart.name}</h1>
+            
+            {sparePart.partNumber && (
+              <div className="mb-3">
+                <span className="text-sm text-muted-foreground">Part Number: </span>
+                <span className="font-mono text-sm font-medium">{sparePart.partNumber}</span>
+              </div>
+            )}
             
              {/* Rating */}
                 <div className="flex items-center gap-2 mb-3">
@@ -89,15 +97,20 @@ const ProductDetail = () => {
                 </div>
 
             {/* Description */}
-            <p className="text-lg text-muted-foreground mb-6">{product.description}</p>
+            <p className="text-lg text-muted-foreground mb-6">{sparePart.description}</p>
 
              {/* Price */}
             <div className="flex items-center gap-4 mb-6">
-              <span className="text-4xl font-bold text-primary">${product.price.toLocaleString()}</span>
-              {product.inStock ? (
+              <span className="text-4xl font-bold text-primary">${sparePart.price.toLocaleString()}</span>
+              {sparePart.inStock ? (
                  <Badge className="bg-success text-success-foreground">In Stock</Badge>
               ) : (
                  <Badge variant="destructive">Out of Stock</Badge>
+              )}
+              {sparePart.warranty && (
+                <Badge variant="outline">
+                  {sparePart.warranty} Warranty
+                </Badge>
               )}
             </div>
 
@@ -106,7 +119,7 @@ const ProductDetail = () => {
               size="lg" 
               className="w-full bg-primary hover:bg-primary-hover mb-6"
               onClick={handleAddToCart}
-              disabled={!product.inStock}
+              disabled={!sparePart.inStock}
             >
               <ShoppingCart className="h-5 w-5 mr-2" />
               Add to Cart
@@ -116,7 +129,7 @@ const ProductDetail = () => {
             <div className="mb-6">
               <h3 className="text-xl font-semibold text-foreground mb-3">Specifications</h3>
               <ul className="list-disc list-inside text-muted-foreground space-y-2">
-                {product.specs.map((spec, index) => (
+                {sparePart.specs.map((spec, index) => (
                   <li key={index}>{spec}</li>
                 ))}
               </ul>
@@ -125,31 +138,44 @@ const ProductDetail = () => {
             {/* Compatibility */}
             <div className="mb-6">
                <h3 className="text-xl font-semibold text-foreground mb-3">Compatibility</h3>
-               <p className="text-muted-foreground">
-                 {/* Placeholder: Add actual compatibility data here */}
-                 This equipment is compatible with standard tractor models (e.g., John Deere 7000 series, Case IH Puma).
-               </p>
+               {sparePart.compatibility && sparePart.compatibility.length > 0 ? (
+                 <div className="flex flex-wrap gap-2">
+                   {sparePart.compatibility.map((model, index) => (
+                     <Badge key={index} variant="outline">
+                       {model}
+                     </Badge>
+                   ))}
+                 </div>
+               ) : (
+                 <p className="text-muted-foreground">
+                   Contact our technical team for compatibility information.
+                 </p>
+               )}
             </div>
 
             {/* Warranty */}
             <div className="mb-6">
                <h3 className="text-xl font-semibold text-foreground mb-3">Warranty</h3>
                <p className="text-muted-foreground">
-                 {/* Placeholder: Add actual warranty data here */}
-                 Includes a 2-year manufacturer's warranty covering parts and labor. Extended warranty options available.
+                 {sparePart.warranty || "12 months"} manufacturer's warranty covering defects and performance. Extended warranty options available.
                </p>
             </div>
 
-            {/* Financing Options */}
+            {/* Installation Support */}
             <div className="mb-6">
-               <h3 className="text-xl font-semibold text-foreground mb-3">Financing Options</h3>
-               <p className="text-muted-foreground"> {/* Placeholder: Add actual financing info or link here */} Learn about our flexible financing options starting at 4.9% APR. <a href="/financing" className="text-primary hover:underline">View details</a>.</p>
+               <h3 className="text-xl font-semibold text-foreground mb-3">Installation Support</h3>
+               <p className="text-muted-foreground">
+                 Professional installation services available. Our certified technicians can help with complex installations. 
+                 <a href="/installation" className="text-primary hover:underline">Learn more</a>.
+               </p>
             </div>
 
-            {/* More Details/Vendor Info (Placeholder) */}
+            {/* Technical Details */}
             <div>
-               <h3 className="text-xl font-semibold text-foreground mb-3">More Details</h3>
-               <p className="text-muted-foreground">[Detailed information or vendor specific details can go here]</p>
+               <h3 className="text-xl font-semibold text-foreground mb-3">Technical Details</h3>
+               <p className="text-muted-foreground">
+                 Need technical specifications or installation guidance? Contact our parts specialists for detailed information.
+               </p>
             </div>
 
           </div>
@@ -163,4 +189,4 @@ const ProductDetail = () => {
   );
 };
 
-export default ProductDetail;
+export default SparePartDetail;

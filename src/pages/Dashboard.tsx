@@ -14,17 +14,17 @@ import {
 
 // Demo data for charts and recent activity
 const recentOrders = [
-  { id: "ORD-001", customer: "Green Valley Farm", amount: "$85,000", status: "completed", equipment: "John Deere Tractor" },
-  { id: "ORD-002", customer: "Sunrise Agriculture", amount: "$45,000", status: "processing", equipment: "Seed Planter" },
-  { id: "ORD-003", customer: "Valley Farms Ltd", amount: "$125,000", status: "pending", equipment: "Irrigation System" },
-  { id: "ORD-004", customer: "Modern Farming Co", amount: "$32,000", status: "completed", equipment: "Tractor Parts" }
+  { id: "ORD-001", customer: "Green Valley Farm", amount: "$850", status: "completed", equipment: "Engine Oil Filter" },
+  { id: "ORD-002", customer: "Sunrise Agriculture", amount: "$450", status: "processing", equipment: "Hydraulic Pump" },
+  { id: "ORD-003", customer: "Valley Farms Ltd", amount: "$1,250", status: "pending", equipment: "Fuel Injection Pump" },
+  { id: "ORD-004", customer: "Modern Farming Co", amount: "$320", status: "completed", equipment: "Brake Pads Set" }
 ];
 
-const topProducts = [
-  { name: "John Deere 6M Series", sales: 45, revenue: "$3.8M" },
-  { name: "Precision Planter Pro", sales: 32, revenue: "$1.4M" },
-  { name: "Smart Irrigation System", sales: 28, revenue: "$3.5M" },
-  { name: "Heavy Duty Cultivator", sales: 21, revenue: "$840K" }
+const topSpareParts = [
+  { name: "Engine Oil Filters", sales: 145, revenue: "$6.5K" },
+  { name: "Hydraulic Hoses", sales: 132, revenue: "$8.9K" },
+  { name: "Brake Pads", sales: 98, revenue: "$4.2K" },
+  { name: "Fuel Pumps", sales: 67, revenue: "$12.1K" }
 ];
 
 const Dashboard = () => {
@@ -51,7 +51,7 @@ const Dashboard = () => {
           <CardContent>
             <div className="flex flex-wrap gap-3">
               <Button className="bg-primary hover:bg-primary-hover">
-                Add New Product
+                Add New Part
               </Button>
               <Button variant="outline">
                 Process Orders
@@ -60,7 +60,7 @@ const Dashboard = () => {
                 Generate Report
               </Button>
               <Button variant="outline">
-                Contact Vendors
+                Contact Suppliers
               </Button>
             </div>
           </CardContent>
@@ -101,27 +101,27 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Top Products */}
+          {/* Top Spare Parts */}
           <Card className="border-border/50">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-foreground">Top Selling Products</CardTitle>
+              <CardTitle className="text-foreground">Top Selling Parts</CardTitle>
               <TrendingUp className="h-5 w-5 text-success" />
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topProducts.map((product, index) => (
-                  <div key={product.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                {topSpareParts.map((part, index) => (
+                  <div key={part.name} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-sm">
                         {index + 1}
                       </div>
                       <div>
-                        <p className="font-medium text-foreground">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">{product.sales} units sold</p>
+                        <p className="font-medium text-foreground">{part.name}</p>
+                        <p className="text-sm text-muted-foreground">{part.sales} units sold</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-success">{product.revenue}</p>
+                      <p className="font-bold text-success">{part.revenue}</p>
                     </div>
                   </div>
                 ))}
@@ -143,7 +143,7 @@ const Dashboard = () => {
                   Interactive Chart Placeholder
                 </p>
                 <p className="text-muted-foreground">
-                  Sales performance over the last 12 months
+                  Spare parts sales performance over the last 12 months
                 </p>
               </div>
             </div>

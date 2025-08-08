@@ -60,13 +60,13 @@ export const ParallaxHero = () => {
         <div className="max-w-4xl">
           <h1 className="text-5xl lg:text-7xl font-bold mb-6 animate-fade-in">
             Revolutionary{' '}
-            <span className="bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
-              Agri-Equipment
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              Spare Parts
             </span>
           </h1>
           
           <p className="text-xl lg:text-2xl mb-8 opacity-90 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            Transform your farming with cutting-edge machinery and smart technology
+            Keep your agricultural equipment running with genuine and aftermarket spare parts
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
@@ -75,17 +75,17 @@ export const ParallaxHero = () => {
               onClick={() => navigate('/catalog')}
               className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
             >
-              Browse Catalog
+              Browse Parts
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
             
             <Button 
               size="lg" 
               variant="outline"
-              onClick={() => document.getElementById('featured-products')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => document.getElementById('featured-parts')?.scrollIntoView({ behavior: 'smooth' })}
               className="border-white/50 text-white hover:bg-white/10 backdrop-blur-sm"
             >
-              Explore Features
+              Find My Parts
             </Button>
           </div>
         </div>

@@ -26,7 +26,7 @@ const CheckoutCancel = () => {
                 Payment Cancelled
               </h1>
               <p className="text-muted-foreground mb-8">
-                Your payment was cancelled. Your items are still in your cart and you can try again.
+                Your payment was cancelled. Your spare parts are still in your cart and you can try again.
               </p>
               
               {merchantRef && (

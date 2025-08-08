@@ -16,21 +16,24 @@ const Catalog = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("name");
-  const [selectedBrand, setSelectedBrand] = useState("All"); // New state for brand filter
+  const [selectedBrand, setSelectedBrand] = useState("All");
   const [minPrice, setMinPrice] = useState(""); // New state for min price
   const [maxPrice, setMaxPrice] = useState(""); // New state for max price
+  const [partNumberSearch, setPartNumberSearch] = useState(""); // New state for part number search
   const { addItem, itemCount } = useQuote();
 
-  // Extract unique brands from products for the brand filter
-  const brands = ["All", ...Array.from(new Set(products.map(product => product.brand))).sort()];
+  // Extract unique brands from spare parts for the brand filter
+  const brands = ["All", ...Array.from(new Set(spareParts.map(part => part.brand))).sort()];
 
-  const filteredProducts = products
-    .filter(product => 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (selectedCategory === "All" || product.category === selectedCategory)
-      && (selectedBrand === "All" || product.brand === selectedBrand) // Filter by brand
-      && (minPrice === "" || product.price >= parseFloat(minPrice)) // Filter by min price
-      && (maxPrice === "" || product.price <= parseFloat(maxPrice)) // Filter by max price
+  const filteredProducts = spareParts
+    .filter(part => 
+      (part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       part.partNumber?.toLowerCase().includes(partNumberSearch.toLowerCase())) &&
+      (selectedCategory === "All" || part.category === selectedCategory) &&
+      (selectedBrand === "All" || part.brand === selectedBrand) &&
+      (minPrice === "" || part.price >= parseFloat(minPrice)) &&
+      (maxPrice === "" || part.price <= parseFloat(maxPrice))
     )
     .sort((a, b) => {
       switch (sortBy) {
@@ -67,24 +70,31 @@ const Catalog = () => {
         {/* Page Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-4">
-            Agriculture Equipment Catalog
+            Agricultural Spare Parts Catalog
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Discover our comprehensive range of farm machinery and equipment designed to enhance your agricultural operations.
+            Discover our comprehensive range of agricultural spare parts designed to keep your farming equipment running at peak performance.
           </p>
         </div>
 
-        {/* Filters - Made Sticky and Centered */}
-        <div className="sticky top-16 z-10 mb-8 p-6 bg-card rounded-lg border shadow-sm w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+        {/* Enhanced Filters for Spare Parts */}
+        <div className="sticky top-16 z-10 mb-8 p-6 bg-card rounded-lg border shadow-sm w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-center">
           <div className="relative col-span-full md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search equipment..."
+              placeholder="Search parts or part numbers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full"
             />
           </div>
+          
+          <Input
+            placeholder="Part Number"
+            value={partNumberSearch}
+            onChange={(e) => setPartNumberSearch(e.target.value)}
+            className="w-full"
+          />
           
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-full">
@@ -112,27 +122,27 @@ const Catalog = () => {
           </Select>
 
           <div className="flex items-center text-sm text-muted-foreground col-span-full md:col-span-4 justify-center md:justify-start">
-            Showing {filteredProducts.length} of {products.length} products
+            Showing {filteredProducts.length} of {spareParts.length} spare parts
           </div>
         </div>
 
-        {/* Product Grid */}
+        {/* Spare Parts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <Card key={product.id} className="group hover-scale overflow-hidden">
+          {filteredProducts.map((part) => (
+            <Card key={part.id} className="group hover-scale overflow-hidden">
               <div className="relative overflow-hidden">
                 <img
-                  src={product.image}
-                  alt={product.name}
+                  src={part.image}
+                  alt={part.name}
                   className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
                 />
-                {product.featured && (
+                {part.featured && (
                   <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
                     Featured
                   </Badge>
                 )}
-                {!product.inStock && (
+                {!part.inStock && (
                   <Badge className="absolute top-2 right-2 bg-destructive text-destructive-foreground">
                     Out of Stock
                   </Badge>
@@ -141,34 +151,40 @@ const Catalog = () => {
               
               <CardContent className="p-4">
                 <h3 className="font-semibold text-card-foreground mb-2 line-clamp-2">
-                  {product.name}
+                  {part.name}
                 </h3>
                 
+                {part.partNumber && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Part #: {part.partNumber}
+                  </p>
+                )}
+                
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                  {product.description}
+                  {part.description}
                 </p>
                 
                 <div className="flex flex-wrap gap-1 mb-3">
-                  {product.specs.slice(0, 2).map((spec) => (
+                  {part.specs.slice(0, 2).map((spec) => (
                     <Badge key={spec} variant="outline" className="text-xs">
                       {spec}
                     </Badge>
                   ))}
-                  {product.specs.length > 2 && (
+                  {part.specs.length > 2 && (
                     <Badge variant="outline" className="text-xs">
-                      +{product.specs.length - 2} more
+                      +{part.specs.length - 2} more
                     </Badge>
                   )}
                 </div>
                 
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-primary">
-                    ${product.price.toLocaleString()}
+                    ${part.price.toLocaleString()}
                   </span>
                   
                   <Button
-                    onClick={() => handleAddToCart(product)}
-                    disabled={!product.inStock}
+                    onClick={() => handleAddToCart(part)}
+                    disabled={!part.inStock}
                     size="sm"
                     className="hover-glow"
                   >
@@ -184,7 +200,7 @@ const Catalog = () => {
         {filteredProducts.length === 0 && (
           <div className="text-center py-12">
             <h3 className="text-lg font-medium text-foreground mb-2">
-              No products found
+              No spare parts found
             </h3>
             <p className="text-muted-foreground">
               Try adjusting your search criteria or browse all categories.

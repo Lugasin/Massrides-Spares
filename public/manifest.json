@@ -1,7 +1,7 @@
 {
-  "name": "Massrides Agriculture E-Commerce",
+  "name": "Massrides Agricultural Spare Parts",
   "short_name": "Massrides",
-  "description": "Leading agriculture equipment supplier in Zambia - Tractors, Planters, Irrigation Systems",
+  "description": "Leading agricultural spare parts supplier in Zambia - Engine Parts, Hydraulic Components, Electrical Parts",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fefefe",
@@ -38,15 +38,15 @@
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Massrides Agriculture Equipment Catalog"
+      "label": "Massrides Agricultural Spare Parts Catalog"
     }
   ],
   "shortcuts": [
     {
-      "name": "Browse Tractors",
-      "short_name": "Tractors",
-      "description": "View our selection of tractors",
-      "url": "/#tractors",
+      "name": "Browse Engine Parts",
+      "short_name": "Engine Parts",
+      "description": "View our selection of engine parts",
+      "url": "/#engine-parts",
       "icons": [
         {
           "src": "/favicon.ico",

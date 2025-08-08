@@ -98,7 +98,7 @@ export default function Login() {
           <div className="text-white text-center">
             <h1 className="text-2xl lg:text-4xl font-bold mb-2 lg:mb-4">Welcome Back</h1>
             <p className="text-sm lg:text-xl opacity-90">
-              Access your agriculture equipment portal
+              Access your agricultural spare parts portal
             </p>
           </div>
         </div>

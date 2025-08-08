@@ -22,7 +22,7 @@ import CheckoutCancel from "./pages/CheckoutCancel";
 import AdminProfile from "./pages/AdminProfile";
 import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
-import UsedEquipment from "./pages/UsedEquipment"; // Import UsedEquipment
+import UsedSpareParts from "./pages/UsedEquipment"; // Import UsedSpareParts (keeping file name for now)
 
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
 import UserManagement from './pages/UserManagement'; // Import UserManagement page
@@ -76,8 +76,10 @@ const AppContent = () => {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/products/:productId" element={<ProductDetail />} />
-          {/* Route for Used Equipment */}
-          <Route path="/used-equipment" element={<UsedEquipment />} />
+          <Route path="/parts/:partId" element={<ProductDetail />} />
+          {/* Route for Used Spare Parts */}
+          <Route path="/used-parts" element={<UsedSpareParts />} />
+          <Route path="/used-equipment" element={<UsedSpareParts />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
 

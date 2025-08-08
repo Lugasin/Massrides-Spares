@@ -83,11 +83,11 @@ export const Header = ({
             {/* Use Link for logo to navigate to home */}
             <Link to="/" className="flex items-center gap-2">
               <div className="flex items-center bg-primary text-primary-foreground p-1.5 lg:p-2 rounded-lg">
-                <span className="font-bold text-sm lg:text-xl">AGRI</span>
+                <span className="font-bold text-sm lg:text-xl">PARTS</span>
               </div>
               <div className="hidden sm:flex flex-col">
                 <span className="font-bold text-sm lg:text-lg text-foreground">MASSRIDES</span>
-                <span className="text-xs text-muted-foreground hidden lg:block">COMPANY LIMITED</span>
+                <span className="text-xs text-muted-foreground hidden lg:block">SPARE PARTS</span>
               </div>
               <Leaf className="h-4 w-4 lg:h-5 lg:w-5 text-secondary-foreground animate-pulse" />
             </Link>
@@ -118,7 +118,7 @@ export const Header = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Search spare parts..."
                   className="pl-10 pr-3 py-2 rounded-md w-48 xl:w-64"
                   value={searchTerm}
                   onChange={handleInputChange}
@@ -145,7 +145,7 @@ export const Header = ({
                 className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hidden lg:flex animate-pulse"
                 onClick={handleShopNowClick}
               >
-                Shop Now
+                Shop Parts
               </Button>
             )}
 
@@ -233,7 +233,7 @@ export const Header = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Search spare parts..."
                   className="pl-10 pr-3 py-2 rounded-md h-10"
                   value={searchTerm}
                   onChange={handleInputChange}
