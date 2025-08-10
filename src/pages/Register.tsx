@@ -72,15 +72,49 @@ export default function Register() {
     setIsLoading(true);
 
     if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
       setIsLoading(false);
       return;
     }
 
     if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
       setIsLoading(false);
       return;
     }
 
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            phone: formData.phone,
+            company_name: formData.companyName
+          },
+          emailRedirectTo: `${window.location.origin}/verify-email`
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.user && !data.user.email_confirmed_at) {
+        toast.success('Registration successful! Please check your email to verify your account.');
+        navigate('/login?message=check-email');
+      } else {
+        toast.success('Registration successful! You can now sign in.');
+        navigate('/login?registration=success');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast.error(`Registration failed: ${error.message}`);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleSignUp = async () => {
     const { error } = await signUp(formData.email, formData.password, {
       full_name: formData.fullName,
       phone: formData.phone,
@@ -91,10 +125,8 @@ export default function Register() {
     if (error) {
       console.error("Registration error:", error);
     } else {
-      navigate('/login?registration=success');
+      navigate('/verify-email?message=check-email');
     }
-    
-    setIsLoading(false);
   };
 
   return (

@@ -15,11 +15,11 @@ import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
 import { useQuote } from "@/context/QuoteContext";
 import { useNavigate, Link } from "react-router-dom";
-import { products as spareParts, Product } from "@/data/products";
+import { sparePartsData, SparePart, getFeaturedParts } from "@/data/sparePartsData";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Star, Tractor, Wrench, Droplets, Wheat } from "lucide-react";
+import { ShoppingCart, Star, Package, Wrench, Zap, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -27,7 +27,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
+  const [suggestedProducts, setSuggestedProducts] = useState<SparePart[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const { itemCount, addItem } = useQuote();
 
@@ -37,10 +37,11 @@ const Index = () => {
 
   // Enhanced categories with icons
   const categories = [
-    { id: "All", label: "All Parts", icon: <Wheat className="h-4 w-4" /> },
-    { id: "Engine Parts", label: "Engine Parts", icon: <Tractor className="h-4 w-4" /> },
+    { id: "All", label: "All Parts", icon: <Package className="h-4 w-4" /> },
+    { id: "Engine Parts", label: "Engine Parts", icon: <Package className="h-4 w-4" /> },
     { id: "Hydraulic Parts", label: "Hydraulic Parts", icon: <Wrench className="h-4 w-4" /> },
-    { id: "Electrical Parts", label: "Electrical Parts", icon: <Droplets className="h-4 w-4" /> }
+    { id: "Electrical Parts", label: "Electrical Parts", icon: <Zap className="h-4 w-4" /> },
+    { id: "Transmission Parts", label: "Transmission Parts", icon: <Settings className="h-4 w-4" /> }
   ];
 
   // Sample partner data
@@ -81,7 +82,7 @@ const Index = () => {
   useEffect(() => {
     const handler = setTimeout(() => {
       if (searchTerm) {
-        const filtered = spareParts.filter(part =>
+        const filtered = sparePartsData.filter(part =>
           part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase())
         ).slice(0, 4);
@@ -99,18 +100,18 @@ const Index = () => {
   }, [searchTerm]);
 
   // Filter products based on active category
-  const filteredProducts = spareParts.filter(
+  const filteredProducts = getFeaturedParts().filter(
     part => activeCategory === "All" || part.category === activeCategory
   );
 
   // Handle adding item to cart from suggestion card
   const handleAddToCartFromSuggestion = (part: SparePart) => {
     addItem({
-      id: part.id,
+      id: parseInt(part.id),
       name: part.name,
       price: part.price,
-      image: part.image,
-      specs: part.specs,
+      image: part.images[0] || '',
+      specs: part.tags,
       category: part.category
     });
     toast.success(`${part.name} added to cart!`);
@@ -155,17 +156,41 @@ const Index = () => {
               <div className="container mx-auto px-4">
                 <div className="text-center mb-16 animate-fade-in">
                   <span className="inline-block bg-secondary/10 text-secondary px-4 py-2 rounded-full text-sm font-medium mb-4">
-                    Our Spare Parts
+                    Featured Spare Parts
                   </span>
                   <h2 className="text-3xl lg:text-4xl font-bold mb-6 text-foreground">
                     Premium Agricultural Spare Parts
                   </h2>
                   <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Discover our curated selection of high-quality agricultural spare parts designed to keep your equipment running efficiently.
+                    Discover our curated selection of genuine and aftermarket spare parts for all your agricultural equipment.
                   </p>
                 </div>
 
-                <MasonryProductGrid products={filteredProducts} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredProducts.slice(0, 8).map((part) => (
+                    <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300">
+                      <Link to={`/parts/${part.id}`} className="block">
+                        <div className="relative overflow-hidden">
+                          <img
+                            src={part.images[0] || '/api/placeholder/300/200'}
+                            alt={part.name}
+                            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                          {part.featured && (
+                            <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
+                              Featured
+                            </Badge>
+                          )}
+                        </div>
+                        <CardContent className="p-4">
+                          <h3 className="font-semibold mb-2 line-clamp-2">{part.name}</h3>
+                          <p className="text-sm text-muted-foreground mb-2">Part #: {part.partNumber}</p>
+                          <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>
+                        </CardContent>
+                      </Link>
+                    </Card>
+                  ))}
+                </div>
                 
                 {/* View All CTA */}
                 <div className="text-center mt-12">
@@ -198,7 +223,7 @@ const Index = () => {
                     <Link to={`/parts/${part.id}`} className="block">
                       <div className="relative overflow-hidden">
                         <img
-                          src={part.image}
+                          src={part.images[0] || '/api/placeholder/300/200'}
                           alt={part.name}
                           className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                         />
@@ -208,7 +233,7 @@ const Index = () => {
                               Featured
                             </Badge>
                           )}
-                          {part.inStock && (
+                          {part.availabilityStatus === 'in_stock' && (
                             <Badge className="bg-success text-success-foreground">
                               In Stock
                             </Badge>
@@ -253,10 +278,11 @@ const Index = () => {
                       <CardFooter className="p-4 pt-0">
                          <Button 
                           onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(part); }}
+                          disabled={part.availabilityStatus !== 'in_stock'}
                           className="w-full bg-primary hover:bg-primary-hover"
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
-                          Add to Cart
+                          {part.availabilityStatus === 'in_stock' ? 'Add to Cart' : 'Out of Stock'}
                         </Button>
                       </CardFooter>
                     </Link>

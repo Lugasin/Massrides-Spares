@@ -9,11 +9,11 @@ import { AuthProvider } from "@/context/AuthContext"; // Import AuthProvider
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Catalog from "./pages/Catalog";
+import SparePartsCatalog from "./pages/SparePartsCatalog";
 import Cart from "./pages/Cart"; // Make sure Cart is imported
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
-import ProductDetail from "./pages/ProductDetail"; // Import ProductDetail page
+import SparePartDetail from "./pages/SparePartDetail"; // Import SparePartDetail page
 import Profile from "./pages/Profile"; // Import Profile page
 import Products from "./pages/Products"; // Import Products page
 import AddProduct from "./pages/AddProduct"; // Import AddProduct page
@@ -22,7 +22,8 @@ import CheckoutCancel from "./pages/CheckoutCancel";
 import AdminProfile from "./pages/AdminProfile";
 import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
-import UsedSpareParts from "./pages/UsedEquipment"; // Import UsedSpareParts (keeping file name for now)
+import VerifyEmail from "./pages/VerifyEmail"; // Import VerifyEmail page
+import MessagingSystem from "./components/MessagingSystem"; // Import MessagingSystem
 
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
 import UserManagement from './pages/UserManagement'; // Import UserManagement page
@@ -59,7 +60,7 @@ const AppContent = () => {
         <BackToTop />
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/catalog" element={<Catalog />} />
+          <Route path="/catalog" element={<SparePartsCatalog />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
@@ -75,11 +76,8 @@ const AppContent = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/products/:productId" element={<ProductDetail />} />
-          <Route path="/parts/:partId" element={<ProductDetail />} />
-          {/* Route for Used Spare Parts */}
-          <Route path="/used-parts" element={<UsedSpareParts />} />
-          <Route path="/used-equipment" element={<UsedSpareParts />} />
+          <Route path="/parts/:partId" element={<SparePartDetail />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
 
@@ -87,7 +85,7 @@ const AppContent = () => {
           <Route path="/orders" element={<div>Coming Soon: Orders History</div>} />
           <Route path="/wishlist" element={<div>Coming Soon: Wishlist</div>} />
           <Route path="/analytics" element={<div>Coming Soon: Analytics</div>} />
- <Route path="/messages" element={<div>Coming Soon: Messages</div>} />
+          <Route path="/messages" element={<ProtectedRoute element={<MessagingSystem />} />} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 
           {/* Protected Profile Route */}

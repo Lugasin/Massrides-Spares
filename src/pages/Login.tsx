@@ -119,6 +119,16 @@ export default function Login() {
                 <CheckCircle2 className="h-5 w-5" /> Registration successful! Please check your email for confirmation.
               </div>
             )}
+            {location.search.includes('message=check-email') && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-center flex items-center justify-center gap-2 text-sm">
+                <Mail className="h-5 w-5" /> Please check your email and click the verification link to activate your account.
+              </div>
+            )}
+            {location.search.includes('verified=true') && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-center flex items-center justify-center gap-2 text-sm">
+                <CheckCircle2 className="h-5 w-5" /> Email verified successfully! You can now sign in.
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2 text-sm">

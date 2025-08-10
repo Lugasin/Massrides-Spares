@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input"; // Import Input
+import RealTimeNotifications from "@/components/RealTimeNotifications";
 import { 
   ShoppingCart, 
   User, 
@@ -13,7 +13,9 @@ import {
   Mail,
   Leaf,
   LogOut,
-  LayoutDashboard
+  LayoutDashboard,
+  Bell,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils"; // Utility for conditional classnames
 import { useAuth } from '@/context/AuthContext'; // Import useAuth
@@ -33,6 +35,7 @@ export const Header = ({
   onSearchChange
 }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { user, userRole, signOut } = useAuth(); // Get user, userRole, and signOut from useAuth context
   const navigate = useNavigate();
   const location = useLocation(); // Initialize useLocation
@@ -45,7 +48,7 @@ export const Header = ({
     { label: "Home", href: "/" },
     { label: "About Us", href: "/about" },
     { label: "Catalog", href: "/catalog" },
- { label: "Used Equipment", href: "/used-equipment" },
+    { label: "Spare Parts", href: "/catalog" },
     ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
     { label: "Contact", href: "/contact" }
   ];
@@ -127,6 +130,33 @@ export const Header = ({
             )}
 
             {/* Cart with badge */}
+            {/* Notifications */}
+            {user && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="relative"
+                onClick={() => setIsNotificationsOpen(true)}
+              >
+                <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
+                  3
+                </Badge>
+              </Button>
+            )}
+
+            {/* Messages */}
+            {user && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="relative"
+                onClick={() => navigate('/messages')}
+              >
+                <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
+              </Button>
+            )}
+
             <Link to="/cart">
               <Button variant="ghost" size="sm" className="relative">
                 <ShoppingCart className="h-4 w-4 lg:h-5 lg:w-5" />
@@ -176,6 +206,10 @@ export const Header = ({
                       <span>Product Management</span>
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onClick={() => navigate('/messages')}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    <span>Messages</span>
+                  </DropdownMenuItem>
                   {(userRole === 'admin' || userRole === 'super_admin') && (
                      <DropdownMenuItem onClick={() => navigate('/dashboard/users')}>
                        <span>User Management</span>
@@ -265,6 +299,7 @@ export const Header = ({
                      {(userRole === 'vendor' || userRole === 'admin') && (
                        <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Product Management</Link>
                      )}
+                     <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Messages</Link>
                      {(userRole === 'admin' || userRole === 'super_admin') && (
                        <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">User Management</Link>
                      )}
@@ -305,6 +340,12 @@ export const Header = ({
           </nav>
         </div>
       </div>
+      
+      {/* Real-time Notifications */}
+      <RealTimeNotifications 
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
     </header>
   );
 };
