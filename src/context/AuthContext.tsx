@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/integrations/supabase/client'
+import { supabase } from '@/lib/supabaseClient'
 import { mergeGuestCart } from '@/lib/supabase'
 import { toast } from 'sonner'
 
@@ -172,7 +172,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             full_name: userData.full_name,
             phone: userData.phone,
             company_name: userData.company_name
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/verify-email`
         }
       })
       
@@ -182,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data.user && !data.user.email_confirmed_at) {
-        toast.success('Registration successful! Please check your email to confirm your account.')
+        toast.success('Registration successful! Please check your email to verify your account.')
       } else if (data.user) {
         toast.success('Registration successful! You can now sign in.')
       }

@@ -1,36 +1,8 @@
-import { supabase } from '@/integrations/supabase/client'
+import { supabase } from '@/lib/supabaseClient'
 import { v4 as uuidv4 } from 'uuid'
 
-export interface SparePart {
-  id: string
-  name: string
-  description?: string
-  price: number
-  category_id?: string
-  vendor_id?: string
-  brand?: string
-  model?: string
-  part_number?: string
-  oem_part_number?: string
-  aftermarket_part_number?: string
-  weight_kg?: number
-  dimensions_cm?: string
-  material?: string
-  warranty_months?: number
-  condition: string
-  availability_status: string
-  featured: boolean
-  images?: string[]
-  technical_specs?: any
-  installation_notes?: string
-  stock_quantity?: number
-  location_in_warehouse?: string
-  created_at: string
-  updated_at: string
-}
-
-// Keep Product as alias for backward compatibility
-export type Product = SparePart;
+// Import types from the new data structure
+export type { SparePart } from '@/data/sparePartsData';
 
 export interface Category {
   id: string
@@ -72,31 +44,58 @@ export const getOrCreateSessionId = (): string => {
 }
 
 // Cart management
-export const addToCart = async (productId: string, quantity: number = 1) => {
+export const addToCart = async (sparePartId: string, quantity: number = 1) => {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    // User is logged in - use user cart
-    const token = (await supabase.auth.getSession())?.data.session?.access_token;
-    if (!token) return { error: 'Authentication token not found' };
+    // Get user profile
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
 
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart/items`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ product_id: productId, quantity }),
-    });
+    if (!profile) return { error: 'User profile not found' };
 
-    const data = await response.json();
+    // Get or create user cart
+    let { data: cart } = await supabase
+      .from('user_carts')
+      .select('id')
+      .eq('user_id', profile.id)
+      .single();
 
-    if (!response.ok) {
-      console.error('Error adding item via Edge Function:', data);
-      return { error: data.error || 'Failed to add item to cart' };
+    if (!cart) {
+      const { data: newCart, error } = await supabase
+        .from('user_carts')
+        .insert({ user_id: profile.id })
+        .select('id')
+        .single();
+      if (error) return { error };
+      cart = newCart;
     }
 
-    return { data };
+    // Check if item exists
+    const { data: existingItem } = await supabase
+      .from('cart_items')
+      .select('id, quantity')
+      .eq('cart_id', cart.id)
+      .eq('spare_part_id', sparePartId)
+      .single();
+
+    if (existingItem) {
+      return await supabase
+        .from('cart_items')
+        .update({ quantity: existingItem.quantity + quantity })
+        .eq('id', existingItem.id);
+    } else {
+      return await supabase
+        .from('cart_items')
+        .insert({ 
+          cart_id: cart.id, 
+          spare_part_id: sparePartId, 
+          quantity 
+        });
+    }
 
   } else {
     // Guest user - use guest cart
@@ -142,7 +141,7 @@ export const addToCart = async (productId: string, quantity: number = 1) => {
       .from('guest_cart_items')
       .select('id, quantity')
       .eq('guest_cart_id', guestCart.id)
-      .eq('product_id', productId)
+      .eq('spare_part_id', sparePartId)
       .single()
 
     if (existingItem) {
@@ -153,7 +152,7 @@ export const addToCart = async (productId: string, quantity: number = 1) => {
     } else {
       return await supabase
         .from('guest_cart_items')
-        .insert({ guest_cart_id: guestCart.id, product_id: productId, quantity })
+        .insert({ guest_cart_id: guestCart.id, spare_part_id: sparePartId, quantity })
     }
   }
 }
@@ -162,25 +161,37 @@ export const getCartItems = async (): Promise<CartItem[]> => {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    // User is logged in - get user cart
-    const token = (await supabase.auth.getSession())?.data.session?.access_token;
-    if (!token) {
-       console.error('Authentication token not found for getCartItems');
-       return [];
-    }
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
 
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_EDGE_FUNCTIONS_URL}/cart`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+    if (!profile) return [];
 
-    if (!response.ok) {
-      console.error('Error fetching cart via Edge Function:', response.status, response.statusText);
-      return [];
-    }
-    return await response.json();
+    const { data: cart } = await supabase
+      .from('user_carts')
+      .select('id')
+      .eq('user_id', profile.id)
+      .single();
+
+    if (!cart) return [];
+
+    const { data: items } = await supabase
+      .from('cart_items')
+      .select(`
+        id,
+        quantity,
+        spare_part:spare_parts(*)
+      `)
+      .eq('cart_id', cart.id);
+
+    return items?.map(item => ({
+      id: item.id,
+      product_id: item.spare_part.id,
+      quantity: item.quantity,
+      product: item.spare_part
+    })) || [];
   } else {
     // Guest user - get guest cart
     const sessionId = getOrCreateSessionId()
@@ -200,49 +211,19 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     const { data: items } = await supabase
       .from('guest_cart_items')
-      .select('id, product_id, quantity')
+      .select(`
+        id,
+        quantity,
+        spare_part:spare_parts(*)
+      `)
       .eq('guest_cart_id', guestCart.id)
 
-    // Get products separately and match them
-    const cartItems: CartItem[] = []
-    if (items && items.length > 0) {
-      const productIds = items.map(item => item.product_id)
-      const { data: products } = await supabase
-        .from('products')
-        .select('*')
-        .in('id', productIds)
-
-      const productsMap = new Map(products?.map(p => [p.id, p]) || [])
-
-      for (const item of items) {
-        const sparePart = productsMap.get(item.product_id)
-        cartItems.push({
-          id: item.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          product: sparePart ? {
-            id: sparePart.id,
-            name: sparePart.name,
-            description: sparePart.description,
-            price: sparePart.price,
-            category_id: sparePart.category_id,
-            vendor_id: sparePart.vendor_id,
-            brand: sparePart.brand,
-            model: sparePart.model,
-            part_number: sparePart.part_number,
-            condition: sparePart.condition || 'new',
-            availability_status: sparePart.availability_status || 'available',
-            featured: sparePart.featured || false,
-            images: sparePart.images || [],
-            technical_specs: sparePart.technical_specs,
-            created_at: sparePart.created_at,
-            updated_at: sparePart.updated_at
-          } : undefined
-        })
-      }
-    }
-
-    return cartItems
+    return items?.map(item => ({
+      id: item.id,
+      product_id: item.spare_part.id,
+      quantity: item.quantity,
+      product: item.spare_part
+    })) || [];
   }
 }
 
@@ -250,14 +231,15 @@ export const removeFromCart = async (itemId: string) => {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    // User cart operations would be handled by edge functions when available
-    return { error: 'User cart operations not yet implemented' }
+    return await supabase
+      .from('cart_items')
+      .delete()
+      .eq('id', itemId);
   } else {
     return await supabase
       .from('guest_cart_items')
       .delete()
       .eq('id', itemId)
-      // Handle potential RLS error or no guest cart item found
       .then(({ data, error }) => {
           if (error) console.error('Error removing guest item:', error);
           return { data, error };
@@ -269,11 +251,11 @@ export const updateCartItemQuantity = async (itemId: string, quantity: number) =
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    // User cart operations would be handled by edge functions when available
-    return { error: 'User cart operations not yet implemented' }
+    return await supabase
+      .from('cart_items')
+      .update({ quantity })
+      .eq('id', itemId);
   } else {
-    // Guest user - update guest cart directly
-    // Handle potential RLS error or no guest cart item found
     return await supabase
       .from('guest_cart_items')
       .update({ quantity })
@@ -291,7 +273,7 @@ export const mergeGuestCart = async () => {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('id, user_id')
+    .select('id')
     .eq('user_id', user.id)
     .single()
 
@@ -309,13 +291,37 @@ export const mergeGuestCart = async () => {
   // Get guest cart items
   const { data: guestItems } = await supabase
     .from('guest_cart_items')
-    .select('product_id, quantity')
+    .select('spare_part_id, quantity')
     .eq('guest_cart_id', guestCart.id)
 
   if (!guestItems || guestItems.length === 0) return
 
-  // For now, since we don't have a carts table, we'll skip the merge
-  // and just clear the guest cart
+  // Get or create user cart
+  let { data: userCart } = await supabase
+    .from('user_carts')
+    .select('id')
+    .eq('user_id', profile.id)
+    .single();
+
+  if (!userCart) {
+    const { data: newCart } = await supabase
+      .from('user_carts')
+      .insert({ user_id: profile.id })
+      .select('id')
+      .single();
+    userCart = newCart;
+  }
+
+  // Merge items
+  for (const item of guestItems) {
+    await supabase
+      .from('cart_items')
+      .upsert({
+        cart_id: userCart!.id,
+        spare_part_id: item.spare_part_id,
+        quantity: item.quantity
+      });
+  }
   
   // Delete guest cart
   await supabase
