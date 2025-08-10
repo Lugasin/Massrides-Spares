@@ -7,20 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Search, 
-  Filter, 
-  SlidersHorizontal,
-  Package,
-  Wrench,
-  Zap,
-  Settings,
-  Thermometer,
-  Fuel,
-  Disc,
-  Home,
-  Tool
-} from "lucide-react";
+import { Search, Filter, SlidersHorizontal, Package, Wrench, Zap, Settings, Thermometer, Fuel, Disc, Home, PenTool as Tool } from "lucide-react";
 import { sparePartsData, sparePartCategories, SparePart } from "@/data/sparePartsData";
 import SparePartsGrid from "@/components/SparePartsGrid";
 import { useQuote } from "@/context/QuoteContext";
