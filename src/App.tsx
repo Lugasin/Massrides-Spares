@@ -22,6 +22,7 @@ import CheckoutCancel from "./pages/CheckoutCancel";
 import AdminProfile from "./pages/AdminProfile";
 import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
+import VendorInventory from "./pages/VendorInventory"; // Import VendorInventory
 import VerifyEmail from "./pages/VerifyEmail"; // Import VerifyEmail page
 import MessagingSystem from "./components/MessagingSystem"; // Import MessagingSystem
 

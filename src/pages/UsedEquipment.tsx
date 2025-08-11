@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { UsedSparePart as UsedSparePartType } from '../data/products'; // Import UsedSparePartType
 import { Card, CardContent } from '@/components/ui/card';
+import { Product } from '@/data/products'; // Import Product type
 import { supabase } from '@/lib/supabase'; // Import Supabase client
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom'; // Import Link
 import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Badge } from '@/components/ui/badge';
+
 
 
 const UsedSpareParts: React.FC = () => { 
@@ -14,12 +16,12 @@ const UsedSpareParts: React.FC = () => {
   const [sortBy, setSortBy] = useState('price'); // Default sort by price
   const [sortOrder, setSortOrder] = useState('desc'); // Default sort order descending
   const [searchQuery, setSearchQuery] = useState('');
-  const [usedSpareParts, setUsedSpareParts] = useState<UsedSparePartType[]>([]); // State to store fetched data
+  const [usedSpareParts, setUsedSpareParts] = useState<Product[]>([]); // State to store fetched data
   const [loading, setLoading] = useState(true); // Loading state
 
   useEffect(() => {
     const fetchUsedSpareParts = async () => {
-      const { data, error } = await supabase.from('used_spare_parts').select('*');
+      const { data, error } = await supabase.from('products').select('*');
       if (error) {
         console.error('Error fetching used spare parts:', error);
         // Optionally set an error state here
@@ -115,7 +117,7 @@ const UsedSpareParts: React.FC = () => {
 
       {/* Used Spare Parts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredAndSortedSpareParts.map((item: UsedSparePartType) => (
+        {filteredAndSortedSpareParts.map((item: Product) => (
           <Link key={item.id} to={`/used-parts/${item.id}`}> {/* Wrap Card with Link */}
             <Card className="group hover-scale overflow-hidden">
               <div className="relative overflow-hidden">
