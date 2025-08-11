@@ -1,23 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { UserProfile } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-
-// Temporary UserProfile type until types sync
-interface UserProfile {
-  id: string;
-  user_id: string;
-  email: string;
-  full_name?: string;
-  phone?: string;
-  address?: string;
-  company_name?: string;
-  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest';
-  created_at: string;
-  updated_at: string;
-}
 
 const UserManagement: React.FC = () => {
   // Use consistent role enum with Supabase definition
@@ -25,10 +12,11 @@ const UserManagement: React.FC = () => {
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingRoleChanges, setPendingRoleChanges] = useState<{ [userId: string]: UserProfile['role'] }>({});
 
   useEffect(() => {
     const fetchUsers = async () => {
-      setLoading(true);
+      setLoading(true); // This is already set at the top, but it's fine.
       const { data: usersData, error } = await (supabase as any).from('user_profiles').select('*');
 
       if (error) {
@@ -55,6 +43,13 @@ const UserManagement: React.FC = () => {
       setUsers(users.map(user => 
         user.id === userId ? { ...user, role: newRole } : user
       ));
+
+      // Clear the pending change for this user after successful update
+      setPendingRoleChanges(prev => {
+        const newState = { ...prev };
+        delete newState[userId];
+        return newState;
+      });
       
       toast.success(`Role updated successfully for user ${userId}!`);
     } catch (error: any) {
@@ -91,29 +86,29 @@ const UserManagement: React.FC = () => {
                   <TableCell>{user.role}</TableCell>
                   <TableCell className="flex items-center gap-2">
                     <select
-                      defaultValue={user.role}
+                      value={pendingRoleChanges[user.id] || user.role}
+                      onChange={(e) => {
+                        setPendingRoleChanges(prev => ({
+                          ...prev,
+                          [user.id]: e.target.value as UserProfile['role']
+                        }));
+                      }}
                       className="block w-fit px-2 py-1 border border-input rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                      id={`role-select-${user.id}`}
                     >
                       {roles.map((roleOption) => (
-                        <option 
-                          key={roleOption} 
-                          value={roleOption}
-                        >
+                        <option key={roleOption} value={roleOption}>
                           {roleOption}
                         </option>
                       ))}
                     </select>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => {
-                        const selectElement = document.getElementById(
-                          `role-select-${user.id}`
-                        ) as HTMLSelectElement;
-                        if (selectElement) {
-                          handleUpdateRole(user.id, selectElement.value as UserProfile['role']);
+                        if (pendingRoleChanges[user.id]) {
+                          handleUpdateRole(user.id, pendingRoleChanges[user.id]);
                         }
                       }}
+                      disabled={!pendingRoleChanges[user.id] || pendingRoleChanges[user.id] === user.role}
                     >
                       Update Role
                     </Button>
