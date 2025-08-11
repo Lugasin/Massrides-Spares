@@ -100,10 +100,14 @@ const VendorProfile: React.FC = () => {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button className="h-20 flex-col gap-2" onClick={() => navigate('/dashboard/products/add')}>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Button className="h-20 flex-col gap-2" onClick={() => navigate('/vendor/inventory')}>
                 <Package className="h-6 w-6" />
-                Add New Product
+                Manage Inventory
+              </Button>
+              <Button className="h-20 flex-col gap-2" onClick={() => navigate('/vendor/add-product')}>
+                <Package className="h-6 w-6" />
+                Add New Part
               </Button>
               <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/analytics')}>
                 <TrendingUp className="h-6 w-6" />

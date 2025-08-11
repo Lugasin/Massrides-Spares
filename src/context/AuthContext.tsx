@@ -184,6 +184,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (data.user && !data.user.email_confirmed_at) {
         toast.success('Registration successful! Please check your email to verify your account.')
+        
+        // Create initial notification for unverified user
+        if (data.user.id) {
+          await supabase.from('notifications').insert({
+            user_id: data.user.id,
+            title: 'Verify Your Email',
+            message: 'Please check your email and click the verification link to activate your account.',
+            type: 'info'
+          });
+        }
       } else if (data.user) {
         toast.success('Registration successful! You can now sign in.')
       }

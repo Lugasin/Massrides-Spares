@@ -80,6 +80,8 @@ const AppContent = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
+          <Route path="/vendor/inventory" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<VendorInventory />} />} />
+          <Route path="/vendor/add-product" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<AddProduct />} />} />
 
           {/* Placeholder routes for future pages */}
           <Route path="/orders" element={<div>Coming Soon: Orders History</div>} />

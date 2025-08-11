@@ -45,6 +45,25 @@ export const subscribeToTable = (
   return () => supabase.removeChannel(channel);
 };
 
+// Real-time cart synchronization
+export const subscribeToCartChanges = (userId: string, callback: (payload: any) => void) => {
+  return subscribeToTable('cart_items', callback, `user_id=eq.${userId}`);
+};
+
+// Real-time inventory updates
+export const subscribeToInventoryChanges = (callback: (payload: any) => void) => {
+  return subscribeToTable('spare_parts', callback);
+};
+
+// Real-time messaging
+export const subscribeToMessages = (userId: string, callback: (payload: any) => void) => {
+  return subscribeToTable('messages', callback, `recipient_id=eq.${userId}`);
+};
+
+// Real-time notifications
+export const subscribeToNotifications = (userId: string, callback: (payload: any) => void) => {
+  return subscribeToTable('notifications', callback, `user_id=eq.${userId}`);
+};
 // Authentication helpers
 export const signUp = async (email: string, password: string, userData?: any) => {
   return await supabase.auth.signUp({

@@ -32,6 +32,7 @@ const VerifyEmail: React.FC = () => {
     }
 
     try {
+      // Handle email confirmation from link
       const { data, error } = await supabase.auth.verifyOtp({
         token_hash: token,
         type: 'email'
@@ -48,6 +49,16 @@ const VerifyEmail: React.FC = () => {
       } else if (data.user) {
         setVerificationStatus('success');
         toast.success('Email verified successfully!');
+        
+        // Send welcome notification
+        if (data.user.id) {
+          await supabase.from('notifications').insert({
+            user_id: data.user.id,
+            title: 'Welcome to Massrides!',
+            message: 'Your email has been verified. You now have full access to our spare parts catalog.',
+            type: 'welcome'
+          });
+        }
         
         // Redirect to dashboard after a short delay
         setTimeout(() => {

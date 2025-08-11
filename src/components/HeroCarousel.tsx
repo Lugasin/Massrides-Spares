@@ -23,46 +23,91 @@ interface CarouselSlide {
 const slides: CarouselSlide[] = [
   {
     id: 1,
-    image: tractorPlowing,
-    title: 'Premium Agricultural Spare Parts',
-    description: 'Discover our extensive range of engine parts, hydraulic components, and electrical parts for all your agricultural equipment.',
+    image: '/src/assets/Newtractor.png',
+    title: 'Engine Parts & Components',
+    description: 'Premium engine parts including filters, gaskets, pistons, and turbochargers for all major tractor brands.',
     cta: 'Shop Engine Parts',
-    link: '/catalog?category=engine-parts',
+    link: '/catalog?category=Engine+Parts',
     type: 'image'
   },
   {
     id: 2,
-    image: combineHarvester,
-    title: 'Keep Your Equipment Running',
-    description: 'Get genuine and aftermarket spare parts for combines, tractors, and all agricultural machinery.',
+    image: '/src/assets/hydraulic-harrow-76-1608289508.png',
+    title: 'Hydraulic System Parts',
+    description: 'Complete hydraulic solutions including pumps, cylinders, hoses, and valves for reliable equipment operation.',
     cta: 'Shop Hydraulic Parts',
-    link: '/catalog?category=hydraulic-parts',
+    link: '/catalog?category=Hydraulic+Parts',
     type: 'image'
   },
   {
     id: 3,
-    image: irrigationAerial,
-    title: 'Electrical & Control Parts',
-    description: 'Find electrical components, sensors, and control parts for modern agricultural equipment.',
+    image: '/src/assets/Newtractor5.png',
+    title: 'Electrical Components',
+    description: 'Alternators, starters, switches, and wiring harnesses for modern agricultural equipment electrical systems.',
     cta: 'Shop Electrical Parts',
-    link: '/catalog?category=electrical-parts',
+    link: '/catalog?category=Electrical+Parts',
     type: 'image'
   },
   {
     id: 4,
-    image: farmerTractor,
-    title: 'Spring Parts Sale',
-    description: 'Save up to 25% on selected spare parts. Limited time offer on premium agricultural components.',
-    cta: 'View Sale Parts',
-    link: '/catalog?sale=spring',
+    image: '/src/assets/disc-harrow-76-1696055574.png',
+    title: 'Implement Attachments',
+    description: 'Plow shares, disc blades, cultivator points, and other implement parts for soil preparation equipment.',
+    cta: 'Shop Implements',
+    link: '/catalog?category=Implements',
     type: 'image'
   },
   {
     id: 5,
-    image: cornFieldSunset,
-    title: 'Genuine & Aftermarket Parts',
-    description: 'Choose from genuine OEM parts and high-quality aftermarket alternatives from trusted brands.',
-    cta: 'Explore Brands',
+    image: '/src/assets/Newtractor8.png',
+    title: 'Transmission & Drivetrain',
+    description: 'Clutch components, transmission filters, and drivetrain parts to keep your equipment moving smoothly.',
+    cta: 'Shop Transmission',
+    link: '/catalog?category=Transmission+Parts',
+    type: 'image'
+  },
+  {
+    id: 6,
+    image: '/src/assets/pivot.png',
+    title: 'Cooling System Parts',
+    description: 'Radiators, thermostats, water pumps, and cooling system components for optimal engine temperature.',
+    cta: 'Shop Cooling Parts',
+    link: '/catalog?category=Cooling+System',
+    type: 'image'
+  },
+  {
+    id: 7,
+    image: '/src/assets/Sprinklers.png',
+    title: 'Fuel System Components',
+    description: 'Fuel pumps, injection systems, and filtration components for efficient fuel delivery and engine performance.',
+    cta: 'Shop Fuel Parts',
+    link: '/catalog?category=Fuel+System',
+    type: 'image'
+  },
+  {
+    id: 8,
+    image: '/src/assets/Newtractor11.png',
+    title: 'Brake & Safety Parts',
+    description: 'Brake pads, hydraulic brake components, and safety systems to ensure reliable equipment operation.',
+    cta: 'Shop Brake Parts',
+    link: '/catalog?category=Brake+Parts',
+    type: 'image'
+  },
+  {
+    id: 9,
+    image: '/src/assets/tractor-wheel.jpg',
+    title: 'Wheels & Tires',
+    description: 'Agricultural tires, rims, and wheel components for optimal traction and field performance.',
+    cta: 'Shop Tires',
+    link: '/catalog?category=Wheels+%26+Tires',
+    type: 'image'
+  },
+  {
+    id: 10,
+    image: '/src/assets/Combine.jpg',
+    title: 'Genuine OEM Parts',
+    description: 'Authentic manufacturer parts with full warranty coverage for John Deere, Case IH, New Holland, and more.',
+    cta: 'Shop OEM Parts',
     link: '/catalog',
     type: 'image'
   }

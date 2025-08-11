@@ -36,157 +36,174 @@ const services = [
 
 export const Footer = () => {
   return (
-    <footer className="bg-primary text-primary-foreground relative overflow-hidden">
-      {/* Dark farm-green background with translucent overlay */}
-      <div className="absolute inset-0 gradient-primary opacity-90"></div>
-      <div className="absolute inset-0 bg-gradient-to-t from-primary via-transparent to-transparent"></div>
-      {/* Main Footer Content */}
-      <div className="container mx-auto px-4 py-8 lg:py-12">
+    <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden">
+      {/* Subtle pattern overlay */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }} />
+      </div>
+      
+      <div className="container mx-auto px-4 py-12 lg:py-16 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Company Info */}
-          <div className="flex flex-col items-start">
+          <div className="space-y-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="bg-primary text-primary-foreground p-1.5 lg:p-2 rounded-lg font-bold text-lg lg:text-xl">
-                MSP
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-2 rounded-lg font-bold text-xl shadow-lg">
+                M
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-base lg:text-lg text-primary-foreground">MASSRIDES</span>
-                <span className="text-xs text-primary-foreground/70">SPARE PARTS</span>
+                <span className="font-bold text-xl text-white">MASSRIDES</span>
+                <span className="text-sm text-gray-300">Agricultural Spare Parts</span>
               </div>
             </div>
-            <p className="text-primary-foreground/80 mb-4 leading-relaxed relative z-10 text-sm">
-              Massrides Spare Parts is a leading supplier of agricultural spare parts dedicated to providing high-quality components, fast delivery, and expert technical support. We help farmers and mechanics keep their equipment running efficiently.
+            <p className="text-gray-300 leading-relaxed text-sm max-w-sm">
+              Leading supplier of agricultural spare parts in Zambia. Quality components, expert support, and reliable delivery to keep your equipment running.
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div className="relative z-10 sm:col-span-1">
-            <h3 className="font-bold text-base text-primary-foreground mb-4">Quick Links & Categories</h3>
-            <ul className="space-y-2 grid grid-cols-2 gap-y-2 sm:block sm:space-y-2">
-              {quickLinks.map((link) => ( // Existing Quick Links
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-primary-foreground/80 hover:text-secondary transition-colors text-sm hover:underline"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-              {productCategories.map((category) => ( // Product Categories as links
-                <li key={category.label}>
-                  <a
-                    href={category.href}
-                    className="text-primary-foreground/80 hover:text-secondary transition-colors text-sm hover:underline"
-                  >
-                    {category.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>          
+          {/* Quick Links & Categories */}
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-white mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                {quickLinks.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      className="text-gray-300 hover:text-green-400 transition-colors text-sm hover:underline"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-white mb-4">Categories</h3>
+              <ul className="space-y-2">
+                {productCategories.slice(0, 5).map((category) => (
+                  <li key={category.label}>
+                    <a
+                      href={category.href}
+                      className="text-gray-300 hover:text-green-400 transition-colors text-sm hover:underline"
+                    >
+                      {category.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
 
-          {/* Contact Info & Services */}
-          <div className="relative z-10">
-             {/* Contact Info */}
-            <h3 className="font-bold text-base text-primary-foreground mb-4">Contact Us</h3>
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-secondary" />
-                <span className="text-sm text-primary-foreground/80">info@massrides.co.zm</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-secondary" />
-                <span className="text-sm text-primary-foreground/80">+260 211 843445 | +260 967 729310</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-secondary mt-0.5" />
-                <span className="text-sm text-primary-foreground/80">
-                  H763+3HQ, Los Angeles Rd, Lusaka, Zambia
-                </span>
+          {/* Contact & Services */}
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-white mb-4">Contact Info</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-green-400 flex-shrink-0" />
+                  <span className="text-sm text-gray-300">info@massrides.co.zm</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-green-400 flex-shrink-0" />
+                  <span className="text-sm text-gray-300">+260 211 843445</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-gray-300">
+                    H763+3HQ, Los Angeles Rd<br />Lusaka, Zambia
+                  </span>
+                </div>
               </div>
             </div>
-
-            {/* Services */}
-            <h3 className="font-bold text-base text-primary-foreground mb-4">Our Services</h3>
-            <ul className="space-y-2">
-              {services.map((service) => (
-                <li key={service.label}>
-                  <a
-                    href={service.href}
-                    className="text-primary-foreground/80 hover:text-secondary transition-colors text-sm"
-                  >
-                    {service.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            
+            <div>
+              <h3 className="font-semibold text-white mb-4">Services</h3>
+              <ul className="space-y-2">
+                {services.slice(0, 4).map((service) => (
+                  <li key={service.label}>
+                    <a
+                      href={service.href}
+                      className="text-gray-300 hover:text-green-400 transition-colors text-sm"
+                    >
+                      {service.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
         
-        {/* Newsletter Signup (Kept separate as it's a distinct action) */}
-        <div className="border-t border-background/20 pt-12 mb-12">
-          <div className="max-w-2xl mx-auto text-center px-4">
-            <h3 className="text-xl lg:text-2xl font-bold text-background mb-4">
-              Stay Updated with Massrides
+        {/* Newsletter Section */}
+        <div className="border-t border-gray-700 pt-8 mb-8">
+          <div className="max-w-2xl mx-auto text-center">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Stay Updated with Latest Parts
             </h3>
-            <p className="text-background/80 mb-6 text-sm lg:text-base">
-              Get the latest updates on new spare parts, special offers, and technical tips delivered to your inbox.
+            <p className="text-gray-300 mb-6 text-sm">
+              Get notifications about new spare parts, special offers, and technical tips.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <Input
-                placeholder="Enter your email address"
-                className="bg-background/10 border-background/30 text-background placeholder:text-background/60 focus:border-primary h-11 flex-1"
+                placeholder="Enter your email"
+                className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 h-11 flex-1"
               />
-              <Button className="bg-primary hover:bg-primary-hover text-primary-foreground h-11 px-6">
-                <ArrowRight className="h-4 w-4" />
+              <Button className="bg-green-600 hover:bg-green-700 text-white h-11 px-6">
+                Subscribe
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Social Media & Bottom */}
-        <div className="border-t border-background/20 pt-8">
+        {/* Bottom Section */}
+        <div className="border-t border-gray-700 pt-8">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
-             {/* Copyright and Powered By */}
+            {/* Copyright */}
             <div className="text-center lg:text-left">
-              <p className="text-background/80 text-sm">
+              <p className="text-gray-300 text-sm">
                 © {new Date().getFullYear()} Massrides Company Limited. All rights reserved.
               </p>
-               <p className="text-background/80 text-xs mt-1">
-                Powered by E-Place
-               </p>
             </div>
 
-             {/* Policy Links */}
-             <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-background/60">
-                <a href="#privacy" className="hover:text-primary-foreground">Privacy Policy</a>
-                <span>•</span>
-                <a href="#terms" className="hover:text-primary-foreground">Terms of Service</a>
-                <span>•</span>
-                <a href="#cookies" className="hover:text-primary-foreground">Cookie Policy</a>
-              </div>
+            {/* Policy Links */}
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
+              <a href="/privacy" className="hover:text-green-400 transition-colors">Privacy Policy</a>
+              <span>•</span>
+              <a href="/terms" className="hover:text-green-400 transition-colors">Terms of Service</a>
+              <span>•</span>
+              <a href="/cookies" className="hover:text-green-400 transition-colors">Cookie Policy</a>
+            </div>
 
             {/* Social Media */}
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <span className="text-background/80 text-sm mr-2">Follow us:</span>
+            <div className="flex items-center gap-4">
+              <span className="text-gray-300 text-sm">Follow us:</span>
               <div className="flex gap-3">
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="bg-background/10 hover:bg-secondary text-background hover:text-primary-foreground"
+                  className="bg-gray-800 hover:bg-green-600 text-gray-300 hover:text-white transition-colors"
                 >
                   <Facebook className="h-4 w-4" />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="bg-background/10 hover:bg-secondary text-background hover:text-primary-foreground"
+                  className="bg-gray-800 hover:bg-green-600 text-gray-300 hover:text-white transition-colors"
                 >
                   <Twitter className="h-4 w-4" />
                 </Button>
               </div>
             </div>
+          </div>
+          
+          {/* Powered by E-Place */}
+          <div className="text-center mt-6 pt-6 border-t border-gray-700">
+            <p className="text-gray-400 text-xs">
+              Powered by <span className="text-green-400 font-medium">E-Place</span>
+            </p>
           </div>
         </div>
       </div>

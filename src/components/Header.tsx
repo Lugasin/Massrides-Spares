@@ -48,7 +48,6 @@ export const Header = ({
     { label: "Home", href: "/" },
     { label: "About Us", href: "/about" },
     { label: "Catalog", href: "/catalog" },
-    { label: "Spare Parts", href: "/catalog" },
     ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
     { label: "Contact", href: "/contact" }
   ];
