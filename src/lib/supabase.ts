@@ -14,9 +14,9 @@ export interface Category {
 
 export interface CartItem {
   id: string
-  product_id: string
+  spare_part_id: string
   quantity: number
-  product?: SparePart
+  spare_part?: SparePart
 }
 
 export interface Order {
@@ -29,6 +29,26 @@ export interface Order {
   shipping_address?: any
   billing_address?: any
   notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  email: string
+  full_name?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  zip_code?: string
+  country?: string
+  company_name?: string
+  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest'
+  website_url?: string
+  avatar_url?: string
+  bio?: string
   created_at: string
   updated_at: string
 }
@@ -108,32 +128,18 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
       .eq('session_id', sessionId)
       .single()
 
-    // Handle potential RLS error or no guest cart found
-    if (!guestCart) {
-        // Attempt to create if not found (handles initial guest interaction)
-        const { data: newGuestCart, error: createError } = await supabase
-            .from('guest_carts')
-            .insert({ session_id: sessionId })
-            .select('id')
-            .single();
-
-        if (createError) {
-            console.error('Error creating guest cart:', createError);
-            return { error: createError };
-        }
-        guestCart = newGuestCart;
-    }
-
-
     if (!guestCart) {
       const { data: newGuestCart, error } = await supabase
         .from('guest_carts')
         .insert({ session_id: sessionId })
         .select('id')
-        .single()
+        .single();
 
-      if (error) return { error }
-      guestCart = newGuestCart
+      if (error) {
+        console.error('Error creating guest cart:', error);
+        return { error };
+      }
+      guestCart = newGuestCart;
     }
 
     // Add item to guest cart or update quantity
@@ -188,9 +194,9 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     return items?.map(item => ({
       id: item.id,
-      product_id: item.spare_part.id,
+      spare_part_id: item.spare_part.id,
       quantity: item.quantity,
-      product: item.spare_part
+      spare_part: item.spare_part
     })) || [];
   } else {
     // Guest user - get guest cart
@@ -202,12 +208,9 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       .eq('session_id', sessionId)
       .single()
 
-    // Handle potential RLS error or no guest cart found
     if (!guestCart) {
-        // No guest cart found, return empty array
-        return [];
+      return [];
     }
-
 
     const { data: items } = await supabase
       .from('guest_cart_items')
@@ -220,9 +223,9 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     return items?.map(item => ({
       id: item.id,
-      product_id: item.spare_part.id,
+      spare_part_id: item.spare_part.id,
       quantity: item.quantity,
-      product: item.spare_part
+      spare_part: item.spare_part
     })) || [];
   }
 }
@@ -240,10 +243,6 @@ export const removeFromCart = async (itemId: string) => {
       .from('guest_cart_items')
       .delete()
       .eq('id', itemId)
-      .then(({ data, error }) => {
-          if (error) console.error('Error removing guest item:', error);
-          return { data, error };
-      });
   }
 }
 
@@ -331,6 +330,25 @@ export const mergeGuestCart = async () => {
 
   // Clear session
   localStorage.removeItem('guest_session_id')
+}
+
+// Notification helpers
+export const createNotification = async (
+  userId: string, 
+  title: string, 
+  message: string, 
+  type: string = 'info',
+  actionUrl?: string
+) => {
+  return await supabase
+    .from('notifications')
+    .insert({
+      user_id: userId,
+      title,
+      message,
+      type,
+      action_url: actionUrl
+    });
 }
 
 export { supabase }

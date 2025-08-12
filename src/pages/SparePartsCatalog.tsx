@@ -12,6 +12,7 @@ import { sparePartsData, sparePartCategories, SparePart } from "@/data/sparePart
 import SparePartsGrid from "@/components/SparePartsGrid";
 import { useQuote } from "@/context/QuoteContext";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 const categoryIcons: Record<string, React.ReactNode> = {
   'All': <Package className="h-4 w-4" />,
@@ -36,8 +37,8 @@ const SparePartsCatalog = () => {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [spareParts, setSpareParts] = useState<SparePart[]>(sparePartsData);
-  const [loading, setLoading] = useState(false);
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
+  const [loading, setLoading] = useState(true);
   const { itemCount } = useQuote();
 
   // Extract unique brands and conditions
@@ -55,13 +56,81 @@ const SparePartsCatalog = () => {
   ];
 
   useEffect(() => {
-    // In a real app, this would fetch from Supabase
-    // For now, using local data
+    loadSparePartsFromDatabase();
+  }, []);
+
+  useEffect(() => {
     filterAndSortParts();
   }, [searchTerm, selectedCategory, selectedBrand, selectedCondition, sortBy, minPrice, maxPrice]);
 
+  const loadSparePartsFromDatabase = async () => {
+    try {
+      setLoading(true);
+      
+      // First, try to load from database
+      const { data: dbParts, error } = await supabase
+        .from('spare_parts')
+        .select(`
+          *,
+          category:spare_part_categories(name),
+          equipment_compatibility(
+            equipment_type:equipment_types(name, brand)
+          )
+        `)
+        .eq('availability_status', 'in_stock')
+        .order('featured', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading from database:', error);
+        // Fallback to local data
+        setSpareParts(sparePartsData);
+        toast.info('Using local catalog data');
+      } else if (dbParts && dbParts.length > 0) {
+        // Transform database data to match our interface
+        const transformedParts: SparePart[] = dbParts.map(part => ({
+          id: part.id,
+          partNumber: part.part_number,
+          name: part.name,
+          description: part.description || '',
+          category: part.category?.name || 'General',
+          brand: part.brand,
+          oemPartNumber: part.oem_part_number,
+          aftermarketPartNumber: part.aftermarket_part_number,
+          price: parseFloat(part.price.toString()),
+          condition: part.condition as any,
+          availabilityStatus: part.availability_status as any,
+          stockQuantity: part.stock_quantity,
+          images: part.images || [],
+          technicalSpecs: part.technical_specs || {},
+          compatibility: part.equipment_compatibility?.map(comp => 
+            `${comp.equipment_type.brand} ${comp.equipment_type.name}`
+          ) || [],
+          warranty: `${part.warranty_months || 12} months`,
+          weight: part.weight_kg ? parseFloat(part.weight_kg.toString()) : undefined,
+          dimensions: part.dimensions_cm,
+          featured: part.featured,
+          tags: part.tags || []
+        }));
+        
+        setSpareParts(transformedParts);
+        toast.success(`Loaded ${transformedParts.length} parts from database`);
+      } else {
+        // Use local data if database is empty
+        setSpareParts(sparePartsData);
+        toast.info('Database empty, using sample data');
+      }
+    } catch (error) {
+      console.error('Error loading spare parts:', error);
+      setSpareParts(sparePartsData);
+      toast.error('Failed to load from database, using local data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filterAndSortParts = () => {
-    let filtered = sparePartsData.filter(part => {
+    let filtered = spareParts.filter(part => {
       const matchesSearch = !searchTerm || 
         part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         part.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,7 +247,7 @@ const SparePartsCatalog = () => {
               
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">
-                  Showing {spareParts.length} of {sparePartsData.length} parts
+                  Showing {spareParts.length} parts
                 </span>
                 {(searchTerm || selectedCategory !== "All" || selectedBrand !== "All" || selectedCondition !== "All" || minPrice || maxPrice) && (
                   <Button variant="ghost" size="sm" onClick={clearFilters}>

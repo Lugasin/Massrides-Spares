@@ -20,6 +20,7 @@ export interface UserProfile {
   website_url?: string
   avatar_url?: string
   bio?: string
+  is_verified?: boolean
   created_at: string
   updated_at: string
 }
@@ -36,6 +37,7 @@ interface AuthContextType {
   hasPermission: (permission: string) => boolean
   isAdmin: boolean
   userRole: string
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,7 +51,8 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: async () => ({ error: null }),
   hasPermission: () => false,
   isAdmin: false,
-  userRole: 'guest'
+  userRole: 'guest',
+  refreshProfile: async () => {}
 })
 
 export const useAuth = () => {
@@ -94,10 +97,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Merge guest cart if exists
           await mergeGuestCart()
           await loadUserProfile(session.user.id)
+          
+          // Send welcome notification for new users
+          if (event === 'SIGNED_UP') {
+            await supabase.functions.invoke('real-time-notifications', {
+              body: {
+                user_id: session.user.id,
+                title: 'Welcome to Massrides!',
+                message: 'Your account has been created successfully. Start browsing our spare parts catalog.',
+                type: 'welcome'
+              }
+            });
+          }
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)
           setUserPermissions([])
           setUserRole('guest')
+          // Clear any stored session data
+          localStorage.removeItem('user_role')
         }
         
         setLoading(false)
@@ -109,56 +126,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserProfile = async (userId: string) => {
     try {
-      // Get user from the user_profiles table
       const { data: userData, error: userError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
         .single()
 
-      if (userError || !userData) {
-        console.error('Error loading user:', userError)
+      if (userError) {
+        console.error('Error loading user profile:', userError)
         return
       }
 
-      // Cast userData to the correct type
-      const userProfileData = userData as any
-      
-      // Map to UserProfile format  
       const profileData: UserProfile = {
-        id: userProfileData.id,
-        user_id: userProfileData.user_id,
-        email: userProfileData.email,
-        full_name: userProfileData.full_name,
-        phone: userProfileData.phone,
-        company_name: userProfileData.company_name || '',
-        address: userProfileData.address || '',
-        city: userProfileData.city || '',
-        state: userProfileData.state || '',
-        zip_code: userProfileData.zip_code || '',
-        country: userProfileData.country || 'Zambia',
-        website_url: userProfileData.website_url || '',
-        avatar_url: userProfileData.avatar_url || '',
-        bio: userProfileData.bio || '',
-        role: userProfileData.role as UserProfile['role'],
-        created_at: userProfileData.created_at,
-        updated_at: userProfileData.updated_at || userProfileData.created_at
+        id: userData.id,
+        user_id: userData.user_id,
+        email: userData.email,
+        full_name: userData.full_name,
+        phone: userData.phone,
+        company_name: userData.company_name || '',
+        address: userData.address || '',
+        city: userData.city || '',
+        state: userData.state || '',
+        zip_code: userData.zip_code || '',
+        country: userData.country || 'Zambia',
+        website_url: userData.website_url || '',
+        avatar_url: userData.avatar_url || '',
+        bio: userData.bio || '',
+        role: userData.role as UserProfile['role'],
+        is_verified: userData.is_verified || false,
+        created_at: userData.created_at,
+        updated_at: userData.updated_at || userData.created_at
       }
 
       setProfile(profileData)
-      setUserRole(userProfileData.role || 'customer')
+      setUserRole(userData.role || 'customer')
+      localStorage.setItem('user_role', userData.role || 'customer')
       
       // Set basic permissions based on role
       const rolePermissions: Record<string, string[]> = {
         'super_admin': ['all'],
-        'admin': ['view_dashboard', 'manage_products', 'manage_orders'],
-        'vendor': ['manage_own_products', 'view_own_orders'],
-        'customer': ['place_orders', 'view_own_orders']
+        'admin': ['view_dashboard', 'manage_products', 'manage_orders', 'manage_users'],
+        'vendor': ['manage_own_products', 'view_own_orders', 'manage_inventory'],
+        'customer': ['place_orders', 'view_own_orders', 'request_quotes'],
+        'guest': ['browse_catalog', 'guest_checkout']
       }
       
-      setUserPermissions(rolePermissions[userProfileData.role] || [])
+      setUserPermissions(rolePermissions[userData.role] || [])
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
+    }
+  }
+
+  const refreshProfile = async () => {
+    if (user) {
+      await loadUserProfile(user.id)
     }
   }
 
@@ -184,16 +205,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (data.user && !data.user.email_confirmed_at) {
         toast.success('Registration successful! Please check your email to verify your account.')
-        
-        // Create initial notification for unverified user
-        if (data.user.id) {
-          await supabase.from('notifications').insert({
-            user_id: data.user.id,
-            title: 'Verify Your Email',
-            message: 'Please check your email and click the verification link to activate your account.',
-            type: 'info'
-          });
-        }
       } else if (data.user) {
         toast.success('Registration successful! You can now sign in.')
       }
@@ -238,6 +249,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error(`Sign out failed: ${error.message}`)
       } else {
         toast.success('Signed out successfully')
+        // Clear local storage
+        localStorage.removeItem('user_role')
+        localStorage.removeItem('guest_session_id')
       }
       
       return { error }
@@ -246,6 +260,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error }
     }
   }
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: new Error('No user logged in') }
 
@@ -263,7 +278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           country: updates.country,
           website_url: updates.website_url,
           avatar_url: updates.avatar_url,
-          bio: updates.bio
+          bio: updates.bio,
+          updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
 
@@ -272,7 +288,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error }
       }
 
-      setProfile(prev => prev ? { ...prev, ...updates } : null)
+      // Refresh profile data
+      await refreshProfile()
       toast.success('Profile updated successfully!')
       return { error: null }
     } catch (error: any) {
@@ -280,7 +297,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error }
     }
   }
-
 
   const hasPermission = (permission: string): boolean => {
     return userPermissions.includes(permission) || userPermissions.includes('all')
@@ -299,7 +315,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateProfile,
     hasPermission,
     isAdmin,
-    userRole
+    userRole,
+    refreshProfile
   }
 
   return (
