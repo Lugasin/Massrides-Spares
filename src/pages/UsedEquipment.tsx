@@ -1,124 +1,89 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Product } from '@/data/products'; // Import Product type
-import { supabase } from '@/lib/supabase'; // Import Supabase client
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Link } from 'react-router-dom'; // Import Link
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { usedSparePartsData, UsedSparePart } from '@/data/products';
 
-
-
-const UsedSpareParts: React.FC = () => { 
+const UsedSpareParts: React.FC = () => {
   const [conditionFilter, setConditionFilter] = useState('All');
-  const [sortBy, setSortBy] = useState('price'); // Default sort by price
-  const [sortOrder, setSortOrder] = useState('desc'); // Default sort order descending
+  const [sortBy, setSortBy] = useState('price');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [searchQuery, setSearchQuery] = useState('');
-  const [usedSpareParts, setUsedSpareParts] = useState<Product[]>([]); // State to store fetched data
-  const [loading, setLoading] = useState(true); // Loading state
 
-  useEffect(() => {
-    const fetchUsedSpareParts = async () => {
-      const { data, error } = await supabase.from('products').select('*');
-      if (error) {
-        console.error('Error fetching used spare parts:', error);
-        // Optionally set an error state here
-      } else {
-        setUsedSpareParts(data as UsedSparePartType[]);
-      }
-      setLoading(false);
-    };
+  const filteredAndSortedSpareParts = useMemo(() => {
+    const lower = searchQuery.toLowerCase();
+    const base = usedSparePartsData.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(lower) ||
+        (item.description && item.description.toLowerCase().includes(lower)) ||
+        (item.partNumber && item.partNumber.toLowerCase().includes(lower));
 
-    fetchUsedSpareParts();
-  }, []);
-
-  const filteredAndSortedSpareParts = usedSpareParts
-    .filter(item => {
-      // Search filter
-      const lowerCaseSearchQuery = searchQuery.toLowerCase();
-      const matchesSearch = item.name.toLowerCase().includes(lowerCaseSearchQuery) ||
-        (item.description && item.description.toLowerCase().includes(lowerCaseSearchQuery)) ||
-        (item.partNumber && item.partNumber.toLowerCase().includes(lowerCaseSearchQuery));
-      if (searchQuery && !matchesSearch) {
-        return false;
- item.description.toLowerCase().includes(lowerCaseSearchQuery);
-      if (searchQuery && !matchesSearch) {
- return false;
-      }
-      // Filter by condition
-        return false;
-      }
+      if (searchQuery && !matchesSearch) return false;
+      if (conditionFilter !== 'All' && item.condition !== conditionFilter) return false;
       return true;
-    })
-    .sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'price') {
-        comparison = a.price - b.price;
-      } else if (sortBy === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
     });
+
+    const sorted = [...base].sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'price') cmp = a.price - b.price;
+      else if (sortBy === 'name') cmp = a.name.localeCompare(b.name);
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+
+    return sorted;
+  }, [conditionFilter, sortBy, sortOrder, searchQuery]);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-4xl font-bold text-center mb-8">Used Spare Parts</h1>
-      
-      {/* Filters and Sorting */}
-      <div className="mb-6">
+
+      <div className="mb-6 space-y-4">
         <Input
           placeholder="Search used spare parts..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Select value={conditionFilter} onValueChange={setConditionFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by Condition" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Conditions</SelectItem>
+              <SelectItem value="New">New</SelectItem>
+              <SelectItem value="Used">Used</SelectItem>
+              <SelectItem value="Refurbished">Refurbished</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger>
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="price">Price</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}>
+            <SelectTrigger>
+              <SelectValue placeholder="Order" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">Ascending</SelectItem>
+              <SelectItem value="desc">Descending</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <Select value={conditionFilter} onValueChange={setConditionFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by Condition" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Conditions</SelectItem>
-            <SelectItem value="New">New</SelectItem>
-            <SelectItem value="Used">Used</SelectItem>
-            <SelectItem value="Refurbished">Refurbished</SelectItem>
-          </SelectContent>
-        </Select>
 
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger>
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name">Name</SelectItem>
-            <SelectItem value="price">Price</SelectItem>
-          </SelectContent>
-        </Select>
-
-         <Select value={sortOrder} onValueChange={setSortOrder}>
-          <SelectTrigger>
-            <SelectValue placeholder="Order" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="asc">Ascending</SelectItem>
-            <SelectItem value="desc">Descending</SelectItem>
-          </SelectContent>
-        </Select>
-
-      </div>
-
-      {/* Loading Indicator */}
-      {loading && (
-        <div className="text-center text-muted-foreground">Loading used spare parts...</div>
-      )}
-
-
-      {/* Used Spare Parts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredAndSortedSpareParts.map((item: Product) => (
-          <Link key={item.id} to={`/used-parts/${item.id}`}> {/* Wrap Card with Link */}
+        {filteredAndSortedSpareParts.map((item: UsedSparePart) => (
+          <Link key={item.id} to={`/used-parts/${item.id}`}>
             <Card className="group hover-scale overflow-hidden">
               <div className="relative overflow-hidden">
                 <img
@@ -143,9 +108,7 @@ const UsedSpareParts: React.FC = () => {
                 </h3>
 
                 {item.partNumber && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Part #: {item.partNumber}
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">Part #: {item.partNumber}</p>
                 )}
 
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
@@ -153,15 +116,12 @@ const UsedSpareParts: React.FC = () => {
                   {item.originalEquipment && ` | From: ${item.originalEquipment}`}
                 </p>
 
-                <div className="text-lg font-bold text-primary">
-                  ${item.price.toLocaleString()}
-                </div>
+                <div className="text-lg font-bold text-primary">${item.price.toLocaleString()}</div>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
-      
     </div>
   );
 };

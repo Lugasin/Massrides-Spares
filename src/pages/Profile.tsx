@@ -24,7 +24,10 @@ import {
   CreditCard,
   Shield,
   LogOut,
-  Save
+  Save,
+  Package,
+  MessageSquare,
+  ShoppingCart
 } from 'lucide-react';
 
 // Define Zod schema for profile validation

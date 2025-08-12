@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -9,7 +9,9 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table';
-import { Product } from '@/lib/supabase'; // Assuming Product interface is defined here
+import type { Database } from '@/integrations/supabase/database.types';
+
+type Product = Database['public']['Tables']['products']['Row'];
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,7 +29,7 @@ const Products: React.FC = () => {
         setError(error.message);
         setProducts([]);
       } else {
-        setProducts((data || []) as any);
+        setProducts((data || []) as Product[]);
       }
       setLoading(false);
     };

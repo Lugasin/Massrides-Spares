@@ -19,6 +19,9 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface Message {
   id: string;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Database } from '../integrations/supabase/types';
+import type { Database } from '@/integrations/supabase/database.types';
 
 // This gives us the exact type for a row in our 'products' table.
 // Replace 'products' with your actual table name.

@@ -23,9 +23,9 @@ const Catalog = () => {
   const { addItem, itemCount } = useQuote();
 
   // Extract unique brands from spare parts for the brand filter
-  const brands = ["All", ...Array.from(new Set(spareParts.map(part => part.brand))).sort()];
+  const brands = ["All", ...Array.from(new Set(products.map(part => part.brand))).sort()];
 
-  const filteredProducts = spareParts
+  const filteredProducts = products
     .filter(part => 
       (part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
        part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,7 +122,7 @@ const Catalog = () => {
           </Select>
 
           <div className="flex items-center text-sm text-muted-foreground col-span-full md:col-span-4 justify-center md:justify-start">
-            Showing {filteredProducts.length} of {spareParts.length} spare parts
+            Showing {filteredProducts.length} of {products.length} spare parts
           </div>
         </div>
 

@@ -93,12 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session)
         setUser(session?.user ?? null)
         
-        if (event === 'SIGNED_IN' && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'SIGNED_UP') && session?.user) {
           // Merge guest cart if exists
           await mergeGuestCart()
           await loadUserProfile(session.user.id)
-          
-          // Send welcome notification for new users
+
           if (event === 'SIGNED_UP') {
             await supabase.functions.invoke('real-time-notifications', {
               body: {

@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { v4 as uuidv4 } from 'uuid'
 
 // Import types from the new data structure
-export type { SparePart } from '@/data/sparePartsData';
+import type { SparePart } from '@/data/sparePartsData';
 
 export interface Category {
   id: string

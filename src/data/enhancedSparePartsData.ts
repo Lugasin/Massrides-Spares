@@ -638,4 +638,3 @@ export const getPartsByBrand = (brand: string): SparePart[] => {
 
 // Export for backward compatibility
 export const sparePartsData = enhancedSparePartsData;
-export type { SparePart };
