@@ -1,57 +1,69 @@
 /*
   # Idempotent Agricultural Spare Parts Database Schema
   
-  This migration creates a complete spare parts management system with:
+  This migration creates a complete spare parts management system for the PWA app.
   
+  === OVERVIEW ===
+  - All tables, types, and policies are idempotent (safe to re-run)
+  - Comments are provided for onboarding and developer clarity
+  - Sample data is included for testing and UI development
+  - Real-time events are connected for all relevant tables
+  - RLS (Row Level Security) is enabled and policies are set for secure access
+
+  === MAIN MODULES ===
   1. Data Types (ENUMs)
-    - user_role_enum - User roles in the system
-    - part_condition_enum - Condition of spare parts
-    - availability_status_enum - Stock availability status
-    - order_status_enum - Order processing status
-    - payment_status_enum - Payment processing status
-    - quote_status_enum - Quote request status
-    - notification_type_enum - Types of notifications
-    - movement_type_enum - Inventory movement types
-    
+    - user_role_enum: User roles in the system
+    - part_condition_enum: Condition of spare parts
+    - availability_status_enum: Stock status
+    - order_status_enum: Order processing status
+    - payment_status_enum: Payment processing status
+    - quote_status_enum: Quote request status
+    - notification_type_enum: Types of notifications
+    - movement_type_enum: Inventory movement types
+
   2. Core Tables
-    - user_profiles - Extended user information
-    - spare_part_categories - Part categorization
-    - equipment_types - Equipment compatibility reference
-    - spare_parts - Main spare parts catalog
-    - equipment_compatibility - Part-equipment compatibility matrix
-    - suppliers - Supplier management
-    - supplier_parts - Supplier pricing and availability
-    
+    - user_profiles: Extended user information
+    - spare_part_categories: Part categorization
+    - equipment_types: Equipment compatibility reference
+    - spare_parts: Main spare parts catalog
+    - equipment_compatibility: Part-equipment compatibility matrix
+    - suppliers: Supplier management
+    - supplier_parts: Supplier pricing and availability
+
   3. E-commerce Tables
-    - user_carts - User shopping carts
-    - guest_carts - Guest user carts
-    - cart_items - Cart line items
-    - guest_cart_items - Guest cart line items
-    - orders - Order management
-    - order_items - Order line items
-    - quotes - Quote requests
-    - quote_items - Quote line items
-    
+    - user_carts: User shopping carts
+    - guest_carts: Guest user carts
+    - cart_items: Cart line items
+    - guest_cart_items: Guest cart line items
+    - orders: Order management
+    - order_items: Order line items
+    - quotes: Quote requests
+    - quote_items: Quote line items
+
   4. Communication Tables
-    - conversations - User messaging
-    - messages - Individual messages
-    - notifications - System notifications
-    - support_tickets - Customer support
-    
+    - conversations: User messaging
+    - messages: Individual messages
+    - notifications: System notifications
+    - support_tickets: Customer support
+
   5. Tracking Tables
-    - inventory_movements - Stock level tracking
-    - product_reviews - Customer reviews
-    - payment_intents - Payment processing
-    
+    - inventory_movements: Stock level tracking
+    - product_reviews: Customer reviews
+    - payment_intents: Payment processing
+
   6. Security
-    - Row Level Security (RLS) enabled on all tables
+    - RLS enabled on all tables
     - Role-based access control policies
     - Secure functions with proper search_path
-    
+
   7. Real-time Features
     - Real-time subscriptions for live updates
     - Triggers for automatic data management
     - Inventory tracking and notifications
+
+  === SAMPLE DATA ===
+  - Sample categories, equipment types, suppliers, and spare parts are inserted for UI testing
+  - You can safely remove or modify these for production
 */
 
 -- ============================================================================
