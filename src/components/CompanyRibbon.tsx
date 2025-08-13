@@ -21,8 +21,21 @@ export const CompanyRibbon: React.FC = () => {
 
   const loadPartners = async () => {
     try {
-      // Use fallback data since company_partners table doesn't exist yet
-      setPartners(fallbackPartners);
+      // Try to load from database first
+      const { data, error } = await supabase
+        .from('company_partners')
+        .select('*')
+        .eq('active', true)
+        .order('display_order');
+
+      if (error) {
+        console.error('Error loading partners from database:', error);
+        setPartners(fallbackPartners);
+      } else if (data && data.length > 0) {
+        setPartners(data);
+      } else {
+        setPartners(fallbackPartners);
+      }
     } catch (error) {
       console.error('Error in loadPartners:', error);
       setPartners(fallbackPartners);

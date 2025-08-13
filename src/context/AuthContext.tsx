@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabaseClient'
 import { mergeGuestCart } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { logAuthEvent, logProfileEvent } from '@/lib/activityLogger'
 
 export interface UserProfile {
   id: string
@@ -231,6 +232,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.success('Welcome back!')
         // Merge guest cart if exists
         await mergeGuestCart()
+        
+        // Log successful login
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .single();
+        
+        if (userProfile) {
+          logAuthEvent('login', userProfile.id, { email: data.user.email });
+        }
       }
       
       return { error: null }
@@ -248,6 +260,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error(`Sign out failed: ${error.message}`)
       } else {
         toast.success('Signed out successfully')
+        
+        // Log successful logout
+        if (profile) {
+          logAuthEvent('logout', profile.id);
+        }
+        
         // Clear local storage
         localStorage.removeItem('user_role')
         localStorage.removeItem('guest_session_id')
@@ -290,6 +308,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Refresh profile data
       await refreshProfile()
       toast.success('Profile updated successfully!')
+      
+      // Log profile update
+      if (profile) {
+        logProfileEvent('profile_updated', profile.id, updates);
+      }
+      
       return { error: null }
     } catch (error: any) {
       toast.error(`Failed to update profile: ${error.message}`)

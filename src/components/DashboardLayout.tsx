@@ -129,7 +129,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
           {/* Header */}
           <div className="flex items-center gap-3 p-6 border-b border-border">
             <div className="bg-primary text-primary-foreground p-2 rounded-lg font-bold text-lg">
-              MAR
+              AGRI
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-foreground">MASSRIDES</span>

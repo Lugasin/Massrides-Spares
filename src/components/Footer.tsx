@@ -50,7 +50,7 @@ export const Footer = () => {
           <div className="space-y-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-2 rounded-lg font-bold text-xl shadow-lg">
-                M
+                A
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-xl text-white">MASSRIDES</span>

@@ -71,7 +71,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const updateQuantity = (id: number, quantity: number) => {
-    if (quantity <= 0) {
+    if (quantity < 1) {
       removeItem(id);
       return;
     }

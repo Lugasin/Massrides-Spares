@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logAuthEvent } from '@/lib/activityLogger';
 
 // Define a customizable background image URL - You can add more images to assets and change this
 const backgroundImage = irrigationAerial; 
@@ -63,8 +64,12 @@ export default function Login() {
     // Set guest session
     localStorage.setItem('guest_session_id', crypto.randomUUID());
     localStorage.setItem('user_role', 'guest');
+    
+    // Log guest login
+    logAuthEvent('guest_login', undefined, { session_id: localStorage.getItem('guest_session_id') });
+    
     toast.success('Logged in as Guest');
-    navigate('/dashboard');
+    navigate('/catalog'); // Route to catalog for guest shopping
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -78,7 +83,7 @@ export default function Login() {
     const { error } = await signIn(email, password);
     
     if (!error) {
-      navigate('/dashboard');
+      navigate('/profile'); // Route to profile after login
     }
     
     setIsLoading(false);
@@ -253,6 +258,15 @@ export default function Login() {
                 </Button>
               </div>
             </form>
+            
+            {/* Back to Home */}
+            <div className="text-center mt-4">
+              <Button asChild variant="ghost">
+                <Link to="/">
+                  ← Back to Home
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -34,6 +34,11 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import About from './pages/About';
 import Contact from './pages/Contact';
+import Orders from './pages/Orders';
+import Settings from './pages/Settings';
+import ActivityLog from './pages/ActivityLog';
+import GuestShoppingLanding from './pages/GuestShoppingLanding';
+import GuestCheckout from './pages/GuestCheckout';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 
@@ -79,15 +84,19 @@ const AppContent = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/parts/:partId" element={<SparePartDetail />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/guest-shopping" element={<GuestShoppingLanding />} />
+          <Route path="/guest-checkout" element={<GuestCheckout />} />
 
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
           <Route path="/vendor/inventory" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<VendorInventory />} />} />
           <Route path="/vendor/add-product" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<AddProduct />} />} />
 
           {/* Placeholder routes for future pages */}
-          <Route path="/orders" element={<div>Coming Soon: Orders History</div>} />
+          <Route path="/orders" element={<ProtectedRoute element={<Orders />} />} />
           <Route path="/wishlist" element={<div>Coming Soon: Wishlist</div>} />
           <Route path="/analytics" element={<div>Coming Soon: Analytics</div>} />
+          <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
+          <Route path="/activity-log" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<ActivityLog />} />} />
           <Route path="/messages" element={<ProtectedRoute element={<MessagingSystem />} />} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 

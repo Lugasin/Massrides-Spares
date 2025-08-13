@@ -400,8 +400,16 @@ const Profile: React.FC = () => {
                 Back to Dashboard
               </Button>
               <Button variant="secondary" onClick={() => navigate('/catalog')}>
-                Shop Now
+                Go to Shop
               </Button>
+              <Button variant="outline" onClick={() => navigate('/orders')}>
+                Manage Orders
+              </Button>
+              {(userRole === 'vendor' || userRole === 'admin') && (
+                <Button variant="outline" onClick={() => navigate('/vendor/inventory')}>
+                  Update Inventory
+                </Button>
+              )}
               {userRole && userRole !== 'guest' && (
                 <Button variant="ghost" onClick={() => navigate(`/profile/${userRole}`)}>
                   View {userRole.charAt(0).toUpperCase() + userRole.slice(1)} Profile

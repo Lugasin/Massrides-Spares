@@ -52,17 +52,26 @@ const VerifyEmail: React.FC = () => {
         
         // Send welcome notification
         if (data.user.id) {
-          await supabase.from('notifications').insert({
-            user_id: data.user.id,
-            title: 'Welcome to Massrides!',
-            message: 'Your email has been verified. You now have full access to our spare parts catalog.',
-            type: 'welcome'
-          });
+          // Get user profile first
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('user_id', data.user.id)
+            .single();
+
+          if (userProfile) {
+            await supabase.from('notifications').insert({
+              user_id: userProfile.id,
+              title: 'Welcome to Agri Massrides!',
+              message: 'Your email has been verified. You now have full access to our spare parts catalog.',
+              type: 'welcome'
+            });
+          }
         }
         
         // Redirect to dashboard after a short delay
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/profile'); // Route to profile after verification
         }, 3000);
       }
     } catch (error: any) {

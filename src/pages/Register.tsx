@@ -101,10 +101,10 @@ export default function Register() {
 
       if (data.user && !data.user.email_confirmed_at) {
         toast.success('Registration successful! Please check your email to verify your account.');
-        navigate('/login?message=check-email');
+        navigate('/verify-email?message=check-email');
       } else {
         toast.success('Registration successful! You can now sign in.');
-        navigate('/login?registration=success');
+        navigate('/profile'); // Route to profile after successful registration
       }
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -334,6 +334,15 @@ export default function Register() {
                 </Button>
               </div>
             </form>
+            
+            {/* Back to Home */}
+            <div className="text-center mt-4">
+              <Button asChild variant="ghost">
+                <Link to="/">
+                  ← Back to Home
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

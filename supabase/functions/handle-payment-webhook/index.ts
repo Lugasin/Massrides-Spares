@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logPaymentEvent, logOrderEvent } from '../_shared/activityLogger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,14 @@ serve(async (req) => {
 
     const webhookData = await req.json()
     console.log('Received webhook:', webhookData)
+    
+    // Log webhook receipt
+    await supabase.from('tj_transaction_logs').insert({
+      transaction_id: webhookData.transactionId,
+      session_id: webhookData.sessionId,
+      payment_intent_id: webhookData.paymentIntentId,
+      payload: webhookData
+    });
     
     // Handle Transaction Junction webhook format
     const {
@@ -82,6 +91,13 @@ serve(async (req) => {
     if (updateError) {
       throw new Error(`Failed to update order: ${updateError.message}`)
     }
+    
+    // Log order update
+    logOrderEvent('order_updated', order.id, order.user_id, {
+      status: orderStatus,
+      payment_status: paymentStatus,
+      transaction_id: transactionId
+    });
 
     // Clear cart after successful payment
     if (paymentStatus === 'paid') {

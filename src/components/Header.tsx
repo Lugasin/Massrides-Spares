@@ -85,7 +85,7 @@ export const Header = ({
             {/* Use Link for logo to navigate to home */}
             <Link to="/" className="flex items-center gap-2">
               <div className="flex items-center bg-primary text-primary-foreground p-1.5 lg:p-2 rounded-lg">
-                <span className="font-bold text-sm lg:text-xl">SPARES</span>
+                <span className="font-bold text-sm lg:text-xl">AGRI</span>
               </div>
               <div className="hidden sm:flex flex-col">
                 <span className="font-bold text-sm lg:text-lg text-foreground">MASSRIDES</span>

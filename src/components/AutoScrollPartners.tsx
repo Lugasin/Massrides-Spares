@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabaseClient';
 
 interface Partner {
   id: string;
@@ -17,8 +18,38 @@ export const AutoScrollPartners: React.FC<AutoScrollPartnersProps> = ({
   partners, 
   className 
 }) => {
+  const [dbPartners, setDbPartners] = React.useState<Partner[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    loadPartnersFromDb();
+  }, []);
+
+  const loadPartnersFromDb = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_partners')
+        .select('*')
+        .eq('active', true)
+        .order('display_order');
+
+      if (error) {
+        console.error('Error loading partners:', error);
+        setDbPartners(partners); // Fallback to props
+      } else {
+        setDbPartners(data || partners);
+      }
+    } catch (error) {
+      console.error('Error in loadPartnersFromDb:', error);
+      setDbPartners(partners);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Duplicate partners for seamless infinite scroll
-  const duplicatedPartners = [...partners, ...partners, ...partners];
+  const partnersToUse = dbPartners.length > 0 ? dbPartners : partners;
+  const duplicatedPartners = [...partnersToUse, ...partnersToUse, ...partnersToUse];
 
   return (
     <section className={cn("py-12 bg-muted/30 overflow-hidden", className)}>
