@@ -69,7 +69,7 @@ export default function Login() {
     logAuthEvent('guest_login', undefined, { session_id: localStorage.getItem('guest_session_id') });
     
     toast.success('Logged in as Guest');
-    navigate('/catalog'); // Route to catalog for guest shopping
+    navigate('/guest-shopping');
   };
 
   const handleSubmit = (e: React.FormEvent) => {

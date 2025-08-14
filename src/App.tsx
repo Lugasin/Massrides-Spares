@@ -39,6 +39,7 @@ import Settings from './pages/Settings';
 import ActivityLog from './pages/ActivityLog';
 import GuestShoppingLanding from './pages/GuestShoppingLanding';
 import GuestCheckout from './pages/GuestCheckout';
+import PaymentMonitoring from './pages/PaymentMonitoring';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 
@@ -97,6 +98,7 @@ const AppContent = () => {
           <Route path="/analytics" element={<div>Coming Soon: Analytics</div>} />
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
           <Route path="/activity-log" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<ActivityLog />} />} />
+          <Route path="/payment-monitoring" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<PaymentMonitoring />} />} />
           <Route path="/messages" element={<ProtectedRoute element={<MessagingSystem />} />} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 

@@ -104,7 +104,7 @@ export default function Register() {
         navigate('/verify-email?message=check-email');
       } else {
         toast.success('Registration successful! You can now sign in.');
-        navigate('/profile'); // Route to profile after successful registration
+        navigate('/profile');
       }
     } catch (error: any) {
       console.error('Registration error:', error);

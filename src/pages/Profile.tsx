@@ -399,14 +399,14 @@ const Profile: React.FC = () => {
               <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Back to Dashboard
               </Button>
-              <Button variant="secondary" onClick={() => navigate('/catalog')}>
+              <Button className="bg-primary hover:bg-primary-hover" onClick={() => navigate('/catalog')}>
                 Go to Shop
               </Button>
               <Button variant="outline" onClick={() => navigate('/orders')}>
                 Manage Orders
               </Button>
               {(userRole === 'vendor' || userRole === 'admin') && (
-                <Button variant="outline" onClick={() => navigate('/vendor/inventory')}>
+                <Button className="bg-secondary hover:bg-secondary-hover" onClick={() => navigate('/vendor/inventory')}>
                   Update Inventory
                 </Button>
               )}

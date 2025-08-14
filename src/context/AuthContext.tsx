@@ -269,6 +269,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clear local storage
         localStorage.removeItem('user_role')
         localStorage.removeItem('guest_session_id')
+        
+        // Navigate to home after logout
+        window.location.href = '/';
       }
       
       return { error }

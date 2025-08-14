@@ -11,7 +11,9 @@ import {
   User, 
   ShieldCheck, 
   ArrowRight,
-  CheckCircle
+  CheckCircle,
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -19,14 +21,14 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 const GuestCheckout = () => {
-  const { items, total, itemCount } = useQuote();
+  const { items, total, itemCount, clearCart } = useQuote();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Email, 2: Verification, 3: Checkout
+  const [step, setStep] = useState(1); // 1: Email, 2: Verification, 3: Payment
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,16 +44,23 @@ const GuestCheckout = () => {
       const sessionId = localStorage.getItem('guest_session_id') || crypto.randomUUID();
       localStorage.setItem('guest_session_id', sessionId);
 
-      const response = await supabase.functions.invoke('guest-verification', {
-        body: {
+      // Generate verification code (6 digits)
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Store verification in database
+      const { error } = await supabase
+        .from('guest_verifications')
+        .insert({
           email,
-          session_id: sessionId
-        }
-      });
+          verification_code: verificationCode,
+          session_id: sessionId,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hour
+        });
 
-      if (response.error) throw response.error;
+      if (error) throw error;
 
-      toast.success('Verification code sent to your email');
+      // For demo purposes, show the code (in production, send via email)
+      toast.success(`Verification code: ${verificationCode} (Check your email)`);
       setStep(2);
     } catch (error: any) {
       console.error('Error sending verification:', error);
@@ -74,34 +83,133 @@ const GuestCheckout = () => {
     try {
       const sessionId = localStorage.getItem('guest_session_id');
       
-      const response = await supabase.functions.invoke('guest-verification', {
-        body: {
-          email,
-          code: verificationCode,
-          session_id: sessionId
-        }
-      });
+      // Check verification code
+      const { data: verification, error } = await supabase
+        .from('guest_verifications')
+        .select('*')
+        .eq('email', email)
+        .eq('verification_code', verificationCode)
+        .eq('session_id', sessionId)
+        .is('verified_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
-      if (response.error) throw response.error;
+      if (error || !verification) {
+        toast.error('Invalid or expired verification code');
+        return;
+      }
 
-      setIsVerified(true);
+      // Mark as verified
+      await supabase
+        .from('guest_verifications')
+        .update({ verified_at: new Date().toISOString() })
+        .eq('id', verification.id);
+
       toast.success('Email verified successfully!');
       setStep(3);
     } catch (error: any) {
       console.error('Error verifying code:', error);
-      toast.error('Invalid verification code');
+      toast.error('Verification failed');
     } finally {
       setIsVerifying(false);
     }
   };
 
-  const handleProceedToPayment = () => {
-    // Store guest info for checkout
-    localStorage.setItem('guest_checkout_email', email);
-    localStorage.setItem('guest_checkout_name', name);
-    localStorage.setItem('guest_verified', 'true');
+  const handleProceedToPayment = async () => {
+    setIsProcessing(true);
     
-    navigate('/checkout');
+    try {
+      // Create order for guest
+      const orderData = {
+        order_number: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        status: 'pending',
+        payment_status: 'pending',
+        total_amount: total,
+        billing_address: {
+          firstName: name.split(' ')[0],
+          lastName: name.split(' ').slice(1).join(' '),
+          email: email
+        },
+        shipping_address: {
+          firstName: name.split(' ')[0],
+          lastName: name.split(' ').slice(1).join(' '),
+          email: email
+        }
+      };
+
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderData)
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items from guest cart
+      const sessionId = localStorage.getItem('guest_session_id');
+      const { data: guestCart } = await supabase
+        .from('guest_carts')
+        .select('id')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (guestCart) {
+        const { data: cartItems } = await supabase
+          .from('guest_cart_items')
+          .select(`
+            quantity,
+            spare_part:spare_parts(id, price)
+          `)
+          .eq('guest_cart_id', guestCart.id);
+
+        if (cartItems) {
+          const orderItems = cartItems.map(item => ({
+            order_id: order.id,
+            spare_part_id: item.spare_part.id,
+            quantity: item.quantity,
+            unit_price: item.spare_part.price
+          }));
+
+          await supabase
+            .from('order_items')
+            .insert(orderItems);
+        }
+      }
+
+      // Create TJ payment session
+      const response = await supabase.functions.invoke('tj-create-session', {
+        body: {
+          orderId: order.id,
+          amount: total,
+          currency: 'USD',
+          returnSuccessUrl: `${window.location.origin}/checkout/success?order=${order.order_number}`,
+          returnFailedUrl: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
+          customerEmail: email,
+          customerName: name
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      // Redirect to TJ payment page
+      window.open(response.data.redirectUrl, '_blank');
+      
+      // Clear guest cart
+      if (guestCart) {
+        await supabase
+          .from('guest_cart_items')
+          .delete()
+          .eq('guest_cart_id', guestCart.id);
+      }
+      
+      clearCart();
+      
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      toast.error('Failed to process payment');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (items.length === 0) {
@@ -127,6 +235,13 @@ const GuestCheckout = () => {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          {/* Back to Home */}
+          <div className="mb-6">
+            <Button asChild variant="outline">
+              <a href="/">← Back to Home</a>
+            </Button>
+          </div>
+
           {/* Progress Steps */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center space-x-4">
@@ -148,7 +263,7 @@ const GuestCheckout = () => {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   3
                 </div>
-                <span className="ml-2 font-medium">Checkout</span>
+                <span className="ml-2 font-medium">Payment</span>
               </div>
             </div>
           </div>
@@ -262,41 +377,44 @@ const GuestCheckout = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-success" />
-                  Email Verified
+                  <CreditCard className="h-5 w-5" />
+                  Complete Payment
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="h-8 w-8 text-success" />
+                <div className="space-y-6">
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium">Cart Total:</span>
+                      <span className="text-xl font-bold text-primary">
+                        ${total.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {itemCount} items in your cart
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Verification Complete!</h3>
-                  <p className="text-muted-foreground">
-                    Your email has been verified. You can now proceed to checkout.
-                  </p>
-                </div>
 
-                <div className="bg-muted/30 rounded-lg p-4 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Cart Total:</span>
-                    <span className="text-xl font-bold text-primary">
-                      ${total.toLocaleString()}
-                    </span>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      You will be redirected to our secure payment partner to complete your purchase.
+                    </p>
+                    
+                    <Button 
+                      onClick={handleProceedToPayment}
+                      disabled={isProcessing}
+                      className="w-full bg-primary hover:bg-primary-hover" 
+                      size="lg"
+                    >
+                      {isProcessing ? 'Processing...' : (
+                        <>
+                          Proceed to Payment
+                          <ExternalLink className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {itemCount} items in your cart
-                  </p>
                 </div>
-
-                <Button 
-                  onClick={handleProceedToPayment}
-                  className="w-full" 
-                  size="lg"
-                >
-                  Proceed to Checkout
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
               </CardContent>
             </Card>
           )}

@@ -102,6 +102,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
     { label: "Users", icon: Users, active: false, roles: ["super_admin", "admin"] },
     { label: "Products", icon: Package, active: false },
     { label: "Orders", icon: ShoppingCart, active: false },
+    { label: "Payments", icon: DollarSign, active: false, roles: ["super_admin", "admin"], href: "/payment-monitoring" },
     { label: "Support", icon: Bell, active: false, roles: ["super_admin", "admin", "support"] },
     { label: "Settings", icon: Settings, active: false }
   ];
@@ -159,6 +160,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
                       "w-full justify-start gap-3",
                       item.active && "bg-primary text-primary-foreground"
                     )}
+                    onClick={() => item.href && window.location.href = item.href}
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
