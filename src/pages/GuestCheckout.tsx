@@ -160,7 +160,7 @@ const GuestCheckout = () => {
             id,
             quantity,
             spare_part_id,
-            spare_part:spare_parts(id, price)
+            spare_part:spare_parts(id, price, name)
           `)
           .eq('guest_cart_id', guestCart.id);
 

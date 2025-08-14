@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabaseClient'
 import { v4 as uuidv4 } from 'uuid'
 
-// Import types from the new data structure
-import type { SparePart } from '@/data/sparePartsData';
+// Import types from the database
+import type { Database } from '@/integrations/supabase/types';
 
 export interface Category {
   id: string
@@ -16,7 +16,7 @@ export interface CartItem {
   id: string
   spare_part_id: string
   quantity: number
-  spare_part?: SparePart
+  spare_part?: any // Will be properly typed after DB is set up
 }
 
 export interface Order {
@@ -188,15 +188,26 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       .select(`
         id,
         quantity,
-        spare_part:spare_parts(*)
+        spare_part_id,
+        spare_part:spare_parts(
+          id,
+          name,
+          price,
+          part_number,
+          brand,
+          images,
+          description,
+          condition,
+          warranty
+        )
       `)
       .eq('cart_id', cart.id);
 
     return items?.map(item => ({
       id: item.id,
-      spare_part_id: item.spare_part[0]?.id || '',
+      spare_part_id: item.spare_part_id,
       quantity: item.quantity,
-      spare_part: item.spare_part[0] || {}
+      spare_part: item.spare_part as any
     })) || [];
   } else {
     // Guest user - get guest cart
@@ -217,15 +228,26 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       .select(`
         id,
         quantity,
-        spare_part:spare_parts(*)
+        spare_part_id,
+        spare_part:spare_parts(
+          id,
+          name,
+          price,
+          part_number,
+          brand,
+          images,
+          description,
+          condition,
+          warranty
+        )
       `)
       .eq('guest_cart_id', guestCart.id)
 
     return items?.map(item => ({
       id: item.id,
-      spare_part_id: item.spare_part[0]?.id || '',
+      spare_part_id: item.spare_part_id,
       quantity: item.quantity,
-      spare_part: item.spare_part[0] || {}
+      spare_part: item.spare_part as any
     })) || [];
   }
 }
