@@ -194,9 +194,9 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     return items?.map(item => ({
       id: item.id,
-      spare_part_id: item.spare_part.id,
+      spare_part_id: item.spare_part[0]?.id || '',
       quantity: item.quantity,
-      spare_part: item.spare_part
+      spare_part: item.spare_part[0] || {}
     })) || [];
   } else {
     // Guest user - get guest cart
@@ -223,9 +223,9 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     return items?.map(item => ({
       id: item.id,
-      spare_part_id: item.spare_part.id,
+      spare_part_id: item.spare_part[0]?.id || '',
       quantity: item.quantity,
-      spare_part: item.spare_part
+      spare_part: item.spare_part[0] || {}
     })) || [];
   }
 }

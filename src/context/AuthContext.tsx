@@ -94,21 +94,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session)
         setUser(session?.user ?? null)
         
-        if ((event === 'SIGNED_IN' || event === 'SIGNED_UP') && session?.user) {
+        if (event === 'SIGNED_IN' && session?.user) {
           // Merge guest cart if exists
           await mergeGuestCart()
           await loadUserProfile(session.user.id)
-
-          if (event === 'SIGNED_UP') {
-            await supabase.functions.invoke('real-time-notifications', {
-              body: {
-                user_id: session.user.id,
-                title: 'Welcome to Massrides!',
-                message: 'Your account has been created successfully. Start browsing our spare parts catalog.',
-                type: 'welcome'
-              }
-            });
-          }
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          await loadUserProfile(session.user.id)
+          await supabase.functions.invoke('real-time-notifications', {
+            body: {
+              user_id: session.user.id,
+              title: 'Welcome to Massrides!',
+              message: 'Your account has been created successfully. Start browsing our spare parts catalog.',
+              type: 'welcome'
+            }
+          });
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)
           setUserPermissions([])

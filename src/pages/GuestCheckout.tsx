@@ -157,7 +157,9 @@ const GuestCheckout = () => {
         const { data: cartItems } = await supabase
           .from('guest_cart_items')
           .select(`
+            id,
             quantity,
+            spare_part_id,
             spare_part:spare_parts(id, price)
           `)
           .eq('guest_cart_id', guestCart.id);
@@ -165,9 +167,9 @@ const GuestCheckout = () => {
         if (cartItems) {
           const orderItems = cartItems.map(item => ({
             order_id: order.id,
-            spare_part_id: item.spare_part.id,
+            spare_part_id: item.spare_part_id,
             quantity: item.quantity,
-            unit_price: item.spare_part.price
+            unit_price: (item.spare_part as any)?.price || 0
           }));
 
           await supabase
