@@ -160,7 +160,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
                       "w-full justify-start gap-3",
                       item.active && "bg-primary text-primary-foreground"
                     )}
-                    onClick={() => item.href && window.location.href = item.href}
+                    onClick={() => item.href && (window.location.href = item.href)}
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
