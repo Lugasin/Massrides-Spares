@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_roles: {
+        Row: {
+          admin_role: Database["public"]["Enums"]["admin_role"]
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          admin_role: Database["public"]["Enums"]["admin_role"]
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          admin_role?: Database["public"]["Enums"]["admin_role"]
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          ip_address: unknown | null
+          record_id: string | null
+          sensitive_fields: Json | null
+          table_name: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string | null
+          sensitive_fields?: Json | null
+          table_name: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string | null
+          sensitive_fields?: Json | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           cart_id: string
@@ -583,6 +643,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_admin_role: {
+        Args: {
+          _user_id: string
+          _admin_role: Database["public"]["Enums"]["admin_role"]
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _user_id: string
@@ -590,8 +657,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      log_sensitive_access: {
+        Args: {
+          _action: string
+          _table_name: string
+          _record_id?: string
+          _sensitive_fields?: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
+      admin_role: "financial_admin" | "support_admin" | "system_admin"
       app_role: "super_admin" | "admin" | "vendor" | "customer" | "guest"
     }
     CompositeTypes: {
@@ -720,6 +797,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      admin_role: ["financial_admin", "support_admin", "system_admin"],
       app_role: ["super_admin", "admin", "vendor", "customer", "guest"],
     },
   },
