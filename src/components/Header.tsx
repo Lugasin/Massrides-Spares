@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input"; // Import Input
-import RealTimeNotifications from "@/components/RealTimeNotifications";
+import { Input } from "@/components/ui/input";
+import NotificationsPanel from "@/components/NotificationsPanel";
+import { useNotifications } from "@/hooks/useNotifications";
 import { 
   ShoppingCart, 
   User, 
@@ -17,8 +18,8 @@ import {
   Bell,
   MessageSquare
 } from "lucide-react";
-import { cn } from "@/lib/utils"; // Utility for conditional classnames
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { cn } from "@/lib/utils";
+import { useAuth } from '@/context/AuthContext';
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
 interface HeaderProps {
@@ -36,9 +37,10 @@ export const Header = ({
 }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const { user, userRole, signOut } = useAuth(); // Get user, userRole, and signOut from useAuth context
+  const { user, userRole, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
-  const location = useLocation(); // Initialize useLocation
+  const location = useLocation();
 
   // Determine if the current page is the catalog page
   const isCatalogPage = location.pathname === '/catalog';
@@ -139,7 +141,7 @@ export const Header = ({
               >
                 <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
                 <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
-                  3
+                  {unreadCount > 0 ? unreadCount : 0}
                 </Badge>
               </Button>
             )}
@@ -340,8 +342,8 @@ export const Header = ({
         </div>
       </div>
       
-      {/* Real-time Notifications */}
-      <RealTimeNotifications 
+      {/* Notifications Panel */}
+      <NotificationsPanel 
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
       />

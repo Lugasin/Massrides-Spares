@@ -15,6 +15,7 @@ interface PaymentSessionRequest {
   success_url: string;
   cancel_url: string;
   webhook_url: string;
+  purpose?: 'charge' | 'tokenize'; // Add purpose for tokenization
 }
 
 serve(async (req) => {
@@ -63,8 +64,8 @@ serve(async (req) => {
 
     // Create payment session following TJ's HPP format
     const sessionPayload = {
-      amount: Math.round(body.amount * 100), // Convert to cents
-      currency: body.currency,
+      amount: body.purpose === 'tokenize' ? 0 : Math.round(body.amount * 100), // Convert to cents, 0 for tokenization
+      currency: body.currency || 'USD',
       customerEmail: body.customer_email,
       customerName: body.customer_name,
       merchantRef: body.merchant_ref,
@@ -73,11 +74,18 @@ serve(async (req) => {
       webhookUrl: body.webhook_url,
       paymentMethods: ['CARD', 'EFT', 'INSTANT_EFT'],
       expiresIn: 3600, // 1 hour
-      description: `Payment for order ${body.merchant_ref}`,
+      description: body.purpose === 'tokenize' 
+        ? `Tokenize payment method for customer ${body.customer_name}`
+        : `Payment for order ${body.merchant_ref}`,
       metadata: {
         source: 'massrides-ecommerce',
-        order_id: body.merchant_ref
-      }
+        order_id: body.merchant_ref,
+        purpose: body.purpose || 'charge'
+      },
+      // Add 3D Secure enforcement
+      threeDSecure: 'required',
+      // For tokenization, we want to store the payment method
+      savePaymentMethod: body.purpose === 'tokenize'
     }
 
     const sessionResponse = await fetch(`${TJ_API_BASE}/v1/hosted-payments/sessions`, {

@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -16,41 +16,51 @@ export type Database = {
     Tables: {
       activity_logs: {
         Row: {
-          action_details: Json | null
-          action_type: string
-          created_at: string
-          id: string
-          ip_address: string | null
+          activity_type: string
+          additional_details: Json | null
+          created_at: string | null
+          id: number
+          ip_address: string
+          log_source: string
+          logged_by: string | null
+          resource_id: number | null
+          resource_type: string | null
+          risk_score: number | null
           user_agent: string | null
+          user_email: string | null
           user_id: string | null
         }
         Insert: {
-          action_details?: Json | null
-          action_type: string
-          created_at?: string
-          id?: string
-          ip_address?: string | null
+          activity_type: string
+          additional_details?: Json | null
+          created_at?: string | null
+          id?: never
+          ip_address: string
+          log_source?: string
+          logged_by?: string | null
+          resource_id?: number | null
+          resource_type?: string | null
+          risk_score?: number | null
           user_agent?: string | null
+          user_email?: string | null
           user_id?: string | null
         }
         Update: {
-          action_details?: Json | null
-          action_type?: string
-          created_at?: string
-          id?: string
-          ip_address?: string | null
+          activity_type?: string
+          additional_details?: Json | null
+          created_at?: string | null
+          id?: never
+          ip_address?: string
+          log_source?: string
+          logged_by?: string | null
+          resource_id?: number | null
+          resource_type?: string | null
+          risk_score?: number | null
           user_agent?: string | null
+          user_email?: string | null
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "activity_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       admin_roles: {
         Row: {
@@ -518,7 +528,9 @@ export type Database = {
           shipping_address: Json | null
           shipping_amount: number | null
           status: string | null
+          stripe_session_id: string | null
           tax_amount: number | null
+          tj: Json | null
           total_amount: number
           tracking_number: string | null
           updated_at: string
@@ -541,7 +553,9 @@ export type Database = {
           shipping_address?: Json | null
           shipping_amount?: number | null
           status?: string | null
+          stripe_session_id?: string | null
           tax_amount?: number | null
+          tj?: Json | null
           total_amount: number
           tracking_number?: string | null
           updated_at?: string
@@ -564,7 +578,9 @@ export type Database = {
           shipping_address?: Json | null
           shipping_amount?: number | null
           status?: string | null
+          stripe_session_id?: string | null
           tax_amount?: number | null
+          tj?: Json | null
           total_amount?: number
           tracking_number?: string | null
           updated_at?: string
@@ -573,6 +589,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          notes: string | null
+          quoted_total: number | null
+          response_notes: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          quoted_total?: number | null
+          response_notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          quoted_total?: number | null
+          response_notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -673,6 +736,56 @@ export type Database = {
           {
             foreignKeyName: "spare_parts_vendor_id_fkey"
             columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tj_payment_methods: {
+        Row: {
+          brand: string | null
+          created_at: string
+          exp_month: number | null
+          exp_year: number | null
+          id: string
+          is_default: boolean | null
+          last4: string | null
+          payment_method_token: string
+          tj_customer_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          is_default?: boolean | null
+          last4?: string | null
+          payment_method_token: string
+          tj_customer_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          is_default?: boolean | null
+          last4?: string | null
+          payment_method_token?: string
+          tj_customer_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tj_payment_methods_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -830,7 +943,7 @@ export type Database = {
     }
     Functions: {
       has_role: {
-        Args: { _user_id: string; _role: string }
+        Args: { _role: string; _user_id: string }
         Returns: boolean
       }
     }

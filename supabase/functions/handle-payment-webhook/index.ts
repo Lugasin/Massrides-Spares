@@ -37,8 +37,44 @@ serve(async (req) => {
       transactionStatus,
       amount,
       responseText,
-      paymentType
+      paymentType,
+      paymentMethodToken,
+      customerInfo,
+      metadata
     } = webhookData
+
+    // Check if this is a tokenization request
+    if (metadata?.purpose === 'tokenize' && transactionStatus === 'PAYMENT_SETTLED' && paymentMethodToken) {
+      // Handle payment method tokenization
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('email', customerInfo?.email)
+        .single();
+
+      if (profile) {
+        const { error: tokenError } = await supabase
+          .from('tj_payment_methods')
+          .insert({
+            user_id: profile.id,
+            payment_method_token: paymentMethodToken,
+            brand: customerInfo?.cardBrand,
+            last4: customerInfo?.cardLast4,
+            exp_month: customerInfo?.cardExpMonth,
+            exp_year: customerInfo?.cardExpYear,
+            tj_customer_id: customerInfo?.customerId
+          });
+
+        if (tokenError) {
+          console.error('Error saving payment method:', tokenError);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
 
     if (!merchantRef) {
       throw new Error('Missing merchant reference in webhook')
