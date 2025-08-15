@@ -21,18 +21,7 @@ export const StickyNavBar: React.FC<StickyNavBarProps> = ({
   onCategoryChange,
   className
 }) => {
-  const [isSticky, setIsSticky] = useState(false);
   const [underlineStyle, setUnderlineStyle] = useState({ width: 0, left: 0 });
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      setIsSticky(scrollTop > 300);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     // Update underline position when active category changes
@@ -52,8 +41,7 @@ export const StickyNavBar: React.FC<StickyNavBarProps> = ({
 
   return (
     <div className={cn(
-      "transition-all duration-300 z-40",
-      isSticky ? "fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-lg shadow-lg" : "relative",
+      "transition-all duration-300 z-40 relative w-full bg-background/80 backdrop-blur-sm transition-all duration-300 z-30",
       className
     )}>
       <div className="container mx-auto px-4 py-4">
@@ -100,23 +88,21 @@ export const StickyNavBar: React.FC<StickyNavBarProps> = ({
           </div>
 
           {/* Scroll spy indicator */}
-          {isSticky && (
-            <div className="absolute right-0 top-1/2 transform -translate-y-1/2">
-              <div className="flex items-center space-x-1">
-                {categories.map((category) => (
-                  <div
-                    key={category.id}
-                    className={cn(
-                      "w-2 h-2 rounded-full transition-all duration-300",
-                      activeCategory === category.id 
-                        ? "bg-primary scale-125" 
-                        : "bg-border hover:bg-primary/30"
-                    )}
-                  />
-                ))}
-              </div>
+          <div className="absolute right-0 top-1/2 transform -translate-y-1/2">
+            <div className="flex items-center space-x-1">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-all duration-300",
+                    activeCategory === category.id
+                      ? "bg-primary scale-125"
+                      : "bg-border hover:bg-primary/30"
+                  )}
+                />
+              ))}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

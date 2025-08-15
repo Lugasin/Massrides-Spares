@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabaseClient';
 
 interface Partner {
   id: string;
@@ -18,37 +17,10 @@ export const AutoScrollPartners: React.FC<AutoScrollPartnersProps> = ({
   partners, 
   className 
 }) => {
-  const [dbPartners, setDbPartners] = React.useState<Partner[]>([]);
-  const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    loadPartnersFromDb();
-  }, []);
-
-  const loadPartnersFromDb = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('company_partners')
-        .select('*')
-        .eq('active', true)
-        .order('display_order');
-
-      if (error) {
-        console.error('Error loading partners:', error);
-        setDbPartners(partners); // Fallback to props
-      } else {
-        setDbPartners(data || partners);
-      }
-    } catch (error) {
-      console.error('Error in loadPartnersFromDb:', error);
-      setDbPartners(partners);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Duplicate partners for seamless infinite scroll
-  const partnersToUse = dbPartners.length > 0 ? dbPartners : partners;
+  const partnersToUse = partners;
   const duplicatedPartners = [...partnersToUse, ...partnersToUse, ...partnersToUse];
 
   return (
@@ -86,7 +58,7 @@ export const AutoScrollPartners: React.FC<AutoScrollPartnersProps> = ({
                     <img
                       src={partner.logo_url || `https://via.placeholder.com/120x60?text=${encodeURIComponent(partner.name)}`}
                       alt={`${partner.name} logo`}
-                      className="h-12 w-auto max-w-[140px] object-contain grayscale group-hover:grayscale-0 transition-all duration-300 group-hover:scale-110"
+                      className="h-12 w-auto max-w-[140px] object-contain transition-all duration-300 group-hover:scale-110"
                       loading="lazy"
                     />
                   </a>
@@ -98,7 +70,7 @@ export const AutoScrollPartners: React.FC<AutoScrollPartnersProps> = ({
                     <img
                       src={partner.logo_url || `https://via.placeholder.com/120x60?text=${encodeURIComponent(partner.name)}`}
                       alt={`${partner.name} logo`}
-                      className="h-12 w-auto max-w-[140px] object-contain grayscale group-hover:grayscale-0 transition-all duration-300"
+                      className="h-12 w-auto max-w-[140px] object-contain transition-all duration-300"
                       loading="lazy"
                     />
                   </div>

@@ -1,93 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import React from 'react';
 
-interface Partner {
+export interface Partner {
   id: string;
   name: string;
   logo_url?: string;
   website_url?: string;
   description?: string;
   display_order?: number;
-  active?: boolean;
 }
 
-export const CompanyRibbon: React.FC = () => {
-  const [partners, setPartners] = useState<Partner[]>([]);
-  const [loading, setLoading] = useState(true);
+interface CompanyRibbonProps {
+  partners: Partner[];
+  loading?: boolean; // Added loading as optional prop
+}
 
-  useEffect(() => {
-    loadPartners();
-  }, []);
-
-  const loadPartners = async () => {
-    try {
-      // Try to load from database first
-      const { data, error } = await supabase
-        .from('company_partners')
-        .select('*')
-        .eq('active', true)
-        .order('display_order');
-
-      if (error) {
-        console.error('Error loading partners from database:', error);
-        setPartners(fallbackPartners);
-      } else if (data && data.length > 0) {
-        setPartners(data);
-      } else {
-        setPartners(fallbackPartners);
-      }
-    } catch (error) {
-      console.error('Error in loadPartners:', error);
-      setPartners(fallbackPartners);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fallback partner data with placeholder logos
-  const fallbackPartners: Partner[] = [
-    {
-      id: '1',
-      name: 'John Deere',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/John-Deere-Logo.png',
-      website_url: 'https://www.deere.com',
-      description: 'Leading manufacturer of agricultural machinery',
-      display_order: 1
-    },
-    {
-      id: '2',
-      name: 'Case IH',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/Case-IH-Logo.png',
-      website_url: 'https://www.caseih.com',
-      description: 'Global leader in agricultural equipment',
-      display_order: 2
-    },
-    {
-      id: '3',
-      name: 'New Holland',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/New-Holland-Logo.png',
-      website_url: 'https://www.newholland.com',
-      description: 'Agricultural and construction equipment',
-      display_order: 3
-    },
-    {
-      id: '4',
-      name: 'Kubota',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/Kubota-Logo.png',
-      website_url: 'https://www.kubota.com',
-      description: 'Compact and utility tractor specialist',
-      display_order: 4
-    },
-    {
-      id: '5',
-      name: 'Massey Ferguson',
-      logo_url: 'https://1000logos.net/wp-content/uploads/2020/09/Massey-Ferguson-Logo.png',
-      website_url: 'https://www.masseyferguson.com',
-      description: 'Global agricultural equipment brand',
-      display_order: 5
-    }
-  ];
-
+const CompanyRibbon: React.FC<CompanyRibbonProps> = ({ partners, loading = false }) => {
   // Duplicate partners for seamless scrolling effect
   const duplicatedPartners = [...partners, ...partners];
 
@@ -121,7 +48,7 @@ export const CompanyRibbon: React.FC = () => {
             We partner with the world's most respected agricultural equipment manufacturers
           </p>
         </div>
-        
+
         {/* Scrolling Ribbon */}
         <div className="relative">
           <div className="flex animate-[scroll_30s_linear_infinite] space-x-8">
@@ -139,9 +66,9 @@ export const CompanyRibbon: React.FC = () => {
                     title={partner.description}
                   >
                     <img
-                      src={partner.logo_url || 'https://via.placeholder.com/120x60?text=' + partner.name}
+                      src={partner.logo_url || `https://via.placeholder.com/120x60?text=${partner.name}`}
                       alt={`${partner.name} logo`}
-                      className="h-12 w-auto max-w-[120px] object-contain grayscale group-hover:grayscale-0 transition-all duration-300"
+                      className="h-12 w-auto max-w-[120px] object-contain transition-all duration-300"
                       loading="lazy"
                     />
                   </a>
@@ -151,9 +78,9 @@ export const CompanyRibbon: React.FC = () => {
                     title={partner.description}
                   >
                     <img
-                      src={partner.logo_url || 'https://via.placeholder.com/120x60?text=' + partner.name}
+                      src={partner.logo_url || `https://via.placeholder.com/120x60?text=${partner.name}`}
                       alt={`${partner.name} logo`}
-                      className="h-12 w-auto max-w-[120px] object-contain grayscale group-hover:grayscale-0 transition-all duration-300"
+                      className="h-12 w-auto max-w-[120px] object-contain transition-all duration-300"
                       loading="lazy"
                     />
                   </div>
@@ -161,7 +88,7 @@ export const CompanyRibbon: React.FC = () => {
               </div>
             ))}
           </div>
-          
+
           {/* Gradient Fade Edges */}
           <div className="absolute top-0 left-0 w-16 h-full bg-gradient-to-r from-background to-transparent pointer-events-none" />
           <div className="absolute top-0 right-0 w-16 h-full bg-gradient-to-l from-background to-transparent pointer-events-none" />
@@ -170,3 +97,5 @@ export const CompanyRibbon: React.FC = () => {
     </section>
   );
 };
+
+export default CompanyRibbon;

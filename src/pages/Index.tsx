@@ -49,31 +49,31 @@ const Index = () => {
     {
       id: '1',
       name: 'John Deere',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/John-Deere-Logo.png',
+      logo_url: '/company logos/John_Deere-Logo-PNG3.png',
       website_url: 'https://www.deere.com'
     },
     {
       id: '2',
       name: 'Case IH',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/Case-IH-Logo.png',
+      logo_url: '/company logos/IH_logo_PNG_(3).png',
       website_url: 'https://www.caseih.com'
     },
     {
       id: '3',
       name: 'New Holland',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/New-Holland-Logo.png',
+      logo_url: '/company logos/New_Holland_logo_PNG_(7).png',
       website_url: 'https://www.newholland.com'
     },
     {
       id: '4',
       name: 'Kubota',
-      logo_url: 'https://logos-world.net/wp-content/uploads/2020/04/Kubota-Logo.png',
+      logo_url: '/company logos/Kubota_(1).png',
       website_url: 'https://www.kubota.com'
     },
     {
       id: '5',
       name: 'Massey Ferguson',
-      logo_url: 'https://1000logos.net/wp-content/uploads/2020/09/Massey-Ferguson-Logo.png',
+      logo_url: '/company logos/Massey-Ferguson-Logo.png',
       website_url: 'https://www.masseyferguson.com'
     }
   ];
