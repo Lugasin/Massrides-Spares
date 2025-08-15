@@ -69,7 +69,7 @@ const AdminDashboard: React.FC = () => {
       // Fetch stats
       const [usersResponse, productsResponse, ordersResponse, quotesResponse] = await Promise.all([
         (supabase as any).from('user_profiles').select('id', { count: 'exact' }),
-        supabase.from('products').select('id', { count: 'exact' }),
+        supabase.from('spare_parts').select('id', { count: 'exact' }),
         supabase.from('orders').select('id, total_amount', { count: 'exact' }),
         (supabase as any).from('quotes').select('id').eq('status', 'pending')
       ]);
@@ -96,7 +96,7 @@ const AdminDashboard: React.FC = () => {
 
       // Fetch recent products
       const { data: productsData } = await supabase
-        .from('products')
+        .from('spare_parts')
         .select('id, name, price, vendor_id')
         .order('created_at', { ascending: false })
         .limit(10);

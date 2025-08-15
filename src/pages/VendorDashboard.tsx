@@ -74,7 +74,7 @@ const VendorDashboard: React.FC = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .select('*')
         .eq('vendor_id', profile?.id)
         .order('created_at', { ascending: false });
@@ -107,7 +107,7 @@ const VendorDashboard: React.FC = () => {
       if (editingProduct) {
         // Update existing product
         const { error } = await supabase
-          .from('products')
+          .from('spare_parts')
           .update(productData)
           .eq('id', editingProduct.id);
 
@@ -116,7 +116,7 @@ const VendorDashboard: React.FC = () => {
       } else {
         // Create new product
         const { error } = await supabase
-          .from('products')
+          .from('spare_parts')
           .insert([productData as any]);
 
         if (error) throw error;
@@ -164,7 +164,7 @@ const VendorDashboard: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .delete()
         .eq('id', productId);
 

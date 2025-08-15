@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { ParallaxHero } from "@/components/ParallaxHero";
-import { CompanyRibbon } from "@/components/CompanyRibbon";
+import CompanyRibbon from "@/components/CompanyRibbon";
 import { AutoScrollPartners } from "@/components/AutoScrollPartners";
 import { AboutUsTeaser } from "@/components/AboutUsTeaser";
 import { FeaturesSection } from "@/components/FeaturesSection";
