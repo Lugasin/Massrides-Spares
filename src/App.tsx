@@ -24,7 +24,7 @@ import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
 import VendorInventory from "./pages/VendorInventory"; // Import VendorInventory
 import VerifyEmail from "./pages/VerifyEmail"; // Import VerifyEmail page
-import MessagingSystem from "./components/MessagingSystem"; // Import MessagingSystem
+import Messages from "./pages/Messages"; // Import Messages page
 
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
 import UserManagement from './pages/UserManagement'; // Import UserManagement page
@@ -40,6 +40,7 @@ import ActivityLog from './pages/ActivityLog';
 import GuestShoppingLanding from './pages/GuestShoppingLanding';
 import GuestCheckout from './pages/GuestCheckout';
 import PaymentMonitoring from './pages/PaymentMonitoring';
+import PaymentMethods from './pages/PaymentMethods';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 
@@ -99,7 +100,9 @@ const AppContent = () => {
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
           <Route path="/activity-log" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<ActivityLog />} />} />
           <Route path="/payment-monitoring" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<PaymentMonitoring />} />} />
-          <Route path="/messages" element={<ProtectedRoute element={<MessagingSystem />} />} />
+          <Route path="/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
+          <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
+          <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 
           {/* Protected Profile Route */}

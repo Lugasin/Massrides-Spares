@@ -31,6 +31,7 @@ interface AuthContextType {
   profile: UserProfile | null
   session: Session | null
   loading: boolean
+  ready: boolean
   signUp: (email: string, password: string, userData: Partial<UserProfile>) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
@@ -46,6 +47,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   session: null,
   loading: true,
+  ready: false,
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
   signOut: async () => ({ error: null }),
@@ -69,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [ready, setReady] = useState(false)
   const [userPermissions, setUserPermissions] = useState<string[]>([])
   const [userRole, setUserRole] = useState<string>('guest')
 
@@ -81,6 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (session?.user) {
         await loadUserProfile(session.user.id)
+      } else {
+        setReady(true)
       }
       
       setLoading(false)
@@ -95,28 +100,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null)
         
         if (event === 'SIGNED_IN' && session?.user) {
-          // Merge guest cart if exists
-          await mergeGuestCart()
-          await loadUserProfile(session.user.id)
+          try {
+            // Merge guest cart if exists
+            await mergeGuestCart()
+            await loadUserProfile(session.user.id)
+          } catch (error) {
+            console.error('Error during sign in processing:', error)
+          }
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           await loadUserProfile(session.user.id)
-          await supabase.functions.invoke('real-time-notifications', {
-            body: {
-              user_id: session.user.id,
-              title: 'Welcome to Massrides!',
-              message: 'Your account has been created successfully. Start browsing our spare parts catalog.',
-              type: 'welcome'
-            }
-          });
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)
           setUserPermissions([])
           setUserRole('guest')
+          setReady(false)
           // Clear any stored session data
           localStorage.removeItem('user_role')
+          localStorage.removeItem('guest_session_id')
         }
         
         setLoading(false)
+        setReady(true)
       }
     )
 
@@ -171,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUserPermissions(rolePermissions[userData.role] || [])
+      setReady(true)
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
     }
@@ -334,6 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     session,
     loading,
+    ready,
     signUp,
     signIn,
     signOut,

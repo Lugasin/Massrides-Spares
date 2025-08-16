@@ -3,13 +3,17 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 import { 
   TrendingUp, 
   Users, 
   Package, 
   ShoppingCart,
   ArrowUpRight,
-  Calendar
+  Calendar,
+  Plus,
+  Settings,
+  BarChart3
 } from "lucide-react";
 
 // Demo data for charts and recent activity
@@ -28,7 +32,8 @@ const topSpareParts = [
 ];
 
 const Dashboard = () => {
-  const { user, profile, userRole, loading } = useAuth();
+  const { user, profile, userRole, loading, ready } = useAuth();
+  const navigate = useNavigate();
 
   if (loading) {
     return <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Loading...'}><div className="p-6 text-center">Loading dashboard...</div></DashboardLayout>;
@@ -50,16 +55,35 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-primary hover:bg-primary-hover">
+              <Button 
+                className="bg-primary hover:bg-primary/90 flex items-center gap-2"
+                onClick={() => navigate('/vendor/add-product')}
+              >
+                <Plus className="h-4 w-4" />
                 Add New Part
               </Button>
-              <Button variant="outline">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => navigate('/orders')}
+              >
+                <ShoppingCart className="h-4 w-4" />
                 Process Orders
               </Button>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => navigate('/analytics')}
+              >
+                <BarChart3 className="h-4 w-4" />
                 Generate Report
               </Button>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => navigate('/messages')}
+              >
+                <Users className="h-4 w-4" />
                 Contact Suppliers
               </Button>
             </div>
@@ -71,7 +95,11 @@ const Dashboard = () => {
           <Card className="border-border/50">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-foreground">Recent Orders</CardTitle>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate('/orders')}
+              >
                 View All
                 <ArrowUpRight className="h-4 w-4 ml-1" />
               </Button>
@@ -151,16 +179,153 @@ const Dashboard = () => {
         </Card>
       </div>
       );
-    } else {
-      // Default content for other roles (customer, vendor, guest)
+    } else if (userRole === 'vendor') {
       return (
-        <div className="space-y-6 p-6">
-          <h2 className="text-2xl font-bold text-foreground">
-            Welcome, {profile?.full_name || user?.email || 'User'}!
-          </h2>
-          <p className="text-muted-foreground">
-            You are logged in as a <Badge variant="secondary">{userRole || 'guest'}</Badge>. Your dashboard content will appear here soon.
-          </p>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">
+                Welcome back, {profile?.full_name || user?.email || 'Vendor'}!
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                Manage your spare parts inventory and orders
+              </p>
+            </div>
+            <Button 
+              onClick={() => navigate('/vendor/add-product')}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add New Part
+            </Button>
+          </div>
+
+          {/* Vendor Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/vendor/inventory')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Manage Inventory</p>
+                    <p className="text-2xl font-bold">Parts</p>
+                  </div>
+                  <Package className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/orders')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">View Orders</p>
+                    <p className="text-2xl font-bold">Orders</p>
+                  </div>
+                  <ShoppingCart className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/messages')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Messages</p>
+                    <p className="text-2xl font-bold">Chat</p>
+                  </div>
+                  <Users className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/settings')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Account Settings</p>
+                    <p className="text-2xl font-bold">Settings</p>
+                  </div>
+                  <Settings className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Vendor Analytics Placeholder */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Sales Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 bg-muted/20 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 text-primary mx-auto mb-4" />
+                  <p className="text-lg font-medium text-foreground mb-2">
+                    Sales Analytics
+                  </p>
+                  <p className="text-muted-foreground">
+                    Your sales performance will appear here
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    } else {
+      // Default content for other roles (customer, guest)
+      return (
+        <div className="space-y-6">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              Welcome, {profile?.full_name || user?.email || 'Guest'}!
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              You are logged in as a <Badge variant="secondary" className="mx-1">{userRole || 'guest'}</Badge>
+            </p>
+          </div>
+
+          {/* Customer Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/catalog')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Browse Parts</p>
+                    <p className="text-2xl font-bold">Catalog</p>
+                  </div>
+                  <Package className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/orders')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">My Orders</p>
+                    <p className="text-2xl font-bold">Orders</p>
+                  </div>
+                  <ShoppingCart className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/messages')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Messages</p>
+                    <p className="text-2xl font-bold">Chat</p>
+                  </div>
+                  <Users className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       );
     }

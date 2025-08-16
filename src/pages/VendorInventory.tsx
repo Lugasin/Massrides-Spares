@@ -84,10 +84,10 @@ const VendorInventory: React.FC = () => {
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
-        .from('spare_part_categories')
+        .from('categories')
         .select('*')
-        .eq('active', true)
-        .order('display_order');
+        .eq('is_active', true)
+        .order('sort_order');
 
       if (error) throw error;
       setCategories(data || []);
@@ -103,7 +103,7 @@ const VendorInventory: React.FC = () => {
         .from('spare_parts')
         .select(`
           *,
-          category:spare_part_categories(name)
+          category:categories(name)
         `)
         .order('created_at', { ascending: false });
 
