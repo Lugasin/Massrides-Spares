@@ -43,6 +43,7 @@ import PaymentMonitoring from './pages/PaymentMonitoring';
 import PaymentMethods from './pages/PaymentMethods';
 import Analytics from './pages/Analytics';
 import ProductsManagement from './pages/ProductsManagement';
+import RoleManager from './pages/RoleManager';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 
@@ -115,7 +116,8 @@ const AppContent = () => {
           <Route path="/profile/customer" element={<ProtectedRoute allowedRoles={['customer']} element={<CustomerProfile />} />} />
           <Route path="/dashboard/products/add" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<AddProduct />} />} /> {/* Protected Add Product Route */}
           <Route path="/dashboard/products" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<Products />} />} /> {/* Protected Products Management Route */}
-          <Route path="/dashboard/users" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<UserManagement />} />} /> {/* Protected User Management Route */}
+          <Route path="/user-management" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']} element={<UserManagement />} />} />
+          <Route path="/role-manager" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']} element={<RoleManager />} />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

@@ -72,12 +72,9 @@ const SparePartsCatalog = () => {
         .from('spare_parts')
         .select(`
           *,
-          category:spare_part_categories(name),
-          equipment_compatibility(
-            equipment_type:equipment_types(name, brand)
-          )
+          categories:category_id(name)
         `)
-        .eq('availability_status', 'in_stock')
+        .eq('is_active', true)
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false });
 

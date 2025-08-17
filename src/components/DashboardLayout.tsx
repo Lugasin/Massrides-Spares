@@ -103,7 +103,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
   const navigationItems = [
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
     { label: "Analytics", icon: TrendingUp, href: "/analytics" },
-    { label: "Users", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
+    { label: "Users", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
     { label: "Products", icon: Package, href: "/products-management" },
     { label: "Orders", icon: ShoppingCart, href: "/orders" },
     { label: "Payments", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin", "admin"] },
