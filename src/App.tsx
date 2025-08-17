@@ -41,6 +41,8 @@ import GuestShoppingLanding from './pages/GuestShoppingLanding';
 import GuestCheckout from './pages/GuestCheckout';
 import PaymentMonitoring from './pages/PaymentMonitoring';
 import PaymentMethods from './pages/PaymentMethods';
+import Analytics from './pages/Analytics';
+import ProductsManagement from './pages/ProductsManagement';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 
@@ -93,10 +95,10 @@ const AppContent = () => {
           <Route path="/vendor/inventory" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<VendorInventory />} />} />
           <Route path="/vendor/add-product" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<AddProduct />} />} />
 
-          {/* Placeholder routes for future pages */}
+          {/* Dashboard and management routes */}
           <Route path="/orders" element={<ProtectedRoute element={<Orders />} />} />
-          <Route path="/wishlist" element={<div>Coming Soon: Wishlist</div>} />
-          <Route path="/analytics" element={<div>Coming Soon: Analytics</div>} />
+          <Route path="/analytics" element={<ProtectedRoute element={<Analytics />} />} />
+          <Route path="/products-management" element={<ProtectedRoute element={<ProductsManagement />} />} />
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
           <Route path="/activity-log" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<ActivityLog />} />} />
           <Route path="/payment-monitoring" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<PaymentMonitoring />} />} />

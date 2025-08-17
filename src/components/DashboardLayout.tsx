@@ -16,6 +16,8 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardLayoutProps {
   userRole: "super_admin" | "admin" | "vendor" | "customer" | "guest" | null;
@@ -94,22 +96,36 @@ const roleConfig = {
 
 export const DashboardLayout = ({ userRole, userName, children }: DashboardLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const config = roleConfig[userRole];
 
   const navigationItems = [
-    { label: "Dashboard", icon: BarChart3, active: true },
-    { label: "Analytics", icon: TrendingUp, active: false },
-    { label: "Users", icon: Users, active: false, roles: ["super_admin", "admin"] },
-    { label: "Products", icon: Package, active: false },
-    { label: "Orders", icon: ShoppingCart, active: false },
-    { label: "Payments", icon: DollarSign, active: false, roles: ["super_admin", "admin"], href: "/payment-monitoring" },
-    { label: "Support", icon: Bell, active: false, roles: ["super_admin", "admin", "support"] },
-    { label: "Settings", icon: Settings, active: false }
+    { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
+    { label: "Analytics", icon: TrendingUp, href: "/analytics" },
+    { label: "Users", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
+    { label: "Products", icon: Package, href: "/products-management" },
+    { label: "Orders", icon: ShoppingCart, href: "/orders" },
+    { label: "Payments", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin", "admin"] },
+    { label: "Settings", icon: Settings, href: "/settings" }
   ];
 
   const visibleNavItems = navigationItems.filter(item => 
     !item.roles || item.roles.includes(userRole)
   );
+
+  const handleNavClick = (href: string) => {
+    navigate(href);
+    setIsSidebarOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -155,12 +171,12 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
               {visibleNavItems.map((item) => (
                 <li key={item.label}>
                   <Button
-                    variant={item.active ? "default" : "ghost"}
+                    variant={window.location.pathname === item.href ? "default" : "ghost"}
                     className={cn(
                       "w-full justify-start gap-3",
-                      item.active && "bg-primary text-primary-foreground"
+                      window.location.pathname === item.href && "bg-primary text-primary-foreground"
                     )}
-                    onClick={() => item.href && (window.location.href = item.href)}
+                    onClick={() => handleNavClick(item.href)}
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
@@ -172,7 +188,11 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
 
           {/* Footer */}
           <div className="p-4 border-t border-border">
-            <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start gap-3 text-destructive hover:text-destructive"
+              onClick={handleSignOut}
+            >
               <LogOut className="h-4 w-4" />
               Sign Out
             </Button>
