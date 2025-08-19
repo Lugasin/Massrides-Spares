@@ -54,8 +54,25 @@ const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const handleUpdateStatus = async (orderId: string, status: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('update-order-status', {
+        body: { orderId, status }
+      });
+
+      if (error) throw new Error(error.message);
+
+      toast.success(`Order status updated to ${status}`);
+      fetchOrders(); // Refetch orders to update the list
+    } catch (error: any) {
+      console.error('Error updating order status:', error);
+      toast.error(`Failed to update order status: ${error.message}`);
+    }
+  };
 
   useEffect(() => {
     if (user || userRole) {
@@ -309,14 +326,33 @@ const Orders = () => {
                         {order.order_items?.length || 0} items
                       </TableCell>
                       <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedOrder(order)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedOrder(order)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          {(userRole === 'admin' || userRole === 'vendor') && (
+                            <Select
+                              value={order.status}
+                              onValueChange={(newStatus) => handleUpdateStatus(order.id, newStatus)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="shipped">Shipped</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

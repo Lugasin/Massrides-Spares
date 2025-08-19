@@ -80,13 +80,26 @@ export default function Login() {
   const handleSignIn = async () => {
     setIsLoading(true);
     
-    const { error } = await signIn(email, password);
-    
-    if (!error) {
-      navigate('/profile'); // Route to profile after login
+    try {
+      const { error } = await signIn(email, password);
+
+      if (error) {
+        // The error is already handled and toasted in the signIn function
+        // We just need to stop the loading indicator
+        return;
+      }
+
+      // On successful sign-in, the onAuthStateChange listener in AuthContext will handle navigation
+      // and profile loading. We can optionally navigate here as a fallback.
+      // navigate('/profile');
+
+    } catch (error) {
+      // This catch block is for unexpected errors in the signIn process itself
+      console.error("Unexpected error during sign in:", error);
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (

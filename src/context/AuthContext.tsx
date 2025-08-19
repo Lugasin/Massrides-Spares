@@ -101,13 +101,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (event === 'SIGNED_IN' && session?.user) {
           try {
+            console.log('AuthContext: SIGNED_IN event triggered');
             // Merge guest cart if exists
+            console.log('AuthContext: Merging guest cart...');
             await mergeGuestCart()
+            console.log('AuthContext: Guest cart merged.');
+            console.log('AuthContext: Loading user profile...');
             await loadUserProfile(session.user.id)
+            console.log('AuthContext: User profile loaded.');
           } catch (error) {
             console.error('Error during sign in processing:', error)
           }
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('AuthContext: TOKEN_REFRESHED event triggered');
           await loadUserProfile(session.user.id)
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)

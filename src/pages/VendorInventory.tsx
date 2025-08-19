@@ -78,8 +78,28 @@ const VendorInventory: React.FC = () => {
     if (userRole === 'vendor' || userRole === 'admin') {
       fetchVendorParts();
       fetchCategories();
+
+      const channel = supabase
+        .channel('vendor-inventory')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'spare_parts',
+            filter: `vendor_id=eq.${profile?.id}`
+          },
+          () => {
+            fetchVendorParts();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
-  }, [userRole]);
+  }, [userRole, profile]);
 
   const fetchCategories = async () => {
     try {

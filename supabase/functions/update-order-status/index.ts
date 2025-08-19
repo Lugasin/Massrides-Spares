@@ -36,12 +36,12 @@ serve(async (req) => {
       )
     }
 
-    const { productId, ...productData } = await req.json();
+    const { orderId, status } = await req.json();
 
-    const { data, error } = await supabase
-      .from('spare_parts')
-      .update(productData)
-      .eq('id', productId)
+    const { data: order, error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', orderId)
       .select()
       .single();
 
@@ -49,21 +49,21 @@ serve(async (req) => {
       throw error;
     }
 
-    // Check for low stock and send notification
-    if (data.stock_quantity <= data.min_stock_level) {
+    // Send notification to the customer
+    if (order.user_id) {
       await supabase.functions.invoke('real-time-notifications', {
         body: {
-          user_id: user.id,
-          title: 'Low Stock Alert',
-          message: `Your product "${data.name}" is running low on stock. Current stock: ${data.stock_quantity}`,
-          type: 'warning',
-          action_url: `/vendor/inventory?part=${data.id}`
+          user_id: order.user_id,
+          title: `Order #${order.order_number} Updated`,
+          message: `Your order status has been updated to: ${status}`,
+          type: 'order',
+          action_url: `/orders/${order.id}`
         }
       });
     }
 
     return new Response(
-      JSON.stringify({ product: data }),
+      JSON.stringify({ order }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
