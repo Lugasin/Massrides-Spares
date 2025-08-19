@@ -115,6 +115,7 @@ export const TestimonialSlider = () => {
                             src={testimonial.avatar}
                             alt={testimonial.name}
                             className="w-20 h-20 lg:w-24 lg:h-24 rounded-full object-cover border-4 border-primary/20"
+                            loading="lazy"
                           />
                           <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center">
                             <Quote className="h-4 w-4" />

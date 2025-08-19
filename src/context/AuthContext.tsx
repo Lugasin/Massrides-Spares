@@ -134,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const loadUserProfile = async (userId: string) => {
+    console.log('loadUserProfile: Starting for userId:', userId);
     try {
       const { data: userData, error: userError } = await supabase
         .from('user_profiles')
@@ -142,9 +143,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single()
 
       if (userError) {
-        console.error('Error loading user profile:', userError)
+        console.error('loadUserProfile: Error loading user profile:', userError)
+        toast.error(`Failed to load user profile: ${userError.message}`);
         return
       }
+
+      console.log('loadUserProfile: Profile data fetched:', userData);
 
       const profileData: UserProfile = {
         id: userData.id,
@@ -171,6 +175,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(userData.role || 'customer')
       localStorage.setItem('user_role', userData.role || 'customer')
       
+      console.log('loadUserProfile: Profile state set:', profileData);
+
       // Set basic permissions based on role
       const rolePermissions: Record<string, string[]> = {
         'super_admin': ['all'],
@@ -182,8 +188,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUserPermissions(rolePermissions[userData.role] || [])
       setReady(true)
+      console.log('loadUserProfile: Auth context is ready.');
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
+      toast.error('An unexpected error occurred while loading your profile.');
     }
   }
 

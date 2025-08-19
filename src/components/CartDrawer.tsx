@@ -91,6 +91,7 @@ export const CartDrawer = ({
                         src={item.image}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-md"
+                        loading="lazy"
                       />
                       <div className="flex-1">
                         <h4 className="font-medium text-card-foreground mb-1">

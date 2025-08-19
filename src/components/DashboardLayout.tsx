@@ -82,6 +82,17 @@ const roleConfig = {
     ]
   },
   support: {
+    title: "Welcome",
+    description: "Manage your products and sales",
+    color: "bg-green-500",
+    metrics: [
+      { label: "My Products", value: "28", icon: Package, change: "+2%" },
+      { label: "Orders Today", value: "8", icon: ShoppingCart, change: "+33%" },
+      { label: "Revenue", value: "$12K", icon: DollarSign, change: "+28%" },
+      { label: "Views", value: "1.2K", icon: TrendingUp, change: "+45%" }
+    ]
+  },
+  support: {
     title: "Support Dashboard",
     description: "Customer support and tickets",
     color: "bg-orange-500", 
@@ -98,7 +109,18 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const config = roleConfig[userRole];
+  const config = userRole ? roleConfig[userRole] : null;
+
+  if (!config) {
+    return (
+        <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading Dashboard...</p>
+            </div>
+        </div>
+    );
+  }
 
   const navigationItems = [
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },

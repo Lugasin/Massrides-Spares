@@ -110,6 +110,7 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
                       src={product.image}
                       alt={product.name}
                       className="w-full h-40 sm:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
                     />
                     
                     {/* Badges */}

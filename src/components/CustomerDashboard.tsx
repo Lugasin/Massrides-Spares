@@ -162,7 +162,7 @@ const CustomerDashboard = () => {
           {recommendations.map(part => (
             <Card key={part.id} className="group overflow-hidden">
               <Link to={`/parts/${part.id}`} className="block">
-                <img src={part.images[0] || '/api/placeholder/300/200'} alt={part.name} className="w-full h-40 object-cover" />
+                <img src={part.images[0] || '/api/placeholder/300/200'} alt={part.name} className="w-full h-40 object-cover" loading="lazy" />
                 <CardContent className="p-4">
                   <h3 className="font-semibold truncate">{part.name}</h3>
                   <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>

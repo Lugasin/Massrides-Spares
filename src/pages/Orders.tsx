@@ -418,6 +418,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
                               src={item.spare_part.images?.[0] || '/api/placeholder/80/80'}
                               alt={item.spare_part.name}
                               className="w-16 h-16 object-cover rounded"
+                              loading="lazy"
                             />
                             <div className="flex-1">
                               <h4 className="font-medium">{item.spare_part.name}</h4>

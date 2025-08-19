@@ -83,6 +83,7 @@ const Cart = () => {
                           src={item.image}
                           alt={item.name}
                           className="w-24 h-24 object-cover rounded-md flex-shrink-0"
+                          loading="lazy"
                         />
                         
                         <div className="flex-1">
