@@ -365,54 +365,26 @@ const Quotes: React.FC = () => {
     setLoadingQuotes(true);
     setErrorFetchingQuotes(null);
 
-    let query = (supabase as any).from('quotes').select('*');
+    try {
+      const { data, error } = await supabase.functions.invoke('get-quotes');
 
-    // Filter quotes based on user role
-    if (userRole === 'customer' && user) {
-      query = query.eq('client_id', user.id);
-    } else if (['vendor', 'admin', 'super_admin'].includes(userRole || '') && user) {
-      query = query.eq('vendor_id', user.id);
-    }
+      if (error) {
+        throw new Error(error.message);
+      }
 
-    const { data: quotesData, error: quotesError } = await query.order('created_at', { ascending: false });
-
-    if (quotesError) {
-      console.error('Error fetching quotes:', quotesError);
+      setQuotes(data.quotes || []);
+    } catch (error: any) {
+      console.error('Error fetching quotes:', error);
       toast({
         title: 'Error',
-        description: `Failed to fetch quotes: ${quotesError.message}`,
+        description: `Failed to fetch quotes: ${error.message}`,
         variant: 'destructive'
       });
-      setErrorFetchingQuotes(quotesError.message);
+      setErrorFetchingQuotes(error.message);
       setQuotes([]);
+    } finally {
       setLoadingQuotes(false);
-      return;
     }
-
-    if (!quotesData || quotesData.length === 0) {
-      setQuotes([]);
-      setLoadingQuotes(false);
-      return;
-    }
-
-    // Fetch related quote items, clients, and vendors concurrently
-    const quotesWithDetails = await Promise.all(quotesData.map(async (quote) => {
-      const [itemsResult, clientResult, vendorResult] = await Promise.all([
-        (supabase as any).from('quote_items').select('*').eq('quote_id', quote.id),
-        (supabase as any).from('user_profiles').select('*').eq('id', quote.client_id).single(),
-        (supabase as any).from('user_profiles').select('*').eq('id', quote.vendor_id).single(),
-      ]);
-
-      return {
-        ...quote,
-        items: itemsResult.data || [],
-        client: clientResult.data,
-        vendor: vendorResult.data,
-      };
-    }));
-
-    setQuotes(quotesWithDetails as SupabaseQuote[]);
-    setLoadingQuotes(false);
  }, [user, userRole, toast]);
 
   useEffect(() => {

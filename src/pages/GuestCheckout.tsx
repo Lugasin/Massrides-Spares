@@ -16,7 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -44,27 +44,19 @@ const GuestCheckout = () => {
       const sessionId = localStorage.getItem('guest_session_id') || crypto.randomUUID();
       localStorage.setItem('guest_session_id', sessionId);
 
-      // Generate verification code (6 digits)
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const { data, error } = await supabase.functions.invoke('guest-verification/send', {
+        body: { email, session_id: sessionId },
+      });
 
-      // Store verification in database
-      const { error } = await supabase
-        .from('guest_verifications')
-        .insert({
-          email,
-          verification_code: verificationCode,
-          session_id: sessionId,
-          expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hour
-        });
+      if (error) throw new Error(error.message);
 
-      if (error) throw error;
-
-      // For demo purposes, show the code (in production, send via email)
-      toast.success(`Verification code: ${verificationCode} (Check your email)`);
+      // In production, the code would be sent to the user's email
+      // For demo purposes, we can show it in a toast
+      toast.success(`Verification code sent. For demo: ${data.code}`);
       setStep(2);
     } catch (error: any) {
       console.error('Error sending verification:', error);
-      toast.error('Failed to send verification code');
+      toast.error(`Failed to send verification code: ${error.message}`);
     } finally {
       setIsVerifying(false);
     }
@@ -83,33 +75,17 @@ const GuestCheckout = () => {
     try {
       const sessionId = localStorage.getItem('guest_session_id');
       
-      // Check verification code
-      const { data: verification, error } = await supabase
-        .from('guest_verifications')
-        .select('*')
-        .eq('email', email)
-        .eq('verification_code', verificationCode)
-        .eq('session_id', sessionId)
-        .is('verified_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .single();
+      const { error } = await supabase.functions.invoke('guest-verification/verify', {
+        body: { email, code: verificationCode, session_id: sessionId },
+      });
 
-      if (error || !verification) {
-        toast.error('Invalid or expired verification code');
-        return;
-      }
-
-      // Mark as verified
-      await supabase
-        .from('guest_verifications')
-        .update({ verified_at: new Date().toISOString() })
-        .eq('id', verification.id);
+      if (error) throw new Error(error.message);
 
       toast.success('Email verified successfully!');
       setStep(3);
     } catch (error: any) {
       console.error('Error verifying code:', error);
-      toast.error('Verification failed');
+      toast.error(`Verification failed: ${error.message}`);
     } finally {
       setIsVerifying(false);
     }
@@ -119,71 +95,37 @@ const GuestCheckout = () => {
     setIsProcessing(true);
     
     try {
-      // Create order for guest
-      const orderData = {
-        order_number: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-        status: 'pending',
-        payment_status: 'pending',
-        total_amount: total,
-        billing_address: {
-          firstName: name.split(' ')[0],
-          lastName: name.split(' ').slice(1).join(' '),
-          email: email
-        },
-        shipping_address: {
-          firstName: name.split(' ')[0],
-          lastName: name.split(' ').slice(1).join(' '),
-          email: email
-        }
-      };
-
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert(orderData)
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items from guest cart
-      const sessionId = localStorage.getItem('guest_session_id');
-      const { data: guestCart } = await supabase
-        .from('guest_carts')
-        .select('id')
-        .eq('session_id', sessionId)
-        .single();
-
-      if (guestCart) {
-        const { data: cartItems } = await supabase
-          .from('guest_cart_items')
-          .select(`
-            id,
-            quantity,
-            spare_part_id,
-            spare_part:spare_parts(id, price, name)
-          `)
-          .eq('guest_cart_id', guestCart.id);
-
-        if (cartItems) {
-          const orderItems = cartItems.map(item => ({
-            order_id: order.id,
-            spare_part_id: item.spare_part_id,
-            quantity: item.quantity,
-            unit_price: (item.spare_part as any)?.price || 0
-          }));
-
-          await supabase
-            .from('order_items')
-            .insert(orderItems);
-        }
+      const guest_session_id = localStorage.getItem('guest_session_id');
+      if (!guest_session_id) {
+        throw new Error("Session not found. Please start checkout again.");
       }
 
+      // Create order using Edge Function
+      const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
+        body: {
+          guest_session_id,
+          customer_info: {
+            email,
+            firstName: name.split(' ')[0],
+            lastName: name.split(' ').slice(1).join(' '),
+            address: 'N/A', // Or collect this info
+            city: 'N/A',
+            state: 'N/A',
+            zipCode: 'N/A',
+            country: 'N/A',
+          }
+        }
+      });
+
+      if (orderError) throw new Error(orderError.message);
+      const { order } = orderData;
+
       // Create TJ payment session
-      const response = await supabase.functions.invoke('tj-create-session', {
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke('tj-create-session', {
         body: {
           orderId: order.id,
-          amount: total,
-          currency: 'USD',
+          amount: order.total_amount,
+          currency: 'USD', // Or get from config
           returnSuccessUrl: `${window.location.origin}/checkout/success?order=${order.order_number}`,
           returnFailedUrl: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
           customerEmail: email,
@@ -191,24 +133,17 @@ const GuestCheckout = () => {
         }
       });
 
-      if (response.error) throw response.error;
+      if (paymentError) throw new Error(paymentError.message);
 
       // Redirect to TJ payment page
-      window.open(response.data.redirectUrl, '_blank');
+      window.open(paymentData.redirectUrl, '_blank');
       
-      // Clear guest cart
-      if (guestCart) {
-        await supabase
-          .from('guest_cart_items')
-          .delete()
-          .eq('guest_cart_id', guestCart.id);
-      }
-      
+      // Clear local cart
       clearCart();
       
     } catch (error: any) {
       console.error('Payment error:', error);
-      toast.error('Failed to process payment');
+      toast.error(`Failed to process payment: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }

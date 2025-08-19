@@ -50,44 +50,35 @@ const Settings = () => {
 
   const fetchUserSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', profile?.id)
-        .single();
+      const { data, error } = await supabase.functions.invoke('get-user-settings');
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (error) {
+        throw new Error(error.message);
       }
 
-      if (data) {
-        setSettings(data);
+      if (data.settings) {
+        setSettings(data.settings);
       } else {
-        // Create default settings
-        const defaultSettings = {
-          user_id: profile?.id,
-          email_notifications: true,
-          push_notifications: true,
-          marketing_emails: false,
-          order_updates: true,
-          theme: 'system' as const,
-          language: 'en',
-          currency: 'USD',
-          timezone: 'Africa/Lusaka'
-        };
+        // If no settings exist, create them
+        const { data: newSettingsData, error: createError } = await supabase.functions.invoke('update-user-settings', {
+          body: {
+            email_notifications: true,
+            push_notifications: true,
+            marketing_emails: false,
+            order_updates: true,
+            theme: 'system',
+            language: 'en',
+            currency: 'USD',
+            timezone: 'Africa/Lusaka'
+          }
+        });
 
-        const { data: newSettings, error: createError } = await supabase
-          .from('user_settings')
-          .insert(defaultSettings)
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        setSettings(newSettings);
+        if (createError) throw new Error(createError.message);
+        setSettings(newSettingsData.settings);
       }
     } catch (error: any) {
       console.error('Error fetching settings:', error);
-      toast.error('Failed to load settings');
+      toast.error(`Failed to load settings: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -118,18 +109,17 @@ const Settings = () => {
 
     try {
       setSaving(true);
-      const { error } = await supabase
-        .from('user_settings')
-        .update({ [key]: value })
-        .eq('id', settings.id);
+      const { data, error } = await supabase.functions.invoke('update-user-settings', {
+        body: { [key]: value }
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
-      setSettings(prev => prev ? { ...prev, [key]: value } : null);
+      setSettings(data.settings);
       toast.success('Setting updated successfully');
     } catch (error: any) {
       console.error('Error updating setting:', error);
-      toast.error('Failed to update setting');
+      toast.error(`Failed to update setting: ${error.message}`);
     } finally {
       setSaving(false);
     }

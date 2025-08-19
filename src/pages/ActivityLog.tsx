@@ -55,20 +55,14 @@ const ActivityLog = () => {
   const fetchActivityLogs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select(`
-          *,
-          user_profiles!activity_logs_user_id_fkey(full_name, email)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const { data, error } = await supabase.functions.invoke('get-activity-logs');
 
-      if (error) throw error;
-      setLogs(data || []);
+      if (error) throw new Error(error.message);
+
+      setLogs(data.logs || []);
     } catch (error: any) {
       console.error('Error fetching activity logs:', error);
-      toast.error('Failed to load activity logs');
+      toast.error(`Failed to load activity logs: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -77,18 +71,16 @@ const ActivityLog = () => {
   const fetchUserActivityLogs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .eq('user_id', profile?.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.functions.invoke('get-activity-logs', {
+        query: { user_id: profile?.id }
+      });
 
-      if (error) throw error;
-      setLogs(data || []);
+      if (error) throw new Error(error.message);
+
+      setLogs(data.logs || []);
     } catch (error: any) {
       console.error('Error fetching user activity logs:', error);
-      toast.error('Failed to load activity logs');
+      toast.error(`Failed to load your activity logs: ${error.message}`);
     } finally {
       setLoading(false);
     }

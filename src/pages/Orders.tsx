@@ -67,33 +67,14 @@ const Orders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(
-            id,
-            quantity,
-            unit_price,
-            spare_part:spare_parts(name, part_number, images)
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('get-orders');
 
-      if (userRole === 'customer' && profile) {
-        query = query.eq('user_id', profile.id);
-      } else if (userRole === 'vendor' && profile) {
-        // Vendors see orders containing their products - simplified for now
-        // Will need proper subquery implementation after table creation
-      }
+      if (error) throw new Error(error.message);
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setOrders(data || []);
+      setOrders(data.orders || []);
     } catch (error: any) {
       console.error('Error fetching orders:', error);
-      toast.error('Failed to load orders');
+      toast.error(`Failed to load orders: ${error.message}`);
     } finally {
       setLoading(false);
     }

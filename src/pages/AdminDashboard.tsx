@@ -65,45 +65,15 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      const { data, error } = await supabase.functions.invoke('get-admin-dashboard-data');
 
-      // Fetch stats
-      const [usersResponse, productsResponse, ordersResponse, quotesResponse] = await Promise.all([
-        (supabase as any).from('user_profiles').select('id', { count: 'exact' }),
-        supabase.from('spare_parts').select('id', { count: 'exact' }),
-        supabase.from('orders').select('id, total_amount', { count: 'exact' }),
-        (supabase as any).from('quotes').select('id').eq('status', 'pending')
-      ]);
+      if (error) throw new Error(error.message);
 
-      // Calculate total revenue
-      const revenue = ordersResponse.data?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      setStats(data.dashboardData.stats);
+      setUsers(data.dashboardData.recentUsers);
+      setProducts(data.dashboardData.recentProducts);
 
-      setStats({
-        totalUsers: usersResponse.count || 0,
-        totalProducts: productsResponse.count || 0,
-        totalOrders: ordersResponse.count || 0,
-        pendingQuotes: quotesResponse.data?.length || 0,
-        totalRevenue: revenue
-      });
-
-      // Fetch recent users
-      const { data: usersData } = await (supabase as any)
-        .from('user_profiles')
-        .select('id, email, full_name, role, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      setUsers(usersData || []);
-
-      // Fetch recent products
-      const { data: productsData } = await supabase
-        .from('spare_parts')
-        .select('id, name, price, vendor_id')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      setProducts((productsData || []) as any);
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
@@ -183,6 +153,9 @@ const AdminDashboard: React.FC = () => {
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            {userRole === 'super_admin' && (
+              <TabsTrigger value="suspicious_activity">Suspicious Activity</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
@@ -296,6 +269,25 @@ const AdminDashboard: React.FC = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {userRole === 'super_admin' && (
+            <TabsContent value="suspicious_activity" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Suspicious Activity Monitoring</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64 flex items-center justify-center bg-muted/20 rounded-lg">
+                    <div className="text-center">
+                      <Shield className="h-12 w-12 mx-auto mb-4 text-destructive" />
+                      <p className="text-lg font-medium">Suspicious Activity Dashboard</p>
+                      <p className="text-muted-foreground">Coming soon...</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>

@@ -32,24 +32,14 @@ const RoleManager = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
-      let query = supabase
-        .from('user_profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('get-users');
 
-      // Regular admins can't manage super_admins
-      if (userRole === 'admin') {
-        query = query.neq('role', 'super_admin');
-      }
+      if (error) throw new Error(error.message);
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setUsers(data || []);
+      setUsers(data.users || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
+      toast.error(`Failed to load users: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -66,19 +56,12 @@ const RoleManager = () => {
     const newRole = pendingChanges[userId];
     if (!newRole) return;
 
-    // Prevent admins from creating super_admins
-    if (userRole === 'admin' && newRole === 'super_admin') {
-      toast.error('Admin users cannot assign Super Admin role');
-      return;
-    }
-
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
+      const { data, error } = await supabase.functions.invoke('update-user-role', {
+        body: { userId, newRole }
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
       // Update local state
       setUsers(users.map(user => 
@@ -95,7 +78,7 @@ const RoleManager = () => {
       toast.success('Role updated successfully');
     } catch (error: any) {
       console.error('Error updating role:', error);
-      toast.error('Failed to update role');
+      toast.error(`Failed to update role: ${error.message}`);
     }
   };
 
