@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { useQuote } from '@/context/QuoteContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Order {
   id: string;
@@ -54,7 +55,6 @@ const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
@@ -135,15 +135,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = !searchTerm || 
-      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.guest_email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredOrders = React.useMemo(() => {
+    return orders.filter(order => {
+      const matchesSearch = !searchTerm ||
+        order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.guest_email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchTerm, statusFilter]);
 
   if (!user && userRole !== 'guest') {
     return (

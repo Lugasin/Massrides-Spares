@@ -82,17 +82,6 @@ const roleConfig = {
     ]
   },
   support: {
-    title: "Welcome",
-    description: "Manage your products and sales",
-    color: "bg-green-500",
-    metrics: [
-      { label: "My Products", value: "28", icon: Package, change: "+2%" },
-      { label: "Orders Today", value: "8", icon: ShoppingCart, change: "+33%" },
-      { label: "Revenue", value: "$12K", icon: DollarSign, change: "+28%" },
-      { label: "Views", value: "1.2K", icon: TrendingUp, change: "+45%" }
-    ]
-  },
-  support: {
     title: "Support Dashboard",
     description: "Customer support and tickets",
     color: "bg-orange-500", 
