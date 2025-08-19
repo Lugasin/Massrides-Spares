@@ -25,12 +25,12 @@ import { formatDistanceToNow } from 'date-fns';
 interface ActivityLog {
   id: string;
   user_id: string;
-  action_type: string;
-  action_details: any;
+  activity_type: string;
+  additional_details: any;
   ip_address: string;
   user_agent: string;
   created_at: string;
-  user_profile?: {
+  user_profiles?: {
     full_name: string;
     email: string;
   };
@@ -59,7 +59,7 @@ const ActivityLog = () => {
         .from('activity_logs')
         .select(`
           *,
-          user_profile:user_profiles(full_name, email)
+          user_profiles!activity_logs_user_id_fkey(full_name, email)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -155,16 +155,16 @@ const ActivityLog = () => {
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = !searchTerm || 
-      log.action_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.user_profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      log.activity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.user_profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.user_profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesAction = actionFilter === 'all' || log.action_type === actionFilter;
+    const matchesAction = actionFilter === 'all' || log.activity_type === actionFilter;
     
     return matchesSearch && matchesAction;
   });
 
-  const actionTypes = Array.from(new Set(logs.map(log => log.action_type)));
+  const actionTypes = Array.from(new Set(logs.map(log => log.activity_type)));
 
   return (
     <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
@@ -250,9 +250,9 @@ const ActivityLog = () => {
                     <TableRow key={log.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {getActionIcon(log.action_type)}
-                          <Badge variant={getActionColor(log.action_type)} className="capitalize">
-                            {log.action_type.replace('_', ' ')}
+                          {getActionIcon(log.activity_type)}
+                          <Badge variant={getActionColor(log.activity_type)} className="capitalize">
+                            {log.activity_type.replace('_', ' ')}
                           </Badge>
                         </div>
                       </TableCell>
@@ -260,10 +260,10 @@ const ActivityLog = () => {
                         <TableCell>
                           <div>
                             <p className="font-medium">
-                              {log.user_profile?.full_name || 'Guest User'}
+                              {log.user_profiles?.full_name || 'Guest User'}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {log.user_profile?.email || 'No email'}
+                              {log.user_profiles?.email || 'No email'}
                             </p>
                           </div>
                         </TableCell>
@@ -271,7 +271,7 @@ const ActivityLog = () => {
                       <TableCell>
                         <div className="max-w-xs">
                           <pre className="text-xs text-muted-foreground whitespace-pre-wrap">
-                            {JSON.stringify(log.action_details, null, 2)}
+                            {JSON.stringify(log.additional_details, null, 2)}
                           </pre>
                         </div>
                       </TableCell>

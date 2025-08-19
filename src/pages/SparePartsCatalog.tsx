@@ -72,7 +72,7 @@ const SparePartsCatalog = () => {
         .from('spare_parts')
         .select(`
           *,
-          categories:category_id(name)
+          category:categories!category_id(name)
         `)
         .eq('is_active', true)
         .order('featured', { ascending: false })
@@ -90,7 +90,7 @@ const SparePartsCatalog = () => {
           partNumber: part.part_number,
           name: part.name,
           description: part.description || '',
-          category: part.category?.name || 'General',
+          category: (part.category as any)?.name || 'General',
           brand: part.brand,
           oemPartNumber: part.oem_part_number,
           aftermarketPartNumber: part.aftermarket_part_number,
@@ -100,12 +100,10 @@ const SparePartsCatalog = () => {
           stockQuantity: part.stock_quantity,
           images: part.images || [],
           technicalSpecs: part.technical_specs || {},
-          compatibility: part.equipment_compatibility?.map(comp => 
-            `${comp.equipment_type.brand} ${comp.equipment_type.name}`
-          ) || [],
+          compatibility: part.compatibility || [],
           warranty: `${part.warranty_months || 12} months`,
-          weight: part.weight_kg ? parseFloat(part.weight_kg.toString()) : undefined,
-          dimensions: part.dimensions_cm,
+          weight: part.weight ? parseFloat(part.weight.toString()) : undefined,
+          dimensions: part.dimensions,
           featured: part.featured,
           tags: part.tags || []
         }));

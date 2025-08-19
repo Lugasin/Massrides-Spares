@@ -103,10 +103,11 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
   const navigationItems = [
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
     { label: "Analytics", icon: TrendingUp, href: "/analytics" },
-    { label: "Users", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
+    { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
     { label: "Products", icon: Package, href: "/products-management" },
     { label: "Orders", icon: ShoppingCart, href: "/orders" },
     { label: "Payments", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin", "admin"] },
+    { label: "Activity Log", icon: BarChart3, href: "/activity-log", roles: ["super_admin", "admin"] },
     { label: "Settings", icon: Settings, href: "/settings" }
   ];
 
@@ -122,6 +123,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
   const handleSignOut = async () => {
     try {
       await signOut();
+      navigate('/');
     } catch (error) {
       console.error('Sign out error:', error);
     }

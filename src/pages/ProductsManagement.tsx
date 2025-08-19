@@ -34,8 +34,8 @@ const ProductsManagement = () => {
     try {
       let query = supabase.from('spare_parts').select(`
         *,
-        categories:category_id(name),
-        user_profiles:vendor_id(full_name, email)
+        category:categories!category_id(name),
+        vendor:user_profiles!vendor_id(full_name, email)
       `);
 
       // Filter based on user role
@@ -160,6 +160,7 @@ const ProductsManagement = () => {
                               {product.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                             <Badge variant="outline">${product.price}</Badge>
+                            <Badge variant="outline">{(product.category as any)?.name || 'No Category'}</Badge>
                           </div>
                         </div>
                       </div>

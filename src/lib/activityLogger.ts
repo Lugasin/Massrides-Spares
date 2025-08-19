@@ -26,15 +26,16 @@ export const logActivity = async ({
     }
 
     const { error } = await supabase
-      .from('audit_logs')
+      .from('activity_logs')
       .insert({
         user_id: userId,
-        action: actionType,
-        table_name: 'user_activity',
-        record_id: userId,
-        new_values: actionDetails || {},
+        activity_type: actionType,
+        resource_type: 'user_activity',
+        resource_id: parseInt(userId) || null,
+        additional_details: actionDetails || {},
         ip_address: ipAddress,
-        user_agent: userAgent
+        user_agent: userAgent,
+        log_source: 'client_action'
       });
 
     if (error) {
