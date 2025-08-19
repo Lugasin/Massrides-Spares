@@ -6,17 +6,18 @@ import { Input } from "@/components/ui/input";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import { useNotifications } from "@/hooks/useNotifications";
 import { 
-  ShoppingCart, 
-  User, 
-  Menu, 
-  X, 
-  Search,
-  Mail,
+  Bell,
+  LayoutDashboard,
   Leaf,
   LogOut,
-  LayoutDashboard,
-  Bell,
-  MessageSquare
+  Mail,
+  Menu,
+  MessageSquare,
+  Search,
+  Settings,
+  ShoppingCart, 
+  User, 
+  X, 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/context/AuthContext';
