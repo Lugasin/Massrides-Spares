@@ -217,7 +217,12 @@ export const Header = ({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut}>
+                  <DropdownMenuItem onClick={async () => {
+                    const { error } = await signOut();
+                    if (!error) {
+                      navigate('/');
+                    }
+                  }}>
                      <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
                   </DropdownMenuItem>
@@ -304,8 +309,11 @@ export const Header = ({
                      {(userRole === 'admin' || userRole === 'super_admin') && (
                        <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">User Management</Link>
                      )}
-                     <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={() => {
-                         signOut();
+                     <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={async () => {
+                         const { error } = await signOut();
+                         if (!error) {
+                           navigate('/');
+                         }
                          setIsMobileMenuOpen(false);
                      }}>
                        <LogOut className="mr-2 h-4 w-4" />

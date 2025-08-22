@@ -16,7 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 

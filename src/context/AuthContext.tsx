@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/integrations/supabase/client'
 import { mergeGuestCart } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { logAuthEvent, logProfileEvent } from '@/lib/activityLogger'
@@ -262,23 +262,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         toast.error(`Sign out failed: ${error.message}`)
-      } else {
-        toast.success('Signed out successfully')
-        
-        // Log successful logout
-        if (profile) {
-          logAuthEvent('logout', profile.id);
-        }
-        
-        // Clear local storage
-        localStorage.removeItem('user_role')
-        localStorage.removeItem('guest_session_id')
-        
-        // Navigate to home after logout
-        window.location.href = '/';
+        return { error }
       }
       
-      return { error }
+      // Log successful logout
+      if (profile) {
+        logAuthEvent('logout', profile.id);
+      }
+      
+      // Clear local storage
+      localStorage.removeItem('user_role')
+      localStorage.removeItem('guest_session_id')
+      
+      // Clear state
+      setUser(null)
+      setProfile(null)
+      setSession(null)
+      setUserPermissions([])
+      setUserRole('guest')
+      setReady(false)
+      
+      toast.success('Signed out successfully')
+      
+      return { error: null }
     } catch (error: any) {
       toast.error(`Sign out failed: ${error.message}`)
       return { error }
