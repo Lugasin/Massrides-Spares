@@ -191,6 +191,10 @@ export const Header = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                     <LayoutDashboard className="mr-2 h-4 w-4" />
                     <span>Dashboard</span>
@@ -204,7 +208,12 @@ export const Header = ({
                     <span>Messages</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut}>
+                  <DropdownMenuItem onClick={async () => {
+                    const { error } = await signOut();
+                    if (!error) {
+                      navigate('/');
+                    }
+                  }}>
                      <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
                   </DropdownMenuItem>
@@ -282,11 +291,15 @@ export const Header = ({
             <div className="border-t border-border mt-2 pt-2">
                {user ? (
                  <div className="flex flex-col gap-1">
+                    <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Profile</Link>
                     <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Dashboard</Link>
                     <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Settings</Link>
                     <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Messages</Link>
-                     <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={() => {
-                         signOut();
+                     <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={async () => {
+                         const { error } = await signOut();
+                         if (!error) {
+                           navigate('/');
+                         }
                          setIsMobileMenuOpen(false);
                      }}>
                        <LogOut className="mr-2 h-4 w-4" />
