@@ -21,7 +21,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface SparePart {
