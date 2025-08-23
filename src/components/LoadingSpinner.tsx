@@ -31,6 +31,7 @@ export const LoadingSpinner = ({
           src={tractorWheel}
           alt="Loading"
           className="w-full h-full object-cover"
+          loading="lazy"
         />
         <div className="absolute inset-0 bg-primary/20" />
       </div>

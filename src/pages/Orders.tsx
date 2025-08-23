@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { useQuote } from '@/context/QuoteContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Order {
   id: string;
@@ -57,6 +58,22 @@ const Orders = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
+  const handleUpdateStatus = async (orderId: string, status: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('update-order-status', {
+        body: { orderId, status }
+      });
+
+      if (error) throw new Error(error.message);
+
+      toast.success(`Order status updated to ${status}`);
+      fetchOrders(); // Refetch orders to update the list
+    } catch (error: any) {
+      console.error('Error updating order status:', error);
+      toast.error(`Failed to update order status: ${error.message}`);
+    }
+  };
+
   useEffect(() => {
     if (user || userRole) {
       fetchOrders();
@@ -67,33 +84,14 @@ const Orders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(
-            id,
-            quantity,
-            unit_price,
-            spare_part:spare_parts(name, part_number, images)
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('get-orders');
 
-      if (userRole === 'customer' && profile) {
-        query = query.eq('user_id', profile.id);
-      } else if (userRole === 'vendor' && profile) {
-        // Vendors see orders containing their products - simplified for now
-        // Will need proper subquery implementation after table creation
-      }
+      if (error) throw new Error(error.message);
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setOrders(data || []);
+      setOrders(data.orders || []);
     } catch (error: any) {
       console.error('Error fetching orders:', error);
-      toast.error('Failed to load orders');
+      toast.error(`Failed to load orders: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -137,15 +135,17 @@ const Orders = () => {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = !searchTerm || 
-      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.guest_email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredOrders = React.useMemo(() => {
+    return orders.filter(order => {
+      const matchesSearch = !searchTerm ||
+        order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.guest_email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchTerm, statusFilter]);
 
   if (!user && userRole !== 'guest') {
     return (
@@ -328,14 +328,33 @@ const Orders = () => {
                         {order.order_items?.length || 0} items
                       </TableCell>
                       <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedOrder(order)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedOrder(order)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          {(userRole === 'admin' || userRole === 'vendor') && (
+                            <Select
+                              value={order.status}
+                              onValueChange={(newStatus) => handleUpdateStatus(order.id, newStatus)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="shipped">Shipped</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -401,6 +420,7 @@ const Orders = () => {
                               src={item.spare_part.images?.[0] || '/api/placeholder/80/80'}
                               alt={item.spare_part.name}
                               className="w-16 h-16 object-cover rounded"
+                              loading="lazy"
                             />
                             <div className="flex-1">
                               <h4 className="font-medium">{item.spare_part.name}</h4>

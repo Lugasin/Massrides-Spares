@@ -265,6 +265,7 @@ const SparePartDetail = () => {
                 src={sparePart.images[selectedImage] || sparePart.images[0]}
                 alt={sparePart.name}
                 className="w-full h-96 object-cover"
+                loading="lazy"
               />
               {sparePart.featured && (
                 <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">

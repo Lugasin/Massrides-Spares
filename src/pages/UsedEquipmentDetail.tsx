@@ -35,7 +35,7 @@ const UsedEquipmentDetail: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <img src={item.image} alt={item.name} className="w-full h-64 object-cover rounded-md mb-4" />
+          <img src={item.image} alt={item.name} className="w-full h-64 object-cover rounded-md mb-4" loading="lazy" />
 
           <p className="text-muted-foreground mb-4">{item.description}</p>
           <div className="flex gap-2 mb-4">

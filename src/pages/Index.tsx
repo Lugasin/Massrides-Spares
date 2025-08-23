@@ -22,9 +22,12 @@ import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Star, Package, Wrench, Zap, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import CustomerDashboard from "@/components/CustomerDashboard";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, userRole } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [suggestedProducts, setSuggestedProducts] = useState<SparePart[]>([]);
@@ -34,6 +37,24 @@ const Index = () => {
   const handleAuthClick = () => {
     navigate('/login');
   };
+
+  if (user && userRole === 'customer') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header
+          cartItemsCount={itemCount}
+          onAuthClick={handleAuthClick}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
+        <main>
+          <CustomerDashboard />
+        </main>
+        <Footer />
+        <BackToTop />
+      </div>
+    );
+  }
 
   // Enhanced categories with icons
   const categories = [
@@ -175,6 +196,7 @@ const Index = () => {
                             src={part.images[0] || '/api/placeholder/300/200'}
                             alt={part.name}
                             className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
                           />
                           {part.featured && (
                             <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
@@ -226,6 +248,7 @@ const Index = () => {
                           src={part.images[0] || '/api/placeholder/300/200'}
                           alt={part.name}
                           className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
                         />
                         <div className="absolute top-3 left-3 flex gap-2">
                           {part.featured && (

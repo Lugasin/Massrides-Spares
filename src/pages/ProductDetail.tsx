@@ -57,6 +57,7 @@ const SparePartDetail = () => {
               src={sparePart.image}
               alt={sparePart.name}
               className="w-full h-96 object-cover rounded-lg shadow-lg"
+              loading="lazy"
             />
             {/* Thumbnails (Add more images to product data later) */}
             <div className="flex gap-4 mt-4">
@@ -65,6 +66,7 @@ const SparePartDetail = () => {
                 src={sparePart.image}
                 alt={`${sparePart.name} thumbnail`}
                 className="w-20 h-20 object-cover rounded-md cursor-pointer border-2 border-primary"
+                loading="lazy"
               />
               {/* Add more thumbnails here */}
             </div>

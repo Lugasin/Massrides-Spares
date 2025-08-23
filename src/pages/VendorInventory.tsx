@@ -78,8 +78,28 @@ const VendorInventory: React.FC = () => {
     if (userRole === 'vendor' || userRole === 'admin') {
       fetchVendorParts();
       fetchCategories();
+
+      const channel = supabase
+        .channel('vendor-inventory')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'spare_parts',
+            filter: `vendor_id=eq.${profile?.id}`
+          },
+          () => {
+            fetchVendorParts();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
-  }, [userRole]);
+  }, [userRole, profile]);
 
   const fetchCategories = async () => {
     try {
@@ -99,25 +119,14 @@ const VendorInventory: React.FC = () => {
   const fetchVendorParts = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('spare_parts')
-        .select(`
-          *,
-          category:categories(name)
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('get-vendor-inventory');
 
-      if (userRole === 'vendor') {
-        query = query.eq('vendor_id', profile?.id);
-      }
+      if (error) throw new Error(error.message);
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setParts(data || []);
+      setParts(data.inventory || []);
     } catch (error: any) {
       console.error('Error fetching parts:', error);
-      toast.error('Failed to fetch inventory');
+      toast.error(`Failed to fetch inventory: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -129,24 +138,22 @@ const VendorInventory: React.FC = () => {
     try {
       const partData = {
         ...newPartForm,
-        vendor_id: profile?.id,
         part_number: `${newPartForm.brand.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
       };
 
       if (editingPart) {
-        const { error } = await supabase
-          .from('spare_parts')
-          .update(partData)
-          .eq('id', editingPart.id);
+        const { error } = await supabase.functions.invoke('update-product', {
+          body: { productId: editingPart.id, ...partData }
+        });
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         toast.success('Part updated successfully');
       } else {
-        const { error } = await supabase
-          .from('spare_parts')
-          .insert([partData]);
+        const { error } = await supabase.functions.invoke('add-product', {
+          body: partData
+        });
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
         toast.success('Part added successfully');
       }
 
@@ -194,12 +201,11 @@ const VendorInventory: React.FC = () => {
     if (!confirm('Are you sure you want to delete this part?')) return;
 
     try {
-      const { error } = await supabase
-        .from('spare_parts')
-        .delete()
-        .eq('id', partId);
+      const { error } = await supabase.functions.invoke('delete-product', {
+        body: { productId: partId }
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       toast.success('Part deleted successfully');
       fetchVendorParts();
     } catch (error: any) {

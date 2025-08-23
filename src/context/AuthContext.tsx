@@ -101,13 +101,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (event === 'SIGNED_IN' && session?.user) {
           try {
+            console.log('AuthContext: SIGNED_IN event triggered');
             // Merge guest cart if exists
+            console.log('AuthContext: Merging guest cart...');
             await mergeGuestCart()
+            console.log('AuthContext: Guest cart merged.');
+            console.log('AuthContext: Loading user profile...');
             await loadUserProfile(session.user.id)
+            console.log('AuthContext: User profile loaded.');
           } catch (error) {
             console.error('Error during sign in processing:', error)
           }
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('AuthContext: TOKEN_REFRESHED event triggered');
           await loadUserProfile(session.user.id)
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)
@@ -137,6 +143,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (userError) {
         console.error('Error loading user profile:', userError)
+        // Don't show error toast for missing profile - it might be creating
+        if (userError.code !== 'PGRST116') {
+          toast.error(`Failed to load user profile: ${userError.message}`);
+        }
         return
       }
 
@@ -164,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(profileData)
       setUserRole(userData.role || 'customer')
       localStorage.setItem('user_role', userData.role || 'customer')
-      
+
       // Set basic permissions based on role
       const rolePermissions: Record<string, string[]> = {
         'super_admin': ['all'],
@@ -176,8 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUserPermissions(rolePermissions[userData.role] || [])
       setReady(true)
+      console.log('loadUserProfile: Auth context is ready.');
     } catch (error) {
       console.error('Error in loadUserProfile:', error)
+      toast.error('An unexpected error occurred while loading your profile.');
     }
   }
 

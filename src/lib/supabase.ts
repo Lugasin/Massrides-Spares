@@ -286,72 +286,23 @@ export const updateCartItemQuantity = async (itemId: string, quantity: number) =
 
 // Merge guest cart with user cart on login
 export const mergeGuestCart = async () => {
-  const sessionId = localStorage.getItem('guest_session_id')
-  if (!sessionId) return
+  const guest_session_id = localStorage.getItem('guest_session_id')
+  if (!guest_session_id) return
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .single()
+  try {
+    const { error } = await supabase.functions.invoke('merge-guest-cart', {
+      body: { guest_session_id }
+    });
+    if (error) throw error;
 
-  if (!profile) return
-
-  // Get guest cart items
-  const { data: guestCart } = await supabase
-    .from('guest_carts')
-    .select('id')
-    .eq('session_id', sessionId)
-    .single()
-
-  if (!guestCart) return
-
-  // Get guest cart items
-  const { data: guestItems } = await supabase
-    .from('guest_cart_items')
-    .select('spare_part_id, quantity')
-    .eq('guest_cart_id', guestCart.id)
-
-  if (!guestItems || guestItems.length === 0) return
-
-  // Get or create user cart
-  let { data: userCart } = await supabase
-    .from('user_carts')
-    .select('id')
-    .eq('user_id', profile.id)
-    .single();
-
-  if (!userCart) {
-    const { data: newCart } = await supabase
-      .from('user_carts')
-      .insert({ user_id: profile.id })
-      .select('id')
-      .single();
-    userCart = newCart;
+    // Clear session on successful merge
+    localStorage.removeItem('guest_session_id');
+  } catch (error) {
+    console.error("Error merging guest cart:", error);
   }
-
-  // Merge items
-  for (const item of guestItems) {
-    await supabase
-      .from('cart_items')
-      .upsert({
-        cart_id: userCart!.id,
-        spare_part_id: item.spare_part_id,
-        quantity: item.quantity
-      });
-  }
-  
-  // Delete guest cart
-  await supabase
-    .from('guest_carts')
-    .delete()
-    .eq('id', guestCart.id)
-
-  // Clear session
-  localStorage.removeItem('guest_session_id')
 }
 
 // Notification helpers

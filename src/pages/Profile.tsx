@@ -410,11 +410,6 @@ const Profile: React.FC = () => {
                   Update Inventory
                 </Button>
               )}
-              {userRole && userRole !== 'guest' && (
-                <Button variant="ghost" onClick={() => navigate(`/profile/${userRole}`)}>
-                  View {userRole.charAt(0).toUpperCase() + userRole.slice(1)} Profile
-                </Button>
-              )}
             </div>
             
             <Button 

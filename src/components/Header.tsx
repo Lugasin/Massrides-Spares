@@ -6,17 +6,18 @@ import { Input } from "@/components/ui/input";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import { useNotifications } from "@/hooks/useNotifications";
 import { 
-  ShoppingCart, 
-  User, 
-  Menu, 
-  X, 
-  Search,
-  Mail,
+  Bell,
+  LayoutDashboard,
   Leaf,
   LogOut,
-  LayoutDashboard,
-  Bell,
-  MessageSquare
+  Mail,
+  Menu,
+  MessageSquare,
+  Search,
+  Settings,
+  ShoppingCart, 
+  User, 
+  X, 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/context/AuthContext';
@@ -190,32 +191,22 @@ export const Header = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                    <span>Dashboard</span>
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate(`/profile/${userRole}`)}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{userRole?.charAt(0).toUpperCase() + userRole?.slice(1)} Profile</span>
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
                   </DropdownMenuItem>
-                  {(userRole === 'vendor' || userRole === 'admin') && (
-                    <DropdownMenuItem onClick={() => navigate('/dashboard/products')}>
-                      <span>Product Management</span>
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/messages')}>
                     <MessageSquare className="mr-2 h-4 w-4" />
                     <span>Messages</span>
                   </DropdownMenuItem>
-                  {(userRole === 'admin' || userRole === 'super_admin') && (
-                     <DropdownMenuItem onClick={() => navigate('/dashboard/users')}>
-                       <span>User Management</span>
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={async () => {
                     const { error } = await signOut();
@@ -300,15 +291,22 @@ export const Header = ({
             <div className="border-t border-border mt-2 pt-2">
                {user ? (
                  <div className="flex flex-col gap-1">
-                    <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Dashboard</Link>
                     <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Profile</Link>
-                     {(userRole === 'vendor' || userRole === 'admin') && (
-                       <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Product Management</Link>
-                     )}
-                     <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Messages</Link>
-                     {(userRole === 'admin' || userRole === 'super_admin') && (
-                       <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">User Management</Link>
-                     )}
+                    <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Dashboard</Link>
+
+                    {/* Role-based links */}
+                    {(userRole === 'vendor' || userRole === 'admin') && (
+                      <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Product Management</Link>
+                    )}
+
+                    {(userRole === 'admin' || userRole === 'super_admin') && (
+                      <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">User Management</Link>
+                    )}
+
+                    <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Settings</Link>
+
+                    <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Messages</Link>
+
                      <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={async () => {
                          const { error } = await signOut();
                          if (!error) {

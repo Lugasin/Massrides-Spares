@@ -146,7 +146,7 @@ const ProductsManagement = () => {
                       <div className="flex gap-4">
                         <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
                           {product.images?.[0] ? (
-                            <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover rounded-lg" />
+                            <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover rounded-lg" loading="lazy" />
                           ) : (
                             <Package className="h-6 w-6 text-muted-foreground" />
                           )}
