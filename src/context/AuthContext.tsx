@@ -134,7 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const loadUserProfile = async (userId: string) => {
-    console.log('loadUserProfile: Starting for userId:', userId);
     try {
       const { data: userData, error: userError } = await supabase
         .from('user_profiles')
@@ -143,12 +142,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single()
 
       if (userError) {
-        console.error('loadUserProfile: Error loading user profile:', userError)
-        toast.error(`Failed to load user profile: ${userError.message}`);
+        console.error('Error loading user profile:', userError)
+        // Don't show error toast for missing profile - it might be creating
+        if (userError.code !== 'PGRST116') {
+          toast.error(`Failed to load user profile: ${userError.message}`);
+        }
         return
       }
-
-      console.log('loadUserProfile: Profile data fetched:', userData);
 
       const profileData: UserProfile = {
         id: userData.id,
@@ -174,8 +174,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(profileData)
       setUserRole(userData.role || 'customer')
       localStorage.setItem('user_role', userData.role || 'customer')
-      
-      console.log('loadUserProfile: Profile state set:', profileData);
 
       // Set basic permissions based on role
       const rolePermissions: Record<string, string[]> = {
