@@ -22,6 +22,7 @@ import CheckoutCancel from "./pages/CheckoutCancel";
 import AdminProfile from "./pages/AdminProfile";
 import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
+import SuperAdminProfile from "./pages/SuperAdminProfile";
 import VendorInventory from "./pages/VendorInventory"; // Import VendorInventory
 import VerifyEmail from "./pages/VerifyEmail"; // Import VerifyEmail page
 import Messages from "./pages/Messages"; // Import Messages page
@@ -110,6 +111,7 @@ const AppContent = () => {
 
           {/* Protected Profile Route */}
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} /> {/* Protected Profile Route */}
+          <Route path="/profile/super-admin" element={<ProtectedRoute allowedRoles={['super_admin']} element={<SuperAdminProfile />} />} />
           <Route path="/profile/admin" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<AdminProfile />} />} />
           <Route path="/profile/guest" element={<Profile />} /> {/* Route for Guest Profile */}
           <Route path="/profile/vendor" element={<ProtectedRoute allowedRoles={['vendor']} element={<VendorProfile />} />} />

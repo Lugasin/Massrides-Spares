@@ -13,7 +13,8 @@ import {
   Bell,
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -114,7 +115,11 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
   const navigationItems = [
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
     { label: "Analytics", icon: TrendingUp, href: "/analytics" },
+    { label: "Super Admin", icon: Shield, href: "/profile/super-admin", roles: ["super_admin"] },
+    { label: "Admin Panel", icon: Shield, href: "/profile/admin", roles: ["admin"] },
+    { label: "Vendor Panel", icon: Package, href: "/profile/vendor", roles: ["vendor"] },
     { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
+    { label: "User Management", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
     { label: "Products", icon: Package, href: "/products-management" },
     { label: "Orders", icon: ShoppingCart, href: "/orders" },
     { label: "Payments", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin", "admin"] },

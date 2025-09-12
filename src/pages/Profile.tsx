@@ -27,7 +27,8 @@ import {
   Save,
   Package,
   MessageSquare,
-  ShoppingCart
+  ShoppingCart,
+  Store
 } from 'lucide-react';
 
 // Define Zod schema for profile validation
@@ -405,9 +406,27 @@ const Profile: React.FC = () => {
               <Button variant="outline" onClick={() => navigate('/orders')}>
                 Manage Orders
               </Button>
-              {(userRole === 'vendor' || userRole === 'admin') && (
+              {(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') && (
                 <Button className="bg-secondary hover:bg-secondary-hover" onClick={() => navigate('/vendor/inventory')}>
                   Update Inventory
+                </Button>
+              )}
+              {userRole === 'super_admin' && (
+                <Button className="bg-destructive hover:bg-destructive/90" onClick={() => navigate('/profile/super-admin')}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Super Admin Panel
+                </Button>
+              )}
+              {userRole === 'admin' && (
+                <Button variant="outline" onClick={() => navigate('/profile/admin')}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Button>
+              )}
+              {userRole === 'vendor' && (
+                <Button variant="outline" onClick={() => navigate('/profile/vendor')}>
+                  <Store className="h-4 w-4 mr-2" />
+                  Vendor Panel
                 </Button>
               )}
             </div>
