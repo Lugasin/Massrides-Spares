@@ -124,17 +124,11 @@ export const VendorMediaManager = () => {
   const handleCreateAd = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      const { error } = await supabase
-        .from('ads')
-        .insert({
-          vendor_id: profile?.id,
-          ...adForm
-        });
+try {
+      // Placeholder until 'ads' table exists. Store ad data locally or send to backend when available.
+      console.log('Ad created (placeholder):', { vendor_id: profile?.id, ...adForm });
 
-      if (error) throw error;
-
-      toast.success('Advertisement created successfully');
+      toast.success('Advertisement saved (preview mode)');
       setShowAdForm(false);
       setAdForm({
         title: '',

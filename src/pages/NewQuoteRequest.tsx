@@ -5,10 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Product {
-  // Assuming your product table has these fields
   id: string;
   name: string;
   price: number;
@@ -21,7 +20,7 @@ interface QuoteItem {
 }
 
 const NewQuoteRequest: React.FC = () => {
-  const [loadingProducts, setLoadingProducts] = useState(true);
+const [loadingProducts, setLoadingProducts] = useState(true);
   const [errorFetchingProducts, setErrorFetchingProducts] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<QuoteItem[]>([]);
   const [productQuantities, setProductQuantities] = useState<{ [productId: string]: number }>({});
@@ -98,9 +97,9 @@ const NewQuoteRequest: React.FC = () => {
       setLoadingProducts(true);
       setErrorFetchingProducts(null);
 
-      const { data, error } = await supabase
-        .from('products') // Assuming your products table is named 'products'
-        .select('id, name, price'); // Select relevant fields
+const { data, error } = await supabase
+        .from('spare_parts')
+        .select('id, name, price');
 
       if (error) {
         console.error('Error fetching products:', error);
@@ -129,12 +128,13 @@ const NewQuoteRequest: React.FC = () => {
       // Generate quote number
       const quoteNumber = `Q${Date.now().toString().slice(-8)}`;
       
-      const { data: quoteData, error: quoteError } = await (supabase as any)
+const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
-        .insert([{
-          quote_number: quoteNumber,
-          status: 'pending'
-        }])
+        .insert([{ user_id: (await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+          .maybeSingle()).data?.id }])
         .select('id')
         .single();
 
@@ -145,23 +145,25 @@ const NewQuoteRequest: React.FC = () => {
       // Get product prices for quote items
       const productPrices = await Promise.all(
         selectedProducts.map(async (item) => {
-          const { data: product } = await supabase
-            .from('products')
+const { data: product } = await supabase
+            .from('spare_parts')
             .select('price')
             .eq('id', item.productId)
-            .single();
+            .maybeSingle();
           return product?.price || 0;
         })
       );
 
-      const quoteItemsToInsert = selectedProducts.map((item, index) => ({
-        quote_id: quoteId,
-        product_id: item.productId,
+const items = selectedProducts.map((item, index) => ({
+        spare_part_id: item.productId,
         quantity: item.quantity,
-        price: productPrices[index]
+        unit_price: productPrices[index]
       }));
 
-      const { error: itemsError } = await (supabase as any).from('quote_items').insert(quoteItemsToInsert);
+      const { error: itemsError } = await supabase
+        .from('quotes')
+        .update({ items })
+        .eq('id', quoteId);
 
       if (itemsError) throw itemsError;
 

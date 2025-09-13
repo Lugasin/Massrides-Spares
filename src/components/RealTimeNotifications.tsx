@@ -25,7 +25,7 @@ interface Notification {
   title: string;
   message: string;
   type: 'info' | 'success' | 'warning' | 'error' | 'welcome' | 'order' | 'payment' | 'message';
-  read: boolean;
+  read_at: string | null;
   action_url?: string;
   created_at: string;
 }
@@ -85,7 +85,7 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
       if (error) throw error;
       
       setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.read).length || 0);
+      setUnreadCount(data?.filter(n => !n.read_at).length || 0);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       toast.error('Failed to load notifications');
@@ -110,9 +110,9 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
         (payload) => {
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          
-          // Show toast notification
+setUnreadCount(prev => prev + 1);
+           
+           // Show toast notification
           toast(newNotification.title, {
             description: newNotification.message,
             icon: notificationIcons[newNotification.type as keyof typeof notificationIcons]
@@ -126,13 +126,13 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await supabase
+await supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ read_at: new Date().toISOString() })
         .eq('id', notificationId);
 
       setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        prev.map(n => n.id === notificationId ? { ...n, read_at: new Date().toISOString() } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error: any) {
@@ -142,13 +142,13 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
 
   const markAllAsRead = async () => {
     try {
-      await supabase
+await supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ read_at: new Date().toISOString() })
         .eq('user_id', profile?.id)
-        .eq('read', false);
+        .is('read_at', null);
 
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
       setUnreadCount(0);
       toast.success('All notifications marked as read');
     } catch (error: any) {
@@ -223,18 +223,18 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
                     key={notification.id}
                     className={cn(
                       "cursor-pointer transition-all duration-200 hover:shadow-md",
-                      !notification.read && "border-primary/50 bg-primary/5"
+                      !notification.read_at && "border-primary/50 bg-primary/5"
                     )}
-                    onClick={() => !notification.read && markAsRead(notification.id)}
+                    onClick={() => !notification.read_at && markAsRead(notification.id)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <div className={cn(
                           "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-                          notification.read ? "bg-muted" : "bg-primary/10"
+                          notification.read_at ? "bg-muted" : "bg-primary/10"
                         )}>
                           <span className={cn(
-                            notificationColors[notification.type as keyof typeof notificationColors] || 'text-muted-foreground'
+notificationColors[notification.type as keyof typeof notificationColors] || 'text-muted-foreground'
                           )}>
                             {notificationIcons[notification.type as keyof typeof notificationIcons] || notificationIcons.info}
                           </span>
@@ -244,21 +244,11 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
                           <div className="flex items-start justify-between">
                             <h4 className={cn(
                               "font-medium text-sm",
-                              !notification.read && "text-primary"
+                              !notification.read_at && "text-primary"
                             )}>
                               {notification.title}
                             </h4>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNotification(notification.id);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+{/* Delete not supported by RLS right now */}
                           </div>
                           
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">

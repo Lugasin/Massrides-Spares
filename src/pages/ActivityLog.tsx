@@ -55,7 +55,7 @@ const ActivityLog = () => {
   const fetchActivityLogs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('get-activity-logs');
+      const { data, error } = await supabase.functions.invoke('get-activity-logs', { body: {} });
 
       if (error) throw new Error(error.message);
 
@@ -71,8 +71,8 @@ const ActivityLog = () => {
   const fetchUserActivityLogs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('get-activity-logs', {
-        query: { user_id: profile?.id }
+const { data, error } = await supabase.functions.invoke('get-activity-logs', {
+        body: { user_id: profile?.id }
       });
 
       if (error) throw new Error(error.message);

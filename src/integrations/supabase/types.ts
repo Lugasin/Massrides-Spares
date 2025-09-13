@@ -596,6 +596,57 @@ export type Database = {
           },
         ]
       }
+      products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          compatibility: string[] | null
+          created_at: string | null
+          description: string | null
+          featured: boolean | null
+          id: number
+          image_url: string | null
+          in_stock: boolean | null
+          name: string
+          part_number: string | null
+          price: number
+          specs: string[] | null
+          warranty: string | null
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          compatibility?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          featured?: boolean | null
+          id: number
+          image_url?: string | null
+          in_stock?: boolean | null
+          name: string
+          part_number?: string | null
+          price: number
+          specs?: string[] | null
+          warranty?: string | null
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          compatibility?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          featured?: boolean | null
+          id?: number
+          image_url?: string | null
+          in_stock?: boolean | null
+          name?: string
+          part_number?: string | null
+          price?: number
+          specs?: string[] | null
+          warranty?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           created_at: string
@@ -936,6 +987,59 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          email_notifications: boolean | null
+          id: string
+          language: string | null
+          marketing_emails: boolean | null
+          order_updates: boolean | null
+          push_notifications: boolean | null
+          theme: string | null
+          timezone: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          language?: string | null
+          marketing_emails?: boolean | null
+          order_updates?: boolean | null
+          push_notifications?: boolean | null
+          theme?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          language?: string | null
+          marketing_emails?: boolean | null
+          order_updates?: boolean | null
+          push_notifications?: boolean | null
+          theme?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

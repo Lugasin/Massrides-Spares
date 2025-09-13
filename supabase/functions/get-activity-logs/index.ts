@@ -53,11 +53,22 @@ serve(async (req) => {
         )
     }
 
-    const { searchParams } = new URL(req.url);
-    const activityType = searchParams.get('activity_type');
-    const userId = searchParams.get('user_id');
-    const startDate = searchParams.get('start_date');
-    const endDate = searchParams.get('end_date');
+const { searchParams } = new URL(req.url);
+    let activityType = searchParams.get('activity_type');
+    let userId = searchParams.get('user_id');
+    let startDate = searchParams.get('start_date');
+    let endDate = searchParams.get('end_date');
+
+    // Fallback to JSON body if query params not provided
+    if (!activityType && !userId && req.method !== 'GET') {
+      try {
+        const body = await req.json();
+        activityType = body.activity_type ?? activityType;
+        userId = body.user_id ?? userId;
+        startDate = body.start_date ?? startDate;
+        endDate = body.end_date ?? endDate;
+      } catch {}
+    }
 
     let query = supabase
       .from('activity_logs')

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/database.types';
 
 // This gives us the exact type for a row in our 'products' table.
 // Replace 'products' with your actual table name.
-type Product = Database['public']['Tables']['products']['Row'];
+type Product = Database['public']['Tables']['spare_parts']['Row'];
 
 export function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -15,7 +15,7 @@ export function ProductList() {
       setLoading(true);
       // Thanks to the generated types, `from()` will have autocomplete
       // and `select()` will return a typed result.
-      const { data, error } = await supabase.from('products').select('*');
+      const { data, error } = await supabase.from('spare_parts').select('*');
 
       if (error) {
         console.error('Error fetching products:', error);
