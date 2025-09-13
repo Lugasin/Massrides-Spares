@@ -793,6 +793,33 @@ export type Database = {
           },
         ]
       }
+      system_metrics: {
+        Row: {
+          id: string
+          metric_name: string
+          metric_unit: string | null
+          metric_value: number
+          recorded_at: string | null
+          tags: Json | null
+        }
+        Insert: {
+          id?: string
+          metric_name: string
+          metric_unit?: string | null
+          metric_value: number
+          recorded_at?: string | null
+          tags?: Json | null
+        }
+        Update: {
+          id?: string
+          metric_name?: string
+          metric_unit?: string | null
+          metric_value?: number
+          recorded_at?: string | null
+          tags?: Json | null
+        }
+        Relationships: []
+      }
       tj_payment_methods: {
         Row: {
           brand: string | null
@@ -836,6 +863,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tj_payment_methods_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tj_security_logs: {
+        Row: {
+          amount: number | null
+          blocked: boolean | null
+          created_at: string | null
+          event_type: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          risk_score: number | null
+          transaction_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          blocked?: boolean | null
+          created_at?: string | null
+          event_type: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          risk_score?: number | null
+          transaction_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          blocked?: boolean | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          risk_score?: number | null
+          transaction_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tj_security_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -1049,6 +1126,33 @@ export type Database = {
       has_role: {
         Args: { _role: string; _user_id: string }
         Returns: boolean
+      }
+      is_super_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      log_security_event: {
+        Args: {
+          p_amount?: number
+          p_blocked?: boolean
+          p_event_type: string
+          p_ip_address?: unknown
+          p_metadata?: Json
+          p_risk_score?: number
+          p_transaction_id?: string
+          p_user_agent?: string
+          p_user_id?: string
+        }
+        Returns: string
+      }
+      record_metric: {
+        Args: {
+          p_metric_name: string
+          p_metric_unit?: string
+          p_metric_value: number
+          p_tags?: Json
+        }
+        Returns: string
       }
     }
     Enums: {
