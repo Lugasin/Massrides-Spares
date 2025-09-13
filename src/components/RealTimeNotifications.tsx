@@ -24,7 +24,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'welcome' | 'order' | 'payment' | 'message';
+  type: string; // Allow any string from DB
   read_at: string | null;
   action_url?: string;
   created_at: string;
@@ -260,7 +260,7 @@ notificationColors[notification.type as keyof typeof notificationColors] || 'tex
                               {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                             </span>
                             
-                            {!notification.read && (
+                            {!notification.read_at && (
                               <div className="w-2 h-2 bg-primary rounded-full"></div>
                             )}
                           </div>

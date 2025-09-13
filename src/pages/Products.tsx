@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import type { Database } from '@/integrations/supabase/database.types';
 
-type Product = Database['public']['Tables']['products']['Row'];
+type Product = Database['public']['Tables']['spare_parts']['Row'];
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -22,7 +22,7 @@ const Products: React.FC = () => {
     const fetchProducts = async () => {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase.from('products').select('*');
+      const { data, error } = await supabase.from('spare_parts').select('*');
 
       if (error) {
         console.error('Error fetching products:', error);

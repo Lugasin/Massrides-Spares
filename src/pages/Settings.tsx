@@ -131,11 +131,12 @@ const Settings = () => {
     }
 
     try {
-      // Log the account deletion
+// Log the account deletion
       await supabase.from('activity_logs').insert({
-        user_id: profile?.id,
-        action_type: 'account_deletion_requested',
-        action_details: { timestamp: new Date().toISOString() }
+        user_id: profile?.user_id,
+        activity_type: 'account_deletion_requested',
+        ip_address: '0.0.0.0',
+        additional_details: { timestamp: new Date().toISOString() }
       });
 
       toast.success('Account deletion request submitted. You will be contacted within 24 hours.');

@@ -98,16 +98,10 @@ const SuperAdminProfile: React.FC = () => {
     loadUserStats();
   }, []);
 
-  const loadSystemSettings = async () => {
+const loadSystemSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('*')
-        .single();
-      
-      if (data) {
-        setSystemSettings(data);
-      }
+      // Use local state for now since system_settings table doesn't exist yet
+      console.log('System settings loaded (using defaults)');
     } catch (error) {
       console.error('Error loading system settings:', error);
     }
@@ -134,18 +128,12 @@ const SuperAdminProfile: React.FC = () => {
     }
   };
 
-  const updateSystemSetting = async (key: string, value: any) => {
+const updateSystemSetting = async (key: string, value: any) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .update({ [key]: value })
-        .eq('id', 1);
-      
-      if (error) throw error;
-      
+      // Update local state for now
       setSystemSettings(prev => ({ ...prev, [key]: value }));
-      toast.success(`System setting ${key} updated successfully`);
+      toast.success(`System setting ${key} updated successfully (local only)`);
     } catch (error: any) {
       toast.error(`Failed to update setting: ${error.message}`);
     }

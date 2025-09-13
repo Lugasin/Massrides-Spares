@@ -32,8 +32,12 @@ interface TJTransaction {
   id: string;
   order_id: string;
   transaction_id: string;
-  session_id: string;
-  payload: any;
+  event_type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  webhook_data: any;
+  processed_at: string;
   created_at: string;
   order?: {
     order_number: string;
@@ -408,15 +412,15 @@ const PaymentMonitoring = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {transaction.payload?.event || 'unknown'}
+                            {transaction.event_type || 'unknown'}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {transaction.payload?.transactionStatus && (
+                          {transaction.status && (
                             <div className="flex items-center gap-2">
-                              {getStatusIcon(transaction.payload.transactionStatus)}
-                              <Badge variant={getStatusColor(transaction.payload.transactionStatus)}>
-                                {transaction.payload.transactionStatus}
+                              {getStatusIcon(transaction.status)}
+                              <Badge variant={getStatusColor(transaction.status)}>
+                                {transaction.status}
                               </Badge>
                             </div>
                           )}
@@ -484,8 +488,8 @@ const PaymentMonitoring = () => {
                     <p className="font-mono">{selectedTransaction.transaction_id || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label>Session ID</Label>
-                    <p className="font-mono">{selectedTransaction.session_id || 'N/A'}</p>
+                    <Label>Transaction ID</Label>
+                    <p className="font-mono">{selectedTransaction.transaction_id || 'N/A'}</p>
                   </div>
                   <div>
                     <Label>Order Number</Label>
@@ -493,14 +497,14 @@ const PaymentMonitoring = () => {
                   </div>
                   <div>
                     <Label>Event Type</Label>
-                    <Badge variant="outline">{selectedTransaction.payload?.event || 'unknown'}</Badge>
+                    <Badge variant="outline">{selectedTransaction.event_type || 'unknown'}</Badge>
                   </div>
                 </div>
                 
                 <div>
-                  <Label>Full Payload</Label>
+                  <Label>Webhook Data</Label>
                   <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-64">
-                    {JSON.stringify(selectedTransaction.payload, null, 2)}
+                    {JSON.stringify(selectedTransaction.webhook_data, null, 2)}
                   </pre>
                 </div>
               </div>
