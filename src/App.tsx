@@ -45,8 +45,10 @@ import PaymentMethods from './pages/PaymentMethods';
 import Analytics from './pages/Analytics';
 import ProductsManagement from './pages/ProductsManagement';
 import RoleManager from './pages/RoleManager';
+import SecurityDashboard from './pages/SecurityDashboard';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
+import SecurityAlertToast from './components/SecurityAlertToast';
 
 const queryClient = new QueryClient();
 
@@ -67,6 +69,7 @@ const AppContent = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <SecurityAlertToast />
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <ScrollToTop />
         <BackToTop />
@@ -104,6 +107,7 @@ const AppContent = () => {
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
           <Route path="/activity-log" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<ActivityLog />} />} />
           <Route path="/payment-monitoring" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<PaymentMonitoring />} />} />
+          <Route path="/security-dashboard" element={<ProtectedRoute allowedRoles={['super_admin']} element={<SecurityDashboard />} />} />
           <Route path="/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
           <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
           <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
