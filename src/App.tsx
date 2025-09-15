@@ -25,6 +25,7 @@ import CustomerProfile from "./pages/CustomerProfile";
 import SuperAdminProfile from "./pages/SuperAdminProfile";
 import VendorInventory from "./pages/VendorInventory"; // Import VendorInventory
 import VerifyEmail from "./pages/VerifyEmail"; // Import VerifyEmail page
+import Welcome from "./pages/Welcome"; // Import Welcome page
 import Messages from "./pages/Messages"; // Import Messages page
 
 import NewQuoteRequest from './pages/NewQuoteRequest'; // Import NewQuoteRequest page
@@ -93,6 +94,7 @@ const AppContent = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/parts/:partId" element={<SparePartDetail />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/welcome" element={<Welcome />} />
           <Route path="/guest-shopping" element={<GuestShoppingLanding />} />
           <Route path="/guest-checkout" element={<GuestCheckout />} />
 
