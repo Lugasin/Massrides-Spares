@@ -4,12 +4,16 @@ interface LogActivityParams {
   actionType: string;
   actionDetails?: any;
   userId?: string;
+  resourceType?: string;
+  resourceId?: string;
 }
 
 export const logActivity = async ({ 
   actionType, 
   actionDetails = {}, 
-  userId 
+  userId,
+  resourceType,
+  resourceId
 }: LogActivityParams) => {
   try {
     // Get client info
@@ -30,8 +34,8 @@ export const logActivity = async ({
       .insert({
         user_id: userId,
         activity_type: actionType,
-        resource_type: 'user_activity',
-        resource_id: parseInt(userId) || null,
+        resource_type: resourceType || 'user_activity',
+        resource_id: resourceId,
         additional_details: actionDetails || {},
         ip_address: ipAddress,
         user_agent: userAgent,
@@ -51,7 +55,9 @@ export const logAuthEvent = (event: 'login' | 'logout' | 'signup' | 'guest_login
   logActivity({
     actionType: event,
     actionDetails: { ...details, timestamp: new Date().toISOString() },
-    userId
+    userId,
+    resourceType: 'auth',
+    resourceId: userId
   });
 };
 
@@ -59,7 +65,9 @@ export const logOrderEvent = (event: 'order_created' | 'order_updated' | 'order_
   logActivity({
     actionType: event,
     actionDetails: { order_id: orderId, ...details },
-    userId
+    userId,
+    resourceType: 'order',
+    resourceId: orderId
   });
 };
 
@@ -67,7 +75,9 @@ export const logPaymentEvent = (event: 'payment_processed' | 'payment_failed' | 
   logActivity({
     actionType: event,
     actionDetails: details,
-    userId
+    userId,
+    resourceType: 'payment',
+    resourceId: details.transaction_id || details.order_id
   });
 };
 
@@ -75,6 +85,28 @@ export const logProfileEvent = (event: 'profile_updated' | 'profile_created', us
   logActivity({
     actionType: event,
     actionDetails: details,
-    userId
+    userId,
+    resourceType: 'profile',
+    resourceId: userId
+  });
+};
+
+export const logProductEvent = (event: 'product_created' | 'product_updated' | 'product_deleted', productId: string, userId?: string, details?: any) => {
+  logActivity({
+    actionType: event,
+    actionDetails: { product_id: productId, ...details },
+    userId,
+    resourceType: 'product',
+    resourceId: productId
+  });
+};
+
+export const logCartEvent = (event: 'cart_item_added' | 'cart_item_removed' | 'cart_cleared', userId?: string, details?: any) => {
+  logActivity({
+    actionType: event,
+    actionDetails: details,
+    userId,
+    resourceType: 'cart',
+    resourceId: userId
   });
 };

@@ -112,6 +112,7 @@ const AppContent = () => {
           <Route path="/security-dashboard" element={<ProtectedRoute allowedRoles={['super_admin']} element={<SecurityDashboard />} />} />
           <Route path="/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
           <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
+          <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
           <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
 

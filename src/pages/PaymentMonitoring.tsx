@@ -279,6 +279,63 @@ const PaymentMonitoring = () => {
           </div>
         </div>
 
+        {/* Payment Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Transactions</p>
+                  <p className="text-2xl font-bold">{transactions.length}</p>
+                </div>
+                <CreditCard className="h-8 w-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Successful</p>
+                  <p className="text-2xl font-bold text-success">
+                    {transactions.filter(t => t.status === 'PAYMENT_SETTLED').length}
+                  </p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-success" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold text-yellow-500">
+                    {transactions.filter(t => t.status === 'PAYMENT_AUTHORISED').length}
+                  </p>
+                </div>
+                <Clock className="h-8 w-8 text-yellow-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Value</p>
+                  <p className="text-2xl font-bold text-primary">
+                    ${transactions.reduce((sum, t) => sum + (t.amount || 0), 0).toLocaleString()}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="orders" className="space-y-6">
           <TabsList>
             <TabsTrigger value="orders">Orders</TabsTrigger>
@@ -488,16 +545,16 @@ const PaymentMonitoring = () => {
                     <p className="font-mono">{selectedTransaction.transaction_id || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label>Transaction ID</Label>
-                    <p className="font-mono">{selectedTransaction.transaction_id || 'N/A'}</p>
-                  </div>
-                  <div>
                     <Label>Order Number</Label>
                     <p>{selectedTransaction.order?.order_number || 'N/A'}</p>
                   </div>
                   <div>
                     <Label>Event Type</Label>
                     <Badge variant="outline">{selectedTransaction.event_type || 'unknown'}</Badge>
+                  </div>
+                  <div>
+                    <Label>Amount</Label>
+                    <p>${(selectedTransaction.amount || 0).toLocaleString()}</p>
                   </div>
                 </div>
                 

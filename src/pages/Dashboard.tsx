@@ -1,5 +1,6 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
+import RealTimeMetrics from "@/components/RealTimeMetrics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,9 @@ const Dashboard = () => {
     if (userRole === 'admin' || userRole === 'super_admin') {
       return (
         <div className="space-y-6">
+        {/* Real-time Metrics */}
+        <RealTimeMetrics userRole={userRole} />
+        
         {/* Quick Actions */}
         <Card className="border-border/50">
           <CardHeader>
@@ -182,6 +186,9 @@ const Dashboard = () => {
     } else if (userRole === 'vendor') {
       return (
         <div className="space-y-6">
+          {/* Real-time Metrics */}
+          <RealTimeMetrics userRole={userRole} />
+          
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-3xl font-bold text-foreground">
@@ -279,6 +286,9 @@ const Dashboard = () => {
       // Default content for other roles (customer, guest)
       return (
         <div className="space-y-6">
+          {/* Real-time Metrics */}
+          <RealTimeMetrics userRole={userRole || 'customer'} />
+          
           <div className="text-center">
             <h2 className="text-3xl font-bold text-foreground mb-4">
               Welcome, {profile?.full_name || user?.email || 'Guest'}!
