@@ -14,21 +14,21 @@ import {
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { Link } from 'react-router-dom';
-import { sparePartsData } from '@/data/sparePartsData';
+import { spareParts as sparePartsData, SparePart } from '@/data/products';
 
 const GuestShoppingLanding = () => {
   const { itemCount, addItem } = useQuote();
   
   // Get featured parts for guest users
-  const featuredParts = sparePartsData.filter(part => part.featured).slice(0, 6);
+  const featuredParts = sparePartsData.filter(part => part.featured).slice(0, 6) as SparePart[];
 
-  const handleAddToCart = (part: any) => {
+  const handleAddToCart = (part: SparePart) => {
     addItem({
-      id: parseInt(part.id),
+      id: String(part.id),
       name: part.name,
       price: part.price,
-      image: part.images[0] || '',
-      specs: part.tags,
+      image: part.image || '',
+      specs: part.specs,
       category: part.category
     });
   };
@@ -115,7 +115,7 @@ const GuestShoppingLanding = () => {
                 <Link to={`/parts/${part.id}`} className="block">
                   <div className="relative overflow-hidden">
                     <img
-                      src={part.images[0] || '/api/placeholder/300/200'}
+                      src={part.image || '/api/placeholder/300/200'}
                       alt={part.name}
                       className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"
@@ -156,8 +156,8 @@ const GuestShoppingLanding = () => {
                       e.preventDefault(); 
                       handleAddToCart(part); 
                     }}
-                    className="w-full"
-                    disabled={part.availabilityStatus !== 'in_stock'}
+                    className="w-full bg-primary hover:bg-primary-hover"
+                    disabled={!part.inStock}
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
                     Add to Cart

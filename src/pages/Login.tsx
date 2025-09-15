@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,43 +19,32 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-      if (error) {
-        toast.error(`Google sign in failed: ${error.message}`);
-      }
-    } catch (error: any) {
-      toast.error('Failed to sign in with Google');
+  useEffect(() => {
+    // If user object becomes available, login was successful and the
+    // user profile is loaded. It's now safe to navigate.
+    if (user) {
+      navigate('/dashboard');
     }
-    setIsLoading(false);
-  };
+  }, [user, navigate]);
 
-  const handleFacebookSignIn = async () => {
+  const handleSocialSignIn = async (provider: 'google' | 'facebook') => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'facebook',
+        provider,
         options: {
           redirectTo: `${window.location.origin}/dashboard`
         }
       });
       if (error) {
-        toast.error(`Facebook sign in failed: ${error.message}`);
+        toast.error(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign in failed: ${error.message}`);
       }
     } catch (error: any) {
-      toast.error('Failed to sign in with Facebook');
+      toast.error(`Failed to sign in with ${provider}`);
     }
     setIsLoading(false);
   };
@@ -86,13 +75,11 @@ export default function Login() {
       if (error) {
         // The error is already handled and toasted in the signIn function
         // We just need to stop the loading indicator
+        setIsLoading(false);
         return;
       }
-
-      // On successful sign-in, the onAuthStateChange listener in AuthContext will handle navigation
-      // and profile loading. We can optionally navigate here as a fallback.
-      navigate('/dashboard');
-
+      // Navigation is now handled by the useEffect hook when the user state updates,
+      // preventing a race condition.
     } catch (error) {
       // This catch block is for unexpected errors in the signIn process itself
       console.error("Unexpected error during sign in:", error);
@@ -220,7 +207,7 @@ export default function Login() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleGoogleSignIn}
+                  onClick={() => handleSocialSignIn('google')}
                   disabled={isLoading}
                   className="w-full"
                 >
@@ -249,6 +236,7 @@ export default function Login() {
                   type="button"
                   variant="outline"
                   disabled={true}
+                  onClick={() => handleSocialSignIn('facebook')}
                   className="w-full"
                 >
                   <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">

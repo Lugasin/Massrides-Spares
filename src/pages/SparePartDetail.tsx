@@ -21,7 +21,7 @@ import {
   Info
 } from "lucide-react";
 import { useQuote } from "@/context/QuoteContext";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,7 @@ interface SparePart {
   stock_quantity: number;
   images: string[];
   technical_specs: any;
-  warranty_months: number;
+  warranty_months?: number | null;
   weight_kg?: number;
   dimensions_cm?: string;
   featured: boolean;
@@ -89,7 +89,7 @@ const SparePartDetail = () => {
         .single();
 
       if (error) throw error;
-      setSparePart(data as any);
+      setSparePart(data as unknown as SparePart);
     } catch (error: any) {
       console.error('Error fetching spare part:', error);
       toast.error('Failed to load spare part details');
@@ -174,7 +174,7 @@ const SparePartDetail = () => {
 
       // Also add to local cart context for immediate UI update
       addItem({
-        id: parseInt(sparePart.id),
+        id: sparePart.id, // This is a string (UUID) from the database
         name: sparePart.name,
         price: sparePart.price,
         image: sparePart.images[0] || '',
@@ -355,7 +355,9 @@ const SparePartDetail = () => {
                 <span className="text-4xl font-bold text-primary">${sparePart.price.toLocaleString()}</span>
                 <div className="text-sm text-muted-foreground">
                   <p>Stock: {sparePart.stock_quantity} units</p>
-                  <p>Warranty: {sparePart.warranty_months} months</p>
+                  {sparePart.warranty_months != null && (
+                    <p>Warranty: {sparePart.warranty_months} months</p>
+                  )}
                 </div>
               </div>
 
@@ -415,7 +417,7 @@ const SparePartDetail = () => {
                 </div>
                 <div className="text-center">
                   <Shield className="h-6 w-6 text-primary mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground">{sparePart.warranty_months}mo Warranty</p>
+                  <p className="text-xs text-muted-foreground">{sparePart.warranty_months ?? 'N/A'}mo Warranty</p>
                 </div>
                 <div className="text-center">
                   <Wrench className="h-6 w-6 text-primary mx-auto mb-2" />

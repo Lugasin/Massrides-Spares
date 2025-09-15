@@ -13,7 +13,7 @@ import {
   Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SparePart } from '@/data/sparePartsData';
+import { SparePart } from '@/data/products';
 import { useQuote } from '@/context/QuoteContext';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -41,37 +41,26 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
   className 
 }) => {
   const { addItem } = useQuote();
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]);
 
   const handleAddToCart = (sparePart: SparePart) => {
     addItem({
-      id: parseInt(sparePart.id),
+      id: String(sparePart.id),
       name: sparePart.name,
       price: sparePart.price,
-      image: sparePart.images[0] || '',
-      specs: sparePart.tags,
+      image: sparePart.image || '',
+      specs: sparePart.specs,
       category: sparePart.category
     });
     toast.success(`${sparePart.name} added to cart!`);
   };
 
-  const toggleFavorite = (sparePartId: string) => {
+  const toggleFavorite = (sparePartId: number) => {
     setFavorites(prev => 
       prev.includes(sparePartId) 
         ? prev.filter(id => id !== sparePartId)
         : [...prev, sparePartId]
     );
-  };
-
-  const getConditionColor = (condition: string) => {
-    switch (condition) {
-      case 'new': return 'bg-success text-success-foreground';
-      case 'used': return 'bg-yellow-500 text-white';
-      case 'refurbished': return 'bg-blue-500 text-white';
-      case 'oem': return 'bg-purple-500 text-white';
-      case 'aftermarket': return 'bg-orange-500 text-white';
-      default: return 'bg-muted text-muted-foreground';
-    }
   };
 
   const getAvailabilityColor = (status: string) => {
@@ -94,7 +83,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
           <Link to={`/parts/${sparePart.id}`} className="block">
             <div className="relative overflow-hidden">
               <img
-                src={sparePart.images[0] || '/api/placeholder/300/200'}
+                src={sparePart.image || '/api/placeholder/300/200'}
                 alt={sparePart.name}
                 className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
@@ -102,20 +91,18 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
               
               {/* Overlay Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-2">
-                {sparePart.featured && (
+                {sparePart.featured && ( // From products.ts
                   <Badge className="bg-primary text-primary-foreground">
                     <Star className="h-3 w-3 mr-1 fill-current" />
                     Featured
                   </Badge>
                 )}
-                <Badge className={cn("capitalize", getConditionColor(sparePart.condition))}>
-                  {sparePart.condition}
-                </Badge>
               </div>
 
               <div className="absolute top-3 right-3">
-                <Badge className={cn("capitalize", getAvailabilityColor(sparePart.availabilityStatus))}>
-                  {sparePart.availabilityStatus.replace('_', ' ')}
+                {/* Using inStock from products.ts */}
+                <Badge className={cn("capitalize", sparePart.inStock ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground')}>
+                  {sparePart.inStock ? 'In Stock' : 'Out of Stock'}
                 </Badge>
               </div>
 
@@ -177,28 +164,21 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
             </p>
             
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {sparePart.description}
+              {sparePart.description} {/* From products.ts */}
             </p>
 
             {/* Brand and Compatibility */}
             <div className="flex items-center justify-between mb-3">
-              <Badge variant="outline" className="text-xs">
-                {sparePart.brand}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {sparePart.compatibility.length} compatible
-              </span>
+              {sparePart.brand && <Badge variant="outline" className="text-xs">{sparePart.brand}</Badge>}
+              {sparePart.compatibility && <span className="text-xs text-muted-foreground">{sparePart.compatibility.length} compatible</span>}
             </div>
 
             {/* Price and Stock */}
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="text-lg font-bold text-primary">
-                  ${sparePart.price.toLocaleString()}
+                  ${sparePart.price.toLocaleString()} {/* From products.ts */}
                 </span>
-                <p className="text-xs text-muted-foreground">
-                  Stock: {sparePart.stockQuantity}
-                </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">
@@ -215,11 +195,11 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
                 e.preventDefault();
                 handleAddToCart(sparePart); 
               }}
-              disabled={sparePart.availabilityStatus !== 'in_stock'}
+              disabled={!sparePart.inStock}
               className="w-full bg-primary hover:bg-primary-hover group"
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
-              {sparePart.availabilityStatus === 'in_stock' ? 'Add to Cart' : 'Out of Stock'}
+              {sparePart.inStock ? 'Add to Cart' : 'Out of Stock'}
             </Button>
           </CardFooter>
         </Card>

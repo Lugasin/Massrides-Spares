@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -17,13 +17,13 @@ const UserManagement: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true); // This is already set at the top, but it's fine.
-      const { data: usersData, error } = await (supabase as any).from('user_profiles').select('*');
+      const { data: usersData, error } = await supabase.from('user_profiles').select('*');
 
       if (error) {
         console.error('Error fetching user profiles:', error);
         toast.error(`Failed to fetch users: ${error.message}`);
       } else {
-        setUsers(usersData || []);
+        setUsers((usersData as UserProfile[]) || []);
       }
       setLoading(false);
     };
@@ -35,7 +35,7 @@ const UserManagement: React.FC = () => {
     toast.info(`Updating role for user ${userId}...`);
 
     try {
-      const { error } = await (supabase as any).from('user_profiles').update({ role: newRole }).eq('id', userId);
+      const { error } = await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId);
 
       if (error) throw error;
 

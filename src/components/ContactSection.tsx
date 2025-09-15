@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import {
   MessageCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const contactInfo = [
   {
@@ -40,6 +42,30 @@ const contactInfo = [
 ];
 
 export const ContactSection = () => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    interest: '',
+    message: '',
+    newsletter: false,
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Implement form submission logic (e.g., send to an API endpoint or Supabase function)
+    console.log("Form submitted:", formData);
+    toast.success("Your message has been sent! We will get back to you shortly.");
+    // Optionally reset form
+  };
+
   return (
     <section className="py-20 bg-gradient-to-b from-muted/30 to-background">
       <div className="container mx-auto px-4">
@@ -103,9 +129,11 @@ export const ContactSection = () => {
                 <p className="text-muted-foreground text-sm mb-4">
                   Come see our spare parts warehouse and meet our expert team in Lusaka.
                 </p>
-                <Button variant="outline" size="sm" className="border-secondary text-secondary hover:bg-secondary/10">
-                  WhatsApp Parts Help
-                </Button>
+                <a href="https://wa.me/260975750936" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="border-secondary text-secondary hover:bg-secondary/10">
+                    WhatsApp Parts Help
+                  </Button>
+                </a>
               </CardContent>
             </Card>
           </div>
@@ -123,15 +151,19 @@ export const ContactSection = () => {
                   </p>
                 </div>
 
-                <form className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">
                         First Name *
                       </label>
                       <Input 
+                        name="firstName"
                         placeholder="Enter your first name"
                         className="focus:ring-primary focus:border-primary h-11"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        required
                       />
                     </div>
                     <div>
@@ -139,8 +171,12 @@ export const ContactSection = () => {
                         Last Name *
                       </label>
                       <Input 
+                        name="lastName"
                         placeholder="Enter your last name"
                         className="focus:ring-primary focus:border-primary h-11"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        required
                       />
                     </div>
                   </div>
@@ -152,8 +188,12 @@ export const ContactSection = () => {
                       </label>
                       <Input 
                         type="email"
+                        name="email"
                         placeholder="your.email@example.com"
                         className="focus:ring-primary focus:border-primary h-11"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
                       />
                     </div>
                     <div>
@@ -162,8 +202,11 @@ export const ContactSection = () => {
                       </label>
                       <Input 
                         type="tel"
+                        name="phone"
                         placeholder="+260 XX XXX XXXX"
                         className="focus:ring-primary focus:border-primary h-11"
+                        value={formData.phone}
+                        onChange={handleInputChange}
                       />
                     </div>
                   </div>
@@ -172,7 +215,12 @@ export const ContactSection = () => {
                     <label className="text-sm font-medium text-foreground mb-2 block">
                       Equipment Interest
                     </label>
-                    <select className="w-full px-3 py-2 h-11 border border-input rounded-md focus:ring-primary focus:border-primary bg-background">
+                    <select 
+                      name="interest"
+                      className="w-full px-3 py-2 h-11 border border-input rounded-md focus:ring-primary focus:border-primary bg-background"
+                      value={formData.interest}
+                      onChange={handleInputChange}
+                    >
                       <option value="">Select equipment type</option>
                       <option value="tractors">Tractors</option>
                       <option value="planters">Planters</option>
@@ -188,17 +236,24 @@ export const ContactSection = () => {
                       Message *
                     </label>
                     <Textarea 
+                      name="message"
                       placeholder="Tell us about your equipment and the spare parts you need..."
                       rows={5}
                       className="focus:ring-primary focus:border-primary"
+                      value={formData.message}
+                      onChange={handleInputChange}
+                      required
                     />
                   </div>
 
                   <div className="flex items-center gap-3">
                     <input 
                       type="checkbox" 
+                      name="newsletter"
                       id="newsletter" 
                       className="rounded border-input focus:ring-primary"
+                      checked={formData.newsletter}
+                      onChange={handleInputChange}
                     />
                     <label htmlFor="newsletter" className="text-sm text-muted-foreground">
                       I'd like to receive updates about new spare parts and special offers

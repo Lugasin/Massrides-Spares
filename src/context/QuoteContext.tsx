@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface CartItem {
-  id: number;
+  id: string;
   name: string;
   price: number;
   quantity: number;
@@ -14,8 +14,8 @@ interface QuoteContextType {
   items: CartItem[];
   total: number;
   addItem: (item: Omit<CartItem, 'quantity'>) => void;
-  removeItem: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   itemCount: number;
   isCartOpen: boolean; // Added isCartOpen
@@ -66,11 +66,11 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     });
   };
 
-  const removeItem = (id: number) => {
+  const removeItem = (id: string) => {
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       removeItem(id);
       return;

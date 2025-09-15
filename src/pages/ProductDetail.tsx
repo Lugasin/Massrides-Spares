@@ -25,7 +25,7 @@ const SparePartDetail = () => {
   const handleAddToCart = () => {
     if (sparePart) {
        addItem({
-        id: sparePart.id,
+        id: String(sparePart.id),
         name: sparePart.name,
         price: sparePart.price,
         image: sparePart.image,

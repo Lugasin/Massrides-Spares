@@ -33,7 +33,7 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
 
   const handleAddToCart = (product: Product) => {
     addItem({
-      id: product.id,
+      id: String(product.id),
       name: product.name,
       price: product.price,
       image: product.image,

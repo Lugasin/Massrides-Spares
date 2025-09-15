@@ -84,49 +84,22 @@ export default function Register() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            company_name: formData.companyName
-          },
-          emailRedirectTo: `${window.location.origin}/verify-email`
-        }
+      const { error } = await signUp(formData.email, formData.password, {
+        full_name: formData.fullName,
+        phone: formData.phone,
+        company_name: formData.companyName,
       });
 
-      if (error) throw error;
-
-      if (data.user && !data.user.email_confirmed_at) {
-        toast.success('Registration successful! Please check your email to verify your account.');
-        navigate('/verify-email?message=check-email');
-      } else {
-        toast.success('Registration successful! You can now sign in.');
-        navigate('/profile');
+      if (!error) {
+        // The signUp function from context already shows a toast.
+        // We just need to navigate to the login page to show the "check email" message.
+        navigate('/login?message=check-email');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
       toast.error(`Registration failed: ${error.message}`);
     }
-    
     setIsLoading(false);
-  };
-
-  const handleSignUp = async () => {
-    const { error } = await signUp(formData.email, formData.password, {
-      full_name: formData.fullName,
-      phone: formData.phone,
-      company_name: formData.companyName,
-      email: formData.email
-    });
-    
-    if (error) {
-      console.error("Registration error:", error);
-    } else {
-      navigate('/verify-email?message=check-email');
-    }
   };
 
   return (

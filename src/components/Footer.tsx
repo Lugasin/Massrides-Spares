@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import {
   Mail, 
@@ -10,12 +12,13 @@ import {
   Linkedin,
   ArrowRight
 } from "lucide-react";
+import { toast } from "sonner";
 
 const quickLinks = [
-  { label: "About Us", href: "#about" },
-  { label: "Our Services", href: "#services" },
-  { label: "Why Choose Us", href: "#features" },
-  { label: "Contact Us", href: "#contact" }
+  { label: "About Us", href: "/about" },
+  { label: "Spare Parts Catalog", href: "/catalog" },
+  { label: "Contact Us", href: "/contact" },
+  { label: "Login", href: "/login" }
 ];
 
 const productCategories = [
@@ -23,18 +26,24 @@ const productCategories = [
   { label: "Hydraulic Parts", href: "/catalog?category=Hydraulic+Parts" },
   { label: "Electrical Parts", href: "/catalog?category=Electrical+Parts" },
   { label: "Brake Parts", href: "/catalog?category=Brake+Parts" },
-  { label: "Used Parts", href: "/used-parts" }
-];
-
-const services = [
-  { label: "Spare Parts Sales", href: "#sales" },
-  { label: "Technical Support", href: "#support" },
-  { label: "Financing Options", href: "#financing" },
-  { label: "Installation Service", href: "#installation" },
-  { label: "Warranty Claims", href: "#warranty" }
+  { label: "View All", href: "/catalog" }
 ];
 
 export const Footer = () => {
+  const [email, setEmail] = useState('');
+
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      console.log("Newsletter subscription for:", email);
+      // TODO: Implement actual newsletter subscription logic (e.g., API call)
+      toast.success(`Thank you for subscribing, ${email}!`);
+      setEmail('');
+    } else {
+      toast.error("Please enter a valid email address.");
+    }
+  };
+
   return (
     <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden">
       {/* Subtle pattern overlay */}
@@ -69,12 +78,12 @@ export const Footer = () => {
               <ul className="space-y-2">
                 {quickLinks.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="text-gray-300 hover:text-green-400 transition-colors text-sm hover:underline"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -84,12 +93,12 @@ export const Footer = () => {
               <ul className="space-y-2">
                 {productCategories.slice(0, 5).map((category) => (
                   <li key={category.label}>
-                    <a
-                      href={category.href}
+                    <Link
+                      to={category.href}
                       className="text-gray-300 hover:text-green-400 transition-colors text-sm hover:underline"
                     >
                       {category.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -103,11 +112,15 @@ export const Footer = () => {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-green-400 flex-shrink-0" />
-                  <span className="text-sm text-gray-300">info@massrides.co.zm</span>
+                  <a href="mailto:info@massrides.co.zm" className="text-sm text-gray-300 hover:text-green-400 transition-colors">
+                    info@massrides.co.zm
+                  </a>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="h-4 w-4 text-green-400 flex-shrink-0" />
-                  <span className="text-sm text-gray-300">+260 211 843445</span>
+                  <a href="tel:+260211843445" className="text-sm text-gray-300 hover:text-green-400 transition-colors">
+                    +260 211 843445
+                  </a>
                 </div>
                 <div className="flex items-start gap-3">
                   <MapPin className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
@@ -116,22 +129,6 @@ export const Footer = () => {
                   </span>
                 </div>
               </div>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-white mb-4">Services</h3>
-              <ul className="space-y-2">
-                {services.slice(0, 4).map((service) => (
-                  <li key={service.label}>
-                    <a
-                      href={service.href}
-                      className="text-gray-300 hover:text-green-400 transition-colors text-sm"
-                    >
-                      {service.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         </div>
@@ -145,16 +142,20 @@ export const Footer = () => {
             <p className="text-gray-300 mb-6 text-sm">
               Get notifications about new spare parts, special offers, and technical tips.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+            <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <Input
+                type="email"
                 placeholder="Enter your email"
                 className="bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-green-500 h-11 flex-1"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
-              <Button className="bg-green-600 hover:bg-green-700 text-white h-11 px-6">
+              <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white h-11 px-6">
                 Subscribe
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
-            </div>
+            </form>
           </div>
         </div>
 
@@ -170,31 +171,35 @@ export const Footer = () => {
 
             {/* Policy Links */}
             <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
-              <a href="/privacy" className="hover:text-green-400 transition-colors">Privacy Policy</a>
+              <Link to="/privacy" className="hover:text-green-400 transition-colors">Privacy Policy</Link>
               <span>•</span>
-              <a href="/terms" className="hover:text-green-400 transition-colors">Terms of Service</a>
+              <Link to="/terms" className="hover:text-green-400 transition-colors">Terms of Service</Link>
               <span>•</span>
-              <a href="/cookies" className="hover:text-green-400 transition-colors">Cookie Policy</a>
+              <Link to="/cookies" className="hover:text-green-400 transition-colors">Cookie Policy</Link>
             </div>
 
             {/* Social Media */}
             <div className="flex items-center gap-4">
               <span className="text-gray-300 text-sm">Follow us:</span>
               <div className="flex gap-3">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="bg-gray-800 hover:bg-green-600 text-gray-300 hover:text-white transition-colors"
-                >
-                  <Facebook className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="bg-gray-800 hover:bg-green-600 text-gray-300 hover:text-white transition-colors"
-                >
-                  <Twitter className="h-4 w-4" />
-                </Button>
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="bg-gray-800 hover:bg-green-600 text-gray-300 hover:text-white transition-colors"
+                  >
+                    <Facebook className="h-4 w-4" />
+                  </Button>
+                </a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="bg-gray-800 hover:bg-green-600 text-gray-300 hover:text-white transition-colors"
+                  >
+                    <Twitter className="h-4 w-4" />
+                  </Button>
+                </a>
               </div>
             </div>
           </div>

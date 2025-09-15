@@ -4,11 +4,16 @@ import { ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Import hero images from assets
-import tractorPlowing from '@/assets/tractor-plowing.jpg';
-import combineHarvester from '@/assets/combine-harvester-working-field.jpg';
-import cornFieldSunset from '@/assets/corn-field-sunset.jpg';
-import farmerTractor from '@/assets/farmer-tractor.jpg';
-import irrigationAerial from '@/assets/irrigation-aerial.jpg';
+import newTractorImg from '@/assets/Newtractor.png';
+import hydraulicHarrowImg from '@/assets/hydraulic-harrow-76-1608289508.png';
+import newTractor5Img from '@/assets/Newtractor5.png';
+import discHarrowImg from '@/assets/disc-harrow-76-1696055574.png';
+import newTractor8Img from '@/assets/Newtractor8.png';
+import pivotImg from '@/assets/pivot.png';
+import sprinklersImg from '@/assets/Sprinklers.png';
+import newTractor11Img from '@/assets/Newtractor11.png';
+import tractorWheelImg from '@/assets/tractor-wheel.jpg';
+import combineImg from '@/assets/Combine.jpg';
 
 interface CarouselSlide {
   id: number;
@@ -23,7 +28,7 @@ interface CarouselSlide {
 const slides: CarouselSlide[] = [
   {
     id: 1,
-    image: '/src/assets/Newtractor.png',
+    image: newTractorImg,
     title: 'Engine Parts & Components',
     description: 'Premium engine parts including filters, gaskets, pistons, and turbochargers for all major tractor brands.',
     cta: 'Shop Engine Parts',
@@ -32,7 +37,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 2,
-    image: '/src/assets/hydraulic-harrow-76-1608289508.png',
+    image: hydraulicHarrowImg,
     title: 'Hydraulic System Parts',
     description: 'Complete hydraulic solutions including pumps, cylinders, hoses, and valves for reliable equipment operation.',
     cta: 'Shop Hydraulic Parts',
@@ -41,7 +46,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 3,
-    image: '/src/assets/Newtractor5.png',
+    image: newTractor5Img,
     title: 'Electrical Components',
     description: 'Alternators, starters, switches, and wiring harnesses for modern agricultural equipment electrical systems.',
     cta: 'Shop Electrical Parts',
@@ -50,7 +55,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 4,
-    image: '/src/assets/disc-harrow-76-1696055574.png',
+    image: discHarrowImg,
     title: 'Implement Attachments',
     description: 'Plow shares, disc blades, cultivator points, and other implement parts for soil preparation equipment.',
     cta: 'Shop Implements',
@@ -59,7 +64,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 5,
-    image: '/src/assets/Newtractor8.png',
+    image: newTractor8Img,
     title: 'Transmission & Drivetrain',
     description: 'Clutch components, transmission filters, and drivetrain parts to keep your equipment moving smoothly.',
     cta: 'Shop Transmission',
@@ -68,7 +73,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 6,
-    image: '/src/assets/pivot.png',
+    image: pivotImg,
     title: 'Cooling System Parts',
     description: 'Radiators, thermostats, water pumps, and cooling system components for optimal engine temperature.',
     cta: 'Shop Cooling Parts',
@@ -77,7 +82,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 7,
-    image: '/src/assets/Sprinklers.png',
+    image: sprinklersImg,
     title: 'Fuel System Components',
     description: 'Fuel pumps, injection systems, and filtration components for efficient fuel delivery and engine performance.',
     cta: 'Shop Fuel Parts',
@@ -86,7 +91,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 8,
-    image: '/src/assets/Newtractor11.png',
+    image: newTractor11Img,
     title: 'Brake & Safety Parts',
     description: 'Brake pads, hydraulic brake components, and safety systems to ensure reliable equipment operation.',
     cta: 'Shop Brake Parts',
@@ -95,7 +100,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 9,
-    image: '/src/assets/tractor-wheel.jpg',
+    image: tractorWheelImg,
     title: 'Wheels & Tires',
     description: 'Agricultural tires, rims, and wheel components for optimal traction and field performance.',
     cta: 'Shop Tires',
@@ -104,7 +109,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 10,
-    image: '/src/assets/Combine.jpg',
+    image: combineImg,
     title: 'Genuine OEM Parts',
     description: 'Authentic manufacturer parts with full warranty coverage for John Deere, Case IH, New Holland, and more.',
     cta: 'Shop OEM Parts',

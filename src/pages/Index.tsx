@@ -15,7 +15,7 @@ import { Footer } from "@/components/Footer";
 import { BackToTop } from "@/components/BackToTop";
 import { useQuote } from "@/context/QuoteContext";
 import { useNavigate, Link } from "react-router-dom";
-import { sparePartsData, SparePart, getFeaturedParts } from "@/data/sparePartsData";
+import { spareParts as sparePartsData, SparePart } from "@/data/products";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import CustomerDashboard from "@/components/CustomerDashboard";
+// Import the new dashboards (assuming they will be created)
+// import VendorDashboard from "@/components/VendorDashboard"; 
+// import SuperAdminDashboard from "@/components/SuperAdminDashboard";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -38,7 +41,20 @@ const Index = () => {
     navigate('/login');
   };
 
-  if (user && userRole === 'customer') {
+  // Role-based redirection on login
+  if (user) {
+    if (userRole === 'super-admin') {
+      // return <SuperAdminDashboard />; // Future implementation
+      navigate('/admin'); // Redirect to a unified admin area
+      return null; // Return null while redirecting
+    }
+    if (userRole === 'admin') {
+      // return <VendorDashboard />; // Future implementation
+      navigate('/vendor'); // Redirect to vendor dashboard
+      return null; // Return null while redirecting
+    }
+  }
+  if (user && userRole === 'customer') { // Keep customer on the index page but show dashboard
     return (
       <div className="min-h-screen bg-background">
         <Header
@@ -66,6 +82,8 @@ const Index = () => {
   ];
 
   // Sample partner data
+  // TODO: This data should be fetched from the 'company_partners' table in your Supabase database
+  // as mentioned in the README.md. This would make it dynamic and manageable without code changes.
   const partners = [
     {
       id: '1',
@@ -121,18 +139,19 @@ const Index = () => {
   }, [searchTerm]);
 
   // Filter products based on active category
-  const filteredProducts = getFeaturedParts().filter(
+  const featuredProducts = sparePartsData.filter(part => part.featured);
+  const filteredProducts = featuredProducts.filter(
     part => activeCategory === "All" || part.category === activeCategory
   );
 
   // Handle adding item to cart from suggestion card
   const handleAddToCartFromSuggestion = (part: SparePart) => {
     addItem({
-      id: parseInt(part.id),
+      id: String(part.id),
       name: part.name,
       price: part.price,
-      image: part.images[0] || '',
-      specs: part.tags,
+      image: part.image || '',
+      specs: part.specs,
       category: part.category
     });
     toast.success(`${part.name} added to cart!`);
@@ -193,7 +212,7 @@ const Index = () => {
                       <Link to={`/parts/${part.id}`} className="block">
                         <div className="relative overflow-hidden">
                           <img
-                            src={part.images[0] || '/api/placeholder/300/200'}
+                            src={part.image || '/api/placeholder/300/200'}
                             alt={part.name}
                             className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                             loading="lazy"
@@ -245,18 +264,18 @@ const Index = () => {
                     <Link to={`/parts/${part.id}`} className="block">
                       <div className="relative overflow-hidden">
                         <img
-                          src={part.images[0] || '/api/placeholder/300/200'}
+                          src={part.image || '/api/placeholder/300/200'}
                           alt={part.name}
                           className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                           loading="lazy"
                         />
                         <div className="absolute top-3 left-3 flex gap-2">
-                          {part.featured && (
+                          {part.featured && ( // Assuming 'featured' property exists
                             <Badge className="bg-primary text-primary-foreground">
                               Featured
                             </Badge>
                           )}
-                          {part.availabilityStatus === 'in_stock' && (
+                          {part.inStock && ( // Using 'inStock' from products.ts
                             <Badge className="bg-success text-success-foreground">
                               In Stock
                             </Badge>
@@ -301,11 +320,11 @@ const Index = () => {
                       <CardFooter className="p-4 pt-0">
                          <Button 
                           onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(part); }}
-                          disabled={part.availabilityStatus !== 'in_stock'}
+                          disabled={!part.inStock}
                           className="w-full bg-primary hover:bg-primary-hover"
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
-                          {part.availabilityStatus === 'in_stock' ? 'Add to Cart' : 'Out of Stock'}
+                          {part.inStock ? 'Add to Cart' : 'Out of Stock'}
                         </Button>
                       </CardFooter>
                     </Link>

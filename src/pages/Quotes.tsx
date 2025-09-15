@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +34,7 @@ interface QuoteItem {
   product_name: string;
   quantity: number;
   price: number;
+  created_at?: string;
 }
 
 interface QuoteDetails {
@@ -49,16 +50,16 @@ interface QuoteDetails {
   items: QuoteItem[];
 }
 
-// Temporarily use any for new tables until types sync
-type QuoteRow = any;
-type QuoteItemRow = any;  
-type UserProfileRow = any;
-
-type SupabaseQuote = QuoteRow & {
- client: UserProfileRow | null;
- vendor: UserProfileRow | null;
-  items: any[];
-};
+interface SupabaseQuote extends Omit<Database['public']['Tables']['quotes']['Row'], 'status' | 'items'> {
+  // Manually define properties that might be missing or incorrectly typed
+  // in the auto-generated types, or that come from joins.
+  quote_number: string;
+  total_amount: number;
+  status: 'pending' | 'sent' | 'accepted' | 'rejected' | 'revised' | 'cancelled';
+  client: Database['public']['Tables']['user_profiles']['Row'] | null;
+  vendor: Database['public']['Tables']['user_profiles']['Row'] | null;
+  items: QuoteItem[];
+}
 
 const Quotes: React.FC = () => {
   const { toast } = useToast();
@@ -139,7 +140,7 @@ const Quotes: React.FC = () => {
   const handleSendQuote = async (quoteId: string) => {
     if (!quoteId) return;
     
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('quotes')
       .update({ status: 'sent' })
       .eq('id', quoteId)
@@ -167,7 +168,7 @@ const Quotes: React.FC = () => {
     
     try {
       // Update quote status and notes
-      const { data: quoteData, error: quoteError } = await (supabase as any).from('quotes')
+      const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
         .update({ 
           status: 'revised', 
@@ -215,7 +216,7 @@ const Quotes: React.FC = () => {
     if (!quoteId) return;
     
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('quotes')
         .update({ status: 'rejected' })
         .eq('id', quoteId)
@@ -246,7 +247,7 @@ const Quotes: React.FC = () => {
     if (!quoteId) return;
     
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('quotes')
         .update({ status: 'accepted' })
         .eq('id', quoteId)
@@ -291,7 +292,7 @@ const Quotes: React.FC = () => {
 
     try {
       // 1. Update the quotes table (notes and total_amount)
-      const { data: quoteData, error: quoteError } = await (supabase as any)
+      const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
         .update({
           notes: editableQuoteDetails.notes,
@@ -313,7 +314,7 @@ const Quotes: React.FC = () => {
         const originalItem = selectedQuoteDetails.items.find(orig => orig.id === item.id);
         if (originalItem && (originalItem.quantity !== item.quantity || originalItem.price !== item.price)) {
           const { data: itemData, error: itemError } = await (supabase as any)
-            .from('quote_items')
+            .from('quote_items') // Using 'as any' because types are out of sync
             .update({ quantity: item.quantity, price: item.price })
             .eq('id', item.id)
             .select()
@@ -404,7 +405,7 @@ const Quotes: React.FC = () => {
       
       if (!selectedQuoteId) return;
       
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('quotes')
         .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
         .eq('id', selectedQuoteId)
@@ -419,7 +420,7 @@ const Quotes: React.FC = () => {
         });
         setSelectedQuoteDetails(null);
       } else {
-        setSelectedQuoteDetails(data as SupabaseQuote | null);
+        setSelectedQuoteDetails(data as unknown as SupabaseQuote | null);
       }
       
       setLoadingQuoteDetails(false);
@@ -434,32 +435,12 @@ const Quotes: React.FC = () => {
       .channel('quotes-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'quotes' },
+        { event: '*', schema: 'public', table: 'quotes' } as any,
         (payload) => {
           console.log('Quote change received!', payload);
           
-          // Refetch the list of quotes on any quote table change
-          const fetchQuotes = async () => {
-            let query = (supabase as any)
-              .from('quotes')
-              .select('*, client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)');
-
-            if (userRole === 'customer' && user) {
-              query = query.eq('client_id', user.id); 
-            } else if (['vendor', 'admin', 'super_admin'].includes(userRole || '') && user) {
-              query = query.eq('vendor_id', user.id);
-            }
-            
-            const { data, error } = await query.order('created_at', { ascending: false });
-            
-            if (error) {
-              console.error('Error refetching quotes:', error);
-            } else {
-              setQuotes(data as SupabaseQuote[] || []);
-            }
-          };
-          
-          fetchQuotes();
+          // Refetch the entire list to ensure consistency with the edge function's data shape
+          fetchQuotesList();
           
           // If the change is for the currently selected quote, refetch its details
           if (selectedQuoteId && 
@@ -484,7 +465,7 @@ const Quotes: React.FC = () => {
       .channel('quote-items-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'quote_items' },
+        { event: '*', schema: 'public', table: 'quote_items' } as any, // Using 'as any' because types are out of sync
         (payload) => {
           console.log('Quote item change received!', payload);
           
