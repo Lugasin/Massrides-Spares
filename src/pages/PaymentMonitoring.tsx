@@ -6,13 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   CreditCard, 
   Search, 
-  Filter, 
   RefreshCw,
   CheckCircle,
   XCircle,
@@ -21,7 +20,9 @@ import {
   AlertTriangle,
   Eye,
   Settings,
-  Download
+  Download,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,10 +63,27 @@ interface Order {
   };
 }
 
+interface PaymentMetrics {
+  totalTransactions: number;
+  successfulPayments: number;
+  failedPayments: number;
+  pendingPayments: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+}
+
 const PaymentMonitoring = () => {
   const { user, profile, userRole } = useAuth();
   const [transactions, setTransactions] = useState<TJTransaction[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [metrics, setMetrics] = useState<PaymentMetrics>({
+    totalTransactions: 0,
+    successfulPayments: 0,
+    failedPayments: 0,
+    pendingPayments: 0,
+    totalRevenue: 0,
+    averageOrderValue: 0
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -86,15 +104,17 @@ const PaymentMonitoring = () => {
 
   useEffect(() => {
     if (userRole === 'admin' || userRole === 'super_admin') {
-      fetchTransactions();
-      fetchOrders();
+      fetchData();
       subscribeToUpdates();
     }
   }, [userRole]);
 
-  const fetchTransactions = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      // Fetch transactions
+      const { data: transactionData, error: transactionError } = await supabase
         .from('tj_transaction_logs')
         .select(`
           *,
@@ -109,17 +129,11 @@ const PaymentMonitoring = () => {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
-      setTransactions(data || []);
-    } catch (error: any) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Failed to load transactions');
-    }
-  };
+      if (transactionError) throw transactionError;
+      setTransactions(transactionData || []);
 
-  const fetchOrders = async () => {
-    try {
-      const { data, error } = await supabase
+      // Fetch orders with payment data
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select(`
           *,
@@ -129,11 +143,28 @@ const PaymentMonitoring = () => {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (orderError) throw orderError;
+      setOrders(orderData || []);
+
+      // Calculate metrics
+      const allTransactions = transactionData || [];
+      const successfulTxns = allTransactions.filter(t => t.status === 'PAYMENT_SETTLED');
+      const failedTxns = allTransactions.filter(t => t.status === 'PAYMENT_FAILED' || t.status === 'PAYMENT_DECLINED');
+      const pendingTxns = allTransactions.filter(t => t.status === 'PAYMENT_AUTHORISED');
+      const totalRevenue = successfulTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+      setMetrics({
+        totalTransactions: allTransactions.length,
+        successfulPayments: successfulTxns.length,
+        failedPayments: failedTxns.length,
+        pendingPayments: pendingTxns.length,
+        totalRevenue: totalRevenue,
+        averageOrderValue: successfulTxns.length > 0 ? totalRevenue / successfulTxns.length : 0
+      });
+
     } catch (error: any) {
-      console.error('Error fetching orders:', error);
-      toast.error('Failed to load orders');
+      console.error('Error fetching payment data:', error);
+      toast.error('Failed to load payment data');
     } finally {
       setLoading(false);
     }
@@ -150,7 +181,7 @@ const PaymentMonitoring = () => {
           table: 'tj_transaction_logs'
         },
         () => {
-          fetchTransactions();
+          fetchData();
         }
       )
       .on(
@@ -161,7 +192,7 @@ const PaymentMonitoring = () => {
           table: 'orders'
         },
         () => {
-          fetchOrders();
+          fetchData();
         }
       )
       .subscribe();
@@ -185,8 +216,7 @@ const PaymentMonitoring = () => {
       toast.success(`Transaction ${settlementDialog.action} successful`);
       setSettlementDialog({ isOpen: false, transactionId: '', action: 'settle' });
       setSettlementForm({ amount: '', reason: '' });
-      fetchTransactions();
-      fetchOrders();
+      fetchData();
     } catch (error: any) {
       console.error('Settlement error:', error);
       toast.error(`Failed to ${settlementDialog.action} transaction`);
@@ -202,7 +232,7 @@ const PaymentMonitoring = () => {
       if (response.error) throw response.error;
 
       toast.success('Transaction lookup completed');
-      fetchTransactions();
+      fetchData();
     } catch (error: any) {
       console.error('Lookup error:', error);
       toast.error('Failed to lookup transaction');
@@ -244,6 +274,26 @@ const PaymentMonitoring = () => {
     }
   };
 
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = !searchTerm ||
+      transaction.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.order?.order_number?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = !searchTerm ||
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || order.payment_status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
   if (userRole !== 'admin' && userRole !== 'super_admin') {
     return (
       <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
@@ -268,8 +318,8 @@ const PaymentMonitoring = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { fetchTransactions(); fetchOrders(); }}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button variant="outline">
@@ -279,16 +329,16 @@ const PaymentMonitoring = () => {
           </div>
         </div>
 
-        {/* Payment Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Payment Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Transactions</p>
-                  <p className="text-2xl font-bold">{transactions.length}</p>
+                  <p className="text-2xl font-bold">{metrics.totalTransactions}</p>
                 </div>
-                <CreditCard className="h-8 w-8 text-primary" />
+                <Activity className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -298,9 +348,7 @@ const PaymentMonitoring = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Successful</p>
-                  <p className="text-2xl font-bold text-success">
-                    {transactions.filter(t => t.status === 'PAYMENT_SETTLED').length}
-                  </p>
+                  <p className="text-2xl font-bold text-success">{metrics.successfulPayments}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-success" />
               </div>
@@ -312,9 +360,7 @@ const PaymentMonitoring = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-500">
-                    {transactions.filter(t => t.status === 'PAYMENT_AUTHORISED').length}
-                  </p>
+                  <p className="text-2xl font-bold text-yellow-500">{metrics.pendingPayments}</p>
                 </div>
                 <Clock className="h-8 w-8 text-yellow-500" />
               </div>
@@ -325,9 +371,9 @@ const PaymentMonitoring = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Value</p>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
                   <p className="text-2xl font-bold text-primary">
-                    ${transactions.reduce((sum, t) => sum + (t.amount || 0), 0).toLocaleString()}
+                    ${metrics.totalRevenue.toLocaleString()}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-primary" />
@@ -338,9 +384,9 @@ const PaymentMonitoring = () => {
 
         <Tabs defaultValue="orders" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="orders">Payment Orders</TabsTrigger>
             <TabsTrigger value="transactions">Transaction Logs</TabsTrigger>
-            <TabsTrigger value="settlements">Manual Settlements</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders">
@@ -358,6 +404,17 @@ const PaymentMonitoring = () => {
                         className="pl-10 w-64"
                       />
                     </div>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="px-3 py-2 border border-input rounded-md bg-background"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="paid">Paid</option>
+                      <option value="authorised">Authorised</option>
+                      <option value="failed">Failed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
                   </div>
                 </div>
               </CardHeader>
@@ -381,7 +438,7 @@ const PaymentMonitoring = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {orders.map((order) => (
+                      {filteredOrders.map((order) => (
                         <TableRow key={order.id}>
                           <TableCell className="font-medium">{order.order_number}</TableCell>
                           <TableCell>
@@ -418,17 +475,30 @@ const PaymentMonitoring = () => {
                                 <Eye className="h-4 w-4" />
                               </Button>
                               {order.payment_status === 'authorised' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => setSettlementDialog({
-                                    isOpen: true,
-                                    transactionId: order.tj?.transactionId || '',
-                                    action: 'settle'
-                                  })}
-                                >
-                                  Settle
-                                </Button>
+                                <>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => setSettlementDialog({
+                                      isOpen: true,
+                                      transactionId: order.tj?.transactionId || '',
+                                      action: 'settle'
+                                    })}
+                                  >
+                                    Settle
+                                  </Button>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onClick={() => setSettlementDialog({
+                                      isOpen: true,
+                                      transactionId: order.tj?.transactionId || '',
+                                      action: 'reverse'
+                                    })}
+                                  >
+                                    Reverse
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </TableCell>
@@ -454,12 +524,13 @@ const PaymentMonitoring = () => {
                       <TableHead>Order</TableHead>
                       <TableHead>Event</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Amount</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((transaction) => (
+                    {filteredTransactions.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell className="font-mono text-sm">
                           {transaction.transaction_id || 'N/A'}
@@ -469,7 +540,7 @@ const PaymentMonitoring = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {transaction.event_type || 'unknown'}
+                            {transaction.event_type}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -481,6 +552,9 @@ const PaymentMonitoring = () => {
                               </Badge>
                             </div>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {transaction.amount ? `$${transaction.amount.toLocaleString()}` : 'N/A'}
                         </TableCell>
                         <TableCell>
                           {formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true })}
@@ -513,21 +587,48 @@ const PaymentMonitoring = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="settlements">
-            <Card>
-              <CardHeader>
-                <CardTitle>Manual Settlement Controls</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">Settlement Management</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Use the action buttons in the Orders tab to manually settle or reverse authorized transactions.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="analytics">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Payment Success Rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="text-4xl font-bold text-success mb-2">
+                      {metrics.totalTransactions > 0 
+                        ? ((metrics.successfulPayments / metrics.totalTransactions) * 100).toFixed(1)
+                        : 0}%
+                    </div>
+                    <p className="text-muted-foreground">
+                      {metrics.successfulPayments} of {metrics.totalTransactions} transactions successful
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Average Order Value
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="text-4xl font-bold text-primary mb-2">
+                      ${metrics.averageOrderValue.toFixed(2)}
+                    </div>
+                    <p className="text-muted-foreground">
+                      Average value per successful transaction
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -550,7 +651,7 @@ const PaymentMonitoring = () => {
                   </div>
                   <div>
                     <Label>Event Type</Label>
-                    <Badge variant="outline">{selectedTransaction.event_type || 'unknown'}</Badge>
+                    <Badge variant="outline">{selectedTransaction.event_type}</Badge>
                   </div>
                   <div>
                     <Label>Amount</Label>

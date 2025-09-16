@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface VerificationRequest {
+interface SendVerificationRequest {
   email: string;
   session_id: string;
 }
@@ -31,9 +31,9 @@ serve(async (req) => {
     const url = new URL(req.url)
     const path = url.pathname
 
-    if (path === '/guest-verification/send' && req.method === 'POST') {
+    if (path.endsWith('/send') && req.method === 'POST') {
       // Send verification code
-      const body: VerificationRequest = await req.json()
+      const body: SendVerificationRequest = await req.json()
       const { email, session_id } = body
 
       // Generate 6-digit verification code
@@ -51,9 +51,21 @@ serve(async (req) => {
 
       if (insertError) throw insertError
 
-      // TODO: Send email with verification code
-      // For now, we'll just return the code (in production, send via email service)
+      // TODO: Send email with verification code using your email service
+      // For demo purposes, we'll return the code (remove in production)
       console.log(`Verification code for ${email}: ${verificationCode}`)
+
+      // Log verification request
+      await supabase.from('activity_logs').insert({
+        activity_type: 'guest_verification_sent',
+        additional_details: {
+          email: email,
+          session_id: session_id
+        },
+        ip_address: req.headers.get('x-forwarded-for') || '0.0.0.0',
+        user_agent: req.headers.get('user-agent'),
+        log_source: 'guest_checkout'
+      })
 
       return new Response(
         JSON.stringify({
@@ -68,7 +80,7 @@ serve(async (req) => {
         }
       )
 
-    } else if (path === '/guest-verification/verify' && req.method === 'POST') {
+    } else if (path.endsWith('/verify') && req.method === 'POST') {
       // Verify code
       const body: VerifyCodeRequest = await req.json()
       const { email, code, session_id } = body
@@ -85,6 +97,19 @@ serve(async (req) => {
         .single()
 
       if (verifyError || !verification) {
+        // Log failed verification
+        await supabase.from('activity_logs').insert({
+          activity_type: 'guest_verification_failed',
+          additional_details: {
+            email: email,
+            session_id: session_id,
+            provided_code: code
+          },
+          ip_address: req.headers.get('x-forwarded-for') || '0.0.0.0',
+          user_agent: req.headers.get('user-agent'),
+          log_source: 'guest_checkout'
+        })
+
         return new Response(
           JSON.stringify({
             success: false,
@@ -104,6 +129,18 @@ serve(async (req) => {
         .eq('id', verification.id)
 
       if (updateError) throw updateError
+
+      // Log successful verification
+      await supabase.from('activity_logs').insert({
+        activity_type: 'guest_verification_success',
+        additional_details: {
+          email: email,
+          session_id: session_id
+        },
+        ip_address: req.headers.get('x-forwarded-for') || '0.0.0.0',
+        user_agent: req.headers.get('user-agent'),
+        log_source: 'guest_checkout'
+      })
 
       return new Response(
         JSON.stringify({

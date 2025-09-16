@@ -37,7 +37,9 @@ serve(async (req) => {
       amount,
       currency,
       paymentType,
-      responseText
+      responseText,
+      paymentMethodToken,
+      customerInfo
     } = webhookData
 
     // Check for duplicate webhook (idempotency)
@@ -45,7 +47,7 @@ serve(async (req) => {
       .from('tj_transaction_logs')
       .select('id')
       .eq('transaction_id', transactionId)
-      .eq('payload->event', 'webhook_received')
+      .eq('event_type', 'webhook_received')
       .single()
 
     if (existingLog) {
@@ -61,16 +63,48 @@ serve(async (req) => {
       transaction_id: transactionId,
       session_id: sessionId,
       payment_intent_id: webhookData.paymentIntentId,
-      payload: {
+      event_type: 'webhook_received',
+      amount: amount,
+      currency: currency,
+      status: transactionStatus,
+      webhook_data: {
         event: 'webhook_received',
         ...webhookData,
         receivedAt: new Date().toISOString()
       }
     })
 
-    // Find order by merchantRef or sessionId
-    let order = null
+    // Handle payment method tokenization
+    if (webhookData.metadata?.purpose === 'tokenize' && transactionStatus === 'PAYMENT_SETTLED' && paymentMethodToken) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('email', customerInfo?.email)
+        .single();
+
+      if (profile) {
+        await supabase
+          .from('tj_payment_methods')
+          .insert({
+            user_id: profile.id,
+            payment_method_token: paymentMethodToken,
+            brand: customerInfo?.cardBrand,
+            last4: customerInfo?.cardLast4,
+            exp_month: customerInfo?.cardExpMonth,
+            exp_year: customerInfo?.cardExpYear,
+            tj_customer_id: customerInfo?.customerId
+          });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    // Find order by merchantRef
     const TJ_MERCHANT_REF_PREFIX = Deno.env.get('TJ_MERCHANT_REF_PREFIX') ?? 'myplatform:order:'
+    let order = null
     
     if (merchantRef && merchantRef.startsWith(TJ_MERCHANT_REF_PREFIX)) {
       const orderNumber = merchantRef.replace(TJ_MERCHANT_REF_PREFIX, '')
@@ -179,15 +213,17 @@ serve(async (req) => {
       // Log successful payment
       await supabase.from('activity_logs').insert({
         user_id: order.user_id,
-        action_type: 'payment_processed',
-        action_details: {
+        activity_type: 'payment_processed',
+        additional_details: {
           order_id: order.id,
           order_number: order.order_number,
           amount: amount,
           currency: currency,
           transaction_id: transactionId,
           payment_type: paymentType
-        }
+        },
+        ip_address: '0.0.0.0',
+        log_source: 'webhook'
       })
     } else if (paymentStatus === 'failed') {
       // Send failure notification if user exists
@@ -204,32 +240,19 @@ serve(async (req) => {
       // Log failed payment
       await supabase.from('activity_logs').insert({
         user_id: order.user_id,
-        action_type: 'payment_failed',
-        action_details: {
+        activity_type: 'payment_failed',
+        additional_details: {
           order_id: order.id,
           order_number: order.order_number,
           amount: amount,
           currency: currency,
           transaction_id: transactionId,
           response_text: responseText
-        }
+        },
+        ip_address: '0.0.0.0',
+        log_source: 'webhook'
       })
     }
-
-    // Log order update
-    await supabase.from('activity_logs').insert({
-      user_id: order.user_id,
-      action_type: 'order_updated',
-      action_details: {
-        order_id: order.id,
-        order_number: order.order_number,
-        old_status: order.status,
-        new_status: orderStatus,
-        old_payment_status: order.payment_status,
-        new_payment_status: paymentStatus,
-        transaction_id: transactionId
-      }
-    })
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -247,11 +270,13 @@ serve(async (req) => {
       )
       
       await supabase.from('activity_logs').insert({
-        action_type: 'webhook_error',
-        action_details: {
+        activity_type: 'webhook_error',
+        additional_details: {
           error: error.message,
           webhook_data: await req.json().catch(() => ({}))
-        }
+        },
+        ip_address: '0.0.0.0',
+        log_source: 'webhook'
       })
     } catch (logError) {
       console.error('Failed to log webhook error:', logError)

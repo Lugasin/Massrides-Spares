@@ -211,7 +211,7 @@ export const Header = ({
                   <DropdownMenuItem onClick={async () => {
                     const { error } = await signOut();
                     if (!error) {
-                      navigate('/');
+                      window.location.href = '/';
                     }
                   }}>
                      <LogOut className="mr-2 h-4 w-4" />
@@ -310,7 +310,7 @@ export const Header = ({
                      <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={async () => {
                          const { error } = await signOut();
                          if (!error) {
-                           navigate('/');
+                           window.location.href = '/';
                          }
                          setIsMobileMenuOpen(false);
                      }}>

@@ -50,6 +50,9 @@ import SecurityDashboard from './pages/SecurityDashboard';
 import { BackToTop } from './components/BackToTop';
 import { ScrollToTop } from './components/ScrollToTop';
 import SecurityAlertToast from './components/SecurityAlertToast';
+import ComprehensiveAuditLogger from './components/ComprehensiveAuditLogger';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import SystemHealthMonitor from './components/SystemHealthMonitor';
 
 const queryClient = new QueryClient();
 
@@ -71,6 +74,8 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <SecurityAlertToast />
+      <ComprehensiveAuditLogger />
+      <PWAInstallPrompt />
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <ScrollToTop />
         <BackToTop />
@@ -112,9 +117,9 @@ const AppContent = () => {
           <Route path="/security-dashboard" element={<ProtectedRoute allowedRoles={['super_admin']} element={<SecurityDashboard />} />} />
           <Route path="/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
           <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
-          <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
           <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
           <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
+          <Route path="/system-health" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<SystemHealthMonitor />} />} />
 
           {/* Protected Profile Route */}
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} /> {/* Protected Profile Route */}

@@ -46,7 +46,7 @@ serve(async (req) => {
 
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('id, role')
       .eq('user_id', user.id)
       .single()
 
@@ -129,7 +129,8 @@ serve(async (req) => {
     // Log settlement action
     await supabase.from('tj_transaction_logs').insert({
       transaction_id: transactionId,
-      payload: {
+      event_type: `manual_${action}`,
+      webhook_data: {
         event: `manual_${action}`,
         admin_user_id: user.id,
         request: settlementPayload,
@@ -140,12 +141,14 @@ serve(async (req) => {
 
     await supabase.from('activity_logs').insert({
       user_id: profile.id,
-      action_type: `payment_${action}`,
-      action_details: {
+      activity_type: `payment_${action}`,
+      additional_details: {
         transaction_id: transactionId,
         amount: amount,
         reason: reason
-      }
+      },
+      ip_address: '0.0.0.0',
+      log_source: 'admin_action'
     })
 
     return new Response(

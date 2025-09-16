@@ -1,105 +1,355 @@
 # Massrides Agricultural Spare Parts PWA
 
-## Transaction Junction Integration
+A comprehensive Progressive Web Application for agricultural spare parts e-commerce with real-time features, admin controls, and Transaction Junction payment integration.
 
-This application includes Transaction Junction (TJ) Hosted Payment Page integration for secure payment processing.
+## 🚀 Features
 
-### Environment Variables Setup
+### Core E-commerce
+- **Product Catalog**: Browse 80+ agricultural spare parts with advanced filtering
+- **Shopping Cart**: Real-time sync for users, localStorage for guests
+- **Guest Checkout**: Email verification for secure guest purchases
+- **User Accounts**: Complete registration, login, and profile management
+- **Order Management**: Full lifecycle tracking with real-time updates
 
-Before using the payment features, you need to configure the following environment variables in Supabase:
+### Payment Processing
+- **Transaction Junction Integration**: Secure HPP (Hosted Payment Page) flow
+- **Payment Monitoring**: Real-time transaction tracking for admins
+- **Manual Settlement**: Admin controls for authorized transactions
+- **Payment Methods**: Tokenized payment method storage
+- **Webhook Handling**: Idempotent webhook processing with audit trails
 
+### Admin & Vendor Tools
+- **Admin Dashboard**: Comprehensive system control and monitoring
+- **Vendor Management**: Complete inventory CRUD operations
+- **User Management**: Role-based access control and user administration
+- **Security Dashboard**: Real-time threat detection and monitoring
+- **Activity Logging**: Comprehensive audit trail for compliance
+
+### Real-time Features
+- **Live Notifications**: Real-time updates via Supabase Realtime
+- **System Monitoring**: Live health checks and performance metrics
+- **Order Updates**: Real-time status changes and notifications
+- **Inventory Alerts**: Low stock notifications for vendors
+
+### PWA Features
+- **Offline Support**: Service worker with intelligent caching
+- **Install Prompt**: Native app-like installation
+- **Push Notifications**: Real-time alerts and updates
+- **Responsive Design**: Mobile-first, works on all devices
+
+## 🛠 Technology Stack
+
+### Frontend
+- **React 18** with TypeScript
+- **Tailwind CSS** for styling
+- **Shadcn UI** component library
+- **React Router** for navigation
+- **TanStack Query** for data fetching
+- **Sonner** for toast notifications
+
+### Backend
+- **Supabase** (PostgreSQL, Auth, Realtime, Storage, Edge Functions)
+- **Transaction Junction** for payment processing
+- **Row Level Security** for data protection
+- **Edge Functions** for server-side logic
+
+### PWA
+- **Service Worker** for offline functionality
+- **Web App Manifest** for installation
+- **Push API** for notifications
+- **Cache API** for performance
+
+## 📋 Database Schema
+
+### Core Tables
+- `user_profiles` - User information and roles
+- `spare_parts` - Product catalog with full specifications
+- `orders` - Order management with payment tracking
+- `order_items` - Order line items
+- `categories` - Product categorization
+
+### Cart Management
+- `user_carts` - Authenticated user carts
+- `cart_items` - Cart line items
+- `guest_carts` - Guest shopping carts
+- `guest_cart_items` - Guest cart items
+
+### Communication
+- `notifications` - Real-time user notifications
+- `messages` - User messaging system
+- `conversations` - Message threads
+
+### Payment & Security
+- `tj_transaction_logs` - Complete payment audit trail
+- `tj_payment_methods` - Tokenized payment methods
+- `tj_security_logs` - Security event logging
+- `activity_logs` - Comprehensive user activity tracking
+
+### System Management
+- `user_settings` - User preferences
+- `system_metrics` - Performance monitoring
+- `audit_logs` - Change tracking for compliance
+- `guest_verifications` - Email verification for guests
+
+## 🔧 Setup Instructions
+
+### 1. Clone and Install
 ```bash
-# Set these secrets in Supabase using: supabase secrets set KEY=value
-
-# TODO: Replace these placeholders with your actual TJ credentials
-TJ_CLIENT_ID="<replace_with_TJ_client_id>"
-TJ_CLIENT_SECRET="<replace_with_TJ_client_secret>"
-TJ_OAUTH_TOKEN_URL="<replace_with_TJ_oauth_token_url>"
-TJ_API_BASE_URL="<replace_with_TJ_api_base_url>"
-TJ_CREATE_SESSION_PATH="/hpp/sessions"
-TJ_TRAN_LOOKUP_PATH="/transactions/lookup"
-TJ_WEBHOOK_SECRET="<replace_with_webhook_secret_or_leave_empty>"
-TJ_MERCHANT_REF_PREFIX="myplatform:order:"
-SUPABASE_URL="<replace_with_supabase_url>"
-SUPABASE_SERVICE_ROLE_KEY="<replace_with_service_role_key>"
+git clone <repository-url>
+cd massrides-pwa
+npm install
 ```
 
-### Database Setup
+### 2. Environment Configuration
+Create `.env.local`:
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-The following tables are automatically created by migrations:
-
-1. **tj_transaction_logs** - Stores all TJ webhook payloads and transaction data
-2. **activity_logs** - Tracks all user actions and system events
-3. **guest_verifications** - Handles email verification for guest checkout
-4. **user_settings** - Stores user preferences
-5. **ads** - Vendor advertisements
-6. **company_partners** - Partner company information
-
-### Edge Functions
-
-The following Edge Functions handle TJ integration:
-
-1. **tj-create-session** - Creates TJ payment sessions
-2. **tj-webhook** - Handles TJ webhook callbacks
-3. **tj-lookup** - Fallback transaction lookup
-4. **tj-manual-settlement** - Manual settlement controls for admins
-
-### Payment Flow
-
-1. **User/Guest Checkout**: Creates order and initiates TJ session
-2. **TJ Redirect**: User completes payment on TJ hosted page
-3. **Webhook Processing**: TJ sends webhook to update order status
-4. **Order Fulfillment**: Order status updated based on payment result
-
-### Admin Features
-
-- **Payment Monitoring Dashboard**: Real-time payment tracking
-- **Manual Settlement**: Settle or reverse authorized transactions
-- **Transaction Logs**: Complete audit trail of all TJ interactions
-- **Activity Logging**: Track all user and system actions
-
-### Security Features
-
-- **Webhook Signature Verification**: Validates TJ webhook authenticity
-- **Idempotent Processing**: Prevents duplicate webhook processing
-- **Role-Based Access**: Admin-only access to payment controls
-- **Comprehensive Logging**: Full audit trail for compliance
-
-### Usage
-
-1. Configure TJ credentials in Supabase secrets
-2. Deploy Edge Functions
-3. Run database migrations
-4. Test payment flow in sandbox environment
-5. Switch to production TJ endpoints when ready
-
-### Development
-
+### 3. Database Setup
 ```bash
-# Install dependencies
-npm install
+# Run migrations
+supabase migration up
 
-# Start development server
-npm run dev
+# Seed initial data
+supabase db reset --linked
+```
 
-# Deploy Edge Functions (when ready)
+### 4. Configure Transaction Junction
+Set up TJ credentials in Supabase secrets:
+```bash
+supabase secrets set TJ_CLIENT_ID="your_client_id"
+supabase secrets set TJ_CLIENT_SECRET="your_client_secret"
+supabase secrets set TJ_OAUTH_TOKEN_URL="your_oauth_url"
+supabase secrets set TJ_API_BASE_URL="your_api_base_url"
+supabase secrets set TJ_WEBHOOK_SECRET="your_webhook_secret"
+```
+
+### 5. Deploy Edge Functions
+```bash
 supabase functions deploy
 ```
 
-## Features
+### 6. Start Development
+```bash
+npm run dev
+```
 
-- **Spare Parts Catalog**: Browse agricultural spare parts with advanced filtering
-- **Real-time Cart**: Synced cart for logged-in users, localStorage for guests
-- **Guest Checkout**: Email verification for secure guest purchases
-- **Payment Processing**: Transaction Junction integration with webhook handling
-- **Admin Dashboard**: Payment monitoring and manual settlement controls
-- **Activity Logging**: Comprehensive audit trail for all actions
-- **Real-time Updates**: Live notifications and status updates
+## 👥 User Roles & Permissions
 
-## Technologies Used
+### Guest
+- Browse catalog
+- Add to cart (localStorage)
+- Guest checkout with email verification
 
-- **Frontend**: React, TypeScript, Tailwind CSS, Shadcn UI
-- **Backend**: Supabase (Database, Auth, Edge Functions, Storage)
-- **Payments**: Transaction Junction Hosted Payment Page
-- **Real-time**: Supabase Realtime subscriptions
-- **Build Tool**: Vite
+### Customer
+- Full shopping experience
+- Order tracking
+- Profile management
+- Messaging with vendors
+
+### Vendor
+- Product management (CRUD)
+- Inventory tracking
+- Order fulfillment
+- Customer communication
+- Sales analytics
+
+### Admin
+- User management
+- System oversight
+- Payment monitoring
+- Content management
+- Analytics dashboard
+
+### Super Admin
+- Full system control
+- Security monitoring
+- Role management
+- System configuration
+- Audit access
+
+## 🔐 Security Features
+
+### Authentication
+- Email/password authentication
+- OAuth providers (Google, Facebook)
+- Email verification required
+- Password reset functionality
+
+### Authorization
+- Row Level Security (RLS) on all tables
+- Role-based access control
+- API endpoint protection
+- Resource-level permissions
+
+### Audit & Compliance
+- Comprehensive activity logging
+- Change tracking on critical tables
+- Security event monitoring
+- Payment audit trails
+
+### Payment Security
+- PCI DSS compliant payment processing
+- Webhook signature verification
+- Transaction encryption
+- Fraud detection and monitoring
+
+## 📊 Monitoring & Analytics
+
+### System Health
+- Database performance monitoring
+- Edge function response times
+- Real-time connection status
+- Error rate tracking
+
+### Business Metrics
+- User registration and activity
+- Product performance
+- Order conversion rates
+- Revenue tracking
+
+### Security Monitoring
+- Failed login attempts
+- Suspicious activity detection
+- Payment fraud monitoring
+- Data access auditing
+
+## 🚀 Deployment
+
+### Production Build
+```bash
+npm run build
+```
+
+### Deploy to Hosting
+The application can be deployed to any static hosting service:
+- Netlify
+- Vercel
+- AWS S3 + CloudFront
+- Google Cloud Storage
+
+### Post-Deployment
+1. Configure custom domain
+2. Set up SSL certificate
+3. Configure CDN
+4. Set up monitoring alerts
+5. Test all functionality
+
+## 📱 PWA Installation
+
+Users can install the app on their devices:
+1. Visit the website
+2. Look for "Install App" prompt
+3. Follow browser-specific installation steps
+4. App appears on home screen/app drawer
+
+## 🔄 Real-time Features
+
+### Live Updates
+- Order status changes
+- Inventory updates
+- New messages
+- System notifications
+
+### WebSocket Connections
+- Automatic reconnection
+- Connection status monitoring
+- Fallback to polling if needed
+
+## 🛡 Error Handling
+
+### Frontend
+- Error boundaries for React components
+- Global error handlers
+- User-friendly error messages
+- Automatic error reporting
+
+### Backend
+- Comprehensive error logging
+- Graceful degradation
+- Retry mechanisms
+- Circuit breakers
+
+## 📈 Performance Optimization
+
+### Frontend
+- Code splitting and lazy loading
+- Image optimization
+- Service worker caching
+- Bundle size optimization
+
+### Backend
+- Database query optimization
+- Proper indexing strategy
+- Connection pooling
+- Edge function optimization
+
+## 🧪 Testing
+
+### Unit Tests
+```bash
+npm run test
+```
+
+### Integration Tests
+```bash
+npm run test:integration
+```
+
+### E2E Tests
+```bash
+npm run test:e2e
+```
+
+## 📞 Support
+
+For technical support or questions:
+- Email: tech@massrides.co.zm
+- Documentation: [Link to docs]
+- Issue Tracker: [Link to issues]
+
+## 📄 License
+
+Copyright © 2024 Massrides Company Limited. All rights reserved.
+
+---
+
+## Quick Start Commands
+
+```bash
+# Development
+npm run dev
+
+# Build
+npm run build
+
+# Deploy functions
+supabase functions deploy
+
+# Run migrations
+supabase db push
+
+# View logs
+supabase functions logs
+
+# Reset database (development only)
+supabase db reset
+```
+
+## Architecture Overview
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   React PWA     │    │   Supabase       │    │ Transaction     │
+│                 │    │                  │    │ Junction        │
+│ • Components    │◄──►│ • PostgreSQL     │    │                 │
+│ • Pages         │    │ • Auth           │    │ • HPP           │
+│ • Contexts      │    │ • Realtime       │◄──►│ • Webhooks      │
+│ • Hooks         │    │ • Edge Functions │    │ • Settlement    │
+│ • Service Worker│    │ • Storage        │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+The platform is production-ready with comprehensive e-commerce functionality, real-time features, and robust admin controls.

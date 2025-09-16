@@ -400,33 +400,45 @@ const Profile: React.FC = () => {
               <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Back to Dashboard
               </Button>
-              <Button className="bg-primary hover:bg-primary-hover" onClick={() => navigate('/catalog')}>
+              <Button asChild className="bg-primary hover:bg-primary-hover">
+                <Link to="/catalog">
                 Go to Shop
+                </Link>
               </Button>
-              <Button variant="outline" onClick={() => navigate('/orders')}>
+              <Button asChild variant="outline">
+                <Link to="/orders">
                 Manage Orders
+                </Link>
               </Button>
               {(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') && (
-                <Button className="bg-secondary hover:bg-secondary-hover" onClick={() => navigate('/vendor/inventory')}>
+                <Button asChild className="bg-secondary hover:bg-secondary-hover">
+                  <Link to="/vendor/inventory">
                   Update Inventory
+                  </Link>
                 </Button>
               )}
               {userRole === 'super_admin' && (
-                <Button className="bg-destructive hover:bg-destructive/90" onClick={() => navigate('/profile/super-admin')}>
+                <Button asChild className="bg-destructive hover:bg-destructive/90">
+                  <Link to="/profile/super-admin">
                   <Shield className="h-4 w-4 mr-2" />
                   Super Admin Panel
+                  </Link>
                 </Button>
               )}
               {userRole === 'admin' && (
-                <Button variant="outline" onClick={() => navigate('/profile/admin')}>
+                <Button asChild variant="outline">
+                  <Link to="/profile/admin">
                   <Shield className="h-4 w-4 mr-2" />
                   Admin Panel
+                  </Link>
                 </Button>
               )}
               {userRole === 'vendor' && (
-                <Button variant="outline" onClick={() => navigate('/profile/vendor')}>
+                <Button asChild variant="outline">
+                  <Link to="/profile/vendor">
                   <Store className="h-4 w-4 mr-2" />
                   Vendor Panel
+                  </Link>
                 </Button>
               )}
             </div>

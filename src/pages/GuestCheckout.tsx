@@ -13,12 +13,13 @@ import {
   ArrowRight,
   CheckCircle,
   CreditCard,
-  ExternalLink
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const GuestCheckout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
@@ -44,14 +45,18 @@ const GuestCheckout = () => {
       const sessionId = localStorage.getItem('guest_session_id') || crypto.randomUUID();
       localStorage.setItem('guest_session_id', sessionId);
 
-      const { data, error } = await supabase.functions.invoke('guest-verification/send', {
-        body: { email, session_id: sessionId },
+      const { data, error } = await supabase.functions.invoke('guest-verification', {
+        body: { 
+          email, 
+          session_id: sessionId,
+          action: 'send'
+        },
       });
 
       if (error) throw new Error(error.message);
 
       // In production, the code would be sent to the user's email
-      // For demo purposes, we can show it in a toast
+      // For demo purposes, we show it in a toast
       toast.success(`Verification code sent. For demo: ${data.code}`);
       setStep(2);
     } catch (error: any) {
@@ -75,8 +80,13 @@ const GuestCheckout = () => {
     try {
       const sessionId = localStorage.getItem('guest_session_id');
       
-      const { error } = await supabase.functions.invoke('guest-verification/verify', {
-        body: { email, code: verificationCode, session_id: sessionId },
+      const { error } = await supabase.functions.invoke('guest-verification', {
+        body: { 
+          email, 
+          code: verificationCode, 
+          session_id: sessionId,
+          action: 'verify'
+        },
       });
 
       if (error) throw new Error(error.message);
@@ -108,11 +118,11 @@ const GuestCheckout = () => {
             email,
             firstName: name.split(' ')[0],
             lastName: name.split(' ').slice(1).join(' '),
-            address: 'N/A', // Or collect this info
-            city: 'N/A',
-            state: 'N/A',
-            zipCode: 'N/A',
-            country: 'N/A',
+            address: 'Guest Address', // Minimal info for guest checkout
+            city: 'Guest City',
+            state: 'Guest State',
+            zipCode: '00000',
+            country: 'Zambia',
           }
         }
       });
@@ -125,7 +135,7 @@ const GuestCheckout = () => {
         body: {
           orderId: order.id,
           amount: order.total_amount,
-          currency: 'USD', // Or get from config
+          currency: 'USD',
           returnSuccessUrl: `${window.location.origin}/checkout/success?order=${order.order_number}`,
           returnFailedUrl: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
           customerEmail: email,
@@ -140,6 +150,9 @@ const GuestCheckout = () => {
       
       // Clear local cart
       clearCart();
+      
+      // Navigate to success page
+      navigate(`/checkout/success?order=${order.order_number}`);
       
     } catch (error: any) {
       console.error('Payment error:', error);
@@ -172,10 +185,13 @@ const GuestCheckout = () => {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
-          {/* Back to Home */}
+          {/* Back to Cart */}
           <div className="mb-6">
             <Button asChild variant="outline">
-              <a href="/">← Back to Home</a>
+              <Link to="/cart">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Cart
+              </Link>
             </Button>
           </div>
 
@@ -214,6 +230,26 @@ const GuestCheckout = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="mb-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="h-5 w-5 text-blue-600" />
+                      <h3 className="font-medium text-blue-800">Quick Guest Checkout</h3>
+                    </div>
+                    <p className="text-sm text-blue-700">
+                      No account needed! Just verify your email and complete your purchase securely.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-muted/30 rounded-lg p-4 mb-6">
+                    <h4 className="font-medium mb-2">Order Summary</h4>
+                    <div className="flex justify-between items-center">
+                      <span>{itemCount} items</span>
+                      <span className="text-xl font-bold text-primary">${total.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <form onSubmit={handleSendVerification} className="space-y-4">
                   <div>
                     <Label htmlFor="name">Full Name *</Label>
@@ -252,6 +288,17 @@ const GuestCheckout = () => {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </form>
+
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Already have an account?
+                  </p>
+                  <Button asChild variant="outline">
+                    <Link to="/login">
+                      Sign In Instead
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -320,16 +367,39 @@ const GuestCheckout = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="bg-muted/30 rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">Cart Total:</span>
-                      <span className="text-xl font-bold text-primary">
-                        ${total.toLocaleString()}
-                      </span>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <h3 className="font-medium text-green-800">Email Verified</h3>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {itemCount} items in your cart
+                    <p className="text-sm text-green-700">
+                      Your email has been verified. You can now proceed to payment.
                     </p>
+                  </div>
+
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Order Summary</h4>
+                    <div className="space-y-2">
+                      {items.slice(0, 3).map((item) => (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <span>{item.name} x{item.quantity}</span>
+                          <span>${(item.price * item.quantity).toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {items.length > 3 && (
+                        <div className="text-sm text-muted-foreground">
+                          +{items.length - 3} more items
+                        </div>
+                      )}
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex justify-between font-medium">
+                          <span>Total:</span>
+                          <span className="text-xl font-bold text-primary">
+                            ${total.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="text-center">
@@ -350,6 +420,11 @@ const GuestCheckout = () => {
                         </>
                       )}
                     </Button>
+
+                    <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Secure payment processing via Transaction Junction</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>

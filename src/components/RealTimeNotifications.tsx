@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -12,7 +12,8 @@ import {
   Package,
   CreditCard,
   MessageSquare,
-  ShoppingCart
+  ShoppingCart,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +25,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: string; // Allow any string from DB
+  type: string;
   read_at: string | null;
   action_url?: string;
   created_at: string;
@@ -43,7 +44,8 @@ const notificationIcons = {
   welcome: <Package className="h-4 w-4" />,
   order: <ShoppingCart className="h-4 w-4" />,
   payment: <CreditCard className="h-4 w-4" />,
-  message: <MessageSquare className="h-4 w-4" />
+  message: <MessageSquare className="h-4 w-4" />,
+  system: <Settings className="h-4 w-4" />
 };
 
 const notificationColors = {
@@ -54,7 +56,8 @@ const notificationColors = {
   welcome: 'text-purple-500',
   order: 'text-blue-500',
   payment: 'text-green-500',
-  message: 'text-blue-500'
+  message: 'text-blue-500',
+  system: 'text-gray-500'
 };
 
 export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
@@ -110,13 +113,33 @@ export const RealTimeNotifications: React.FC<RealTimeNotificationsProps> = ({
         (payload) => {
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
-setUnreadCount(prev => prev + 1);
+          setUnreadCount(prev => prev + 1);
            
-           // Show toast notification
+          // Show toast notification
           toast(newNotification.title, {
             description: newNotification.message,
-            icon: notificationIcons[newNotification.type as keyof typeof notificationIcons]
+            icon: notificationIcons[newNotification.type as keyof typeof notificationIcons] || notificationIcons.info
           });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${profile.id}`
+        },
+        (payload) => {
+          const updatedNotification = payload.new as Notification;
+          setNotifications(prev => 
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+          );
+          
+          // Update unread count if notification was marked as read
+          if (updatedNotification.read_at && !payload.old.read_at) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
         }
       )
       .subscribe();
@@ -126,7 +149,7 @@ setUnreadCount(prev => prev + 1);
 
   const markAsRead = async (notificationId: string) => {
     try {
-await supabase
+      await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('id', notificationId);
@@ -142,7 +165,7 @@ await supabase
 
   const markAllAsRead = async () => {
     try {
-await supabase
+      await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('user_id', profile?.id)
@@ -154,21 +177,6 @@ await supabase
     } catch (error: any) {
       console.error('Error marking all as read:', error);
       toast.error('Failed to mark all as read');
-    }
-  };
-
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      toast.success('Notification deleted');
-    } catch (error: any) {
-      console.error('Error deleting notification:', error);
-      toast.error('Failed to delete notification');
     }
   };
 
@@ -234,7 +242,7 @@ await supabase
                           notification.read_at ? "bg-muted" : "bg-primary/10"
                         )}>
                           <span className={cn(
-notificationColors[notification.type as keyof typeof notificationColors] || 'text-muted-foreground'
+                            notificationColors[notification.type as keyof typeof notificationColors] || 'text-muted-foreground'
                           )}>
                             {notificationIcons[notification.type as keyof typeof notificationIcons] || notificationIcons.info}
                           </span>
@@ -248,7 +256,6 @@ notificationColors[notification.type as keyof typeof notificationColors] || 'tex
                             )}>
                               {notification.title}
                             </h4>
-{/* Delete not supported by RLS right now */}
                           </div>
                           
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">

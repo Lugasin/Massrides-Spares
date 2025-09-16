@@ -12,6 +12,7 @@ interface NotificationRequest {
   message: string;
   type: 'info' | 'success' | 'warning' | 'error' | 'welcome' | 'order' | 'payment' | 'message';
   action_url?: string;
+  send_email?: boolean;
 }
 
 serve(async (req) => {
@@ -42,8 +43,49 @@ serve(async (req) => {
 
     if (error) throw error
 
-    // The notification will be automatically sent via real-time subscription
-    // No need for additional push notification logic here
+    // Log notification creation
+    await supabase.from('activity_logs').insert({
+      user_id: body.user_id,
+      activity_type: 'notification_sent',
+      additional_details: {
+        notification_id: data.id,
+        title: body.title,
+        type: body.type
+      },
+      ip_address: '0.0.0.0',
+      log_source: 'system'
+    })
+
+    // TODO: Send email notification if requested and email service is configured
+    if (body.send_email) {
+      try {
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            to: body.user_id, // This would need to be resolved to email
+            subject: body.title,
+            type: body.type,
+            data: {
+              message: body.message,
+              action_url: body.action_url
+            }
+          }
+        })
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError)
+        // Don't fail the main notification if email fails
+      }
+    }
+
+    // Record metric
+    await supabase.rpc('record_metric', {
+      p_metric_name: 'notifications_sent',
+      p_metric_value: 1,
+      p_metric_unit: 'count',
+      p_tags: {
+        type: body.type,
+        has_action: body.action_url ? 'yes' : 'no'
+      }
+    })
 
     return new Response(
       JSON.stringify({

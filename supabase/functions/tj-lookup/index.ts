@@ -89,7 +89,8 @@ serve(async (req) => {
     await supabase.from('tj_transaction_logs').insert({
       transaction_id: transactionId,
       session_id: sessionId,
-      payload: {
+      event_type: 'transaction_lookup',
+      webhook_data: {
         event: 'transaction_lookup',
         request: { transactionId, sessionId, merchantRef },
         response: transactionData

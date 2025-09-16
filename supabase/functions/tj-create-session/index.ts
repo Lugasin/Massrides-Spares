@@ -14,6 +14,7 @@ interface CreateSessionRequest {
   returnFailedUrl: string;
   customerEmail?: string;
   customerName?: string;
+  purpose?: 'charge' | 'tokenize';
 }
 
 serve(async (req) => {
@@ -28,7 +29,7 @@ serve(async (req) => {
     )
 
     const body: CreateSessionRequest = await req.json()
-    const { orderId, amount, currency, returnSuccessUrl, returnFailedUrl, customerEmail, customerName } = body
+    const { orderId, amount, currency, returnSuccessUrl, returnFailedUrl, customerEmail, customerName, purpose = 'charge' } = body
 
     // TODO: Replace these placeholders with your actual TJ credentials
     const TJ_CLIENT_ID = Deno.env.get('TJ_CLIENT_ID') ?? '<replace_with_TJ_client_id>'
@@ -62,6 +63,19 @@ serve(async (req) => {
       })
       .eq('id', orderId)
 
+    // Log security event
+    await supabase.rpc('log_security_event', {
+      p_event_type: 'payment_session_requested',
+      p_user_id: order.user_id,
+      p_transaction_id: order.order_number,
+      p_amount: amount,
+      p_metadata: {
+        order_id: orderId,
+        purpose: purpose,
+        currency: currency
+      }
+    })
+
     // Get OAuth token from TJ
     const tokenResponse = await fetch(TJ_OAUTH_TOKEN_URL, {
       method: 'POST',
@@ -78,6 +92,15 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error('TJ OAuth Error:', errorText)
+      
+      await supabase.rpc('log_security_event', {
+        p_event_type: 'payment_auth_failed',
+        p_user_id: order.user_id,
+        p_transaction_id: order.order_number,
+        p_risk_score: 8,
+        p_metadata: { error: 'TJ OAuth failed', response: errorText }
+      })
+      
       throw new Error('Failed to authenticate with Transaction Junction')
     }
 
@@ -87,16 +110,26 @@ serve(async (req) => {
     // Create TJ session
     const merchantRef = `${TJ_MERCHANT_REF_PREFIX}${order.order_number}`
     const sessionPayload = {
-      amount: Math.round(amount * 100), // Convert to cents
+      amount: purpose === 'tokenize' ? 0 : Math.round(amount * 100), // Convert to cents, 0 for tokenization
       currency: currency,
       merchantRef: merchantRef,
       returnSuccessUrl: returnSuccessUrl,
       returnFailedUrl: returnFailedUrl,
       customerEmail: customerEmail || order.billing_address?.email,
       customerName: customerName || `${order.billing_address?.firstName} ${order.billing_address?.lastName}`,
-      description: `Payment for order ${order.order_number}`,
+      description: purpose === 'tokenize' 
+        ? `Tokenize payment method for customer ${customerName}`
+        : `Payment for order ${order.order_number}`,
       expiresIn: 3600, // 1 hour
-      webhookUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/tj-webhook`
+      webhookUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/tj-webhook`,
+      paymentMethods: ['CARD', 'EFT', 'INSTANT_EFT'],
+      threeDSecure: 'required',
+      savePaymentMethod: purpose === 'tokenize',
+      metadata: {
+        source: 'massrides-ecommerce',
+        order_id: orderId,
+        purpose: purpose
+      }
     }
 
     const sessionResponse = await fetch(`${TJ_API_BASE_URL}${TJ_CREATE_SESSION_PATH}`, {
@@ -111,6 +144,15 @@ serve(async (req) => {
     if (!sessionResponse.ok) {
       const errorData = await sessionResponse.text()
       console.error('TJ Session Creation Error:', errorData)
+      
+      await supabase.rpc('log_security_event', {
+        p_event_type: 'payment_session_failed',
+        p_user_id: order.user_id,
+        p_transaction_id: order.order_number,
+        p_risk_score: 7,
+        p_metadata: { error: 'TJ session creation failed', response: errorData }
+      })
+      
       throw new Error('Failed to create payment session')
     }
 
@@ -124,6 +166,7 @@ serve(async (req) => {
       merchantRef: merchantRef,
       amount: amount,
       currency: currency,
+      purpose: purpose,
       createdAt: new Date().toISOString()
     }
 
@@ -142,10 +185,26 @@ serve(async (req) => {
       order_id: orderId,
       session_id: sessionData.sessionId,
       payment_intent_id: sessionData.paymentIntentId,
-      payload: {
+      event_type: 'session_created',
+      amount: amount,
+      currency: currency,
+      webhook_data: {
         event: 'session_created',
         request: sessionPayload,
         response: sessionData
+      }
+    })
+
+    // Log successful session creation
+    await supabase.rpc('log_security_event', {
+      p_event_type: 'payment_session_created',
+      p_user_id: order.user_id,
+      p_transaction_id: order.order_number,
+      p_metadata: {
+        session_id: sessionData.sessionId,
+        amount: amount,
+        currency: currency,
+        purpose: purpose
       }
     })
 
