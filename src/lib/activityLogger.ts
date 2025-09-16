@@ -35,7 +35,7 @@ export const logActivity = async ({
         user_id: userId,
         activity_type: actionType,
         resource_type: resourceType || 'user_activity',
-        resource_id: resourceId,
+        resource_id: resourceId ? parseInt(resourceId.toString()) : null,
         additional_details: actionDetails || {},
         ip_address: ipAddress,
         user_agent: userAgent,

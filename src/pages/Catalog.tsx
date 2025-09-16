@@ -49,7 +49,7 @@ const Catalog = () => {
 
   const handleAddToCart = (product: Product) => {
     addItem({
-      id: product.id,
+      id: product.id.toString(),
       name: product.name,
       price: product.price,
       image: product.image,

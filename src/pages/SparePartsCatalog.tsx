@@ -335,7 +335,12 @@ const SparePartsCatalog = () => {
             </Button>
           </div>
         ) : (
-          <SparePartsGrid spareParts={spareParts} />
+          <SparePartsGrid spareParts={spareParts.map(part => ({
+            ...part,
+            image: part.images[0] || '/placeholder.png',
+            specs: Object.values(part.technicalSpecs || {}),
+            inStock: part.availabilityStatus === 'in_stock'
+          }))} />
         )}
       </main>
 

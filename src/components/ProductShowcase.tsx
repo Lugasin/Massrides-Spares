@@ -48,11 +48,12 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
     toast.success(`${product.name} added to cart!`);
   };
 
-  const toggleFavorite = (productId: number) => {
+  const toggleFavorite = (productId: string | number) => {
+    const id = typeof productId === 'string' ? parseInt(productId) : productId;
     setFavorites(prev => 
-      prev.includes(productId) 
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
+      prev.includes(id) 
+        ? prev.filter(favoriteId => favoriteId !== id)
+        : [...prev, id]
     );
   };
 
@@ -136,14 +137,14 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
                         onClick={(e) => { e.preventDefault(); toggleFavorite(product.id); }} // Prevent navigation on click
                         className={cn(
                           "rounded-full backdrop-blur-sm",
-                          favorites.includes(product.id) 
+                          favorites.includes(typeof product.id === 'string' ? parseInt(product.id) : product.id) 
                             ? "bg-red-500 text-white hover:bg-red-600" 
                             : "bg-white/90 hover:bg-white"
                         )}
                       >
                         <Heart className={cn(
                           "h-4 w-4",
-                          favorites.includes(product.id) && "fill-current"
+                          favorites.includes(typeof product.id === 'string' ? parseInt(product.id) : product.id) && "fill-current"
                         )} />
                       </Button>
                        {/* Example of Eye button - decide if it navigates or opens modal */}

@@ -9,7 +9,8 @@ import {
   ShoppingCart,
   DollarSign,
   Activity,
-  AlertTriangle
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,9 +81,7 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
         // Vendor metrics
         const [productsRes, ordersRes, notificationsRes] = await Promise.all([
           supabase.from('spare_parts').select('id, stock_quantity, min_stock_level').eq('vendor_id', profile?.id),
-          supabase.from('order_items').select('*, order:orders(*)').in('spare_part_id', 
-            supabase.from('spare_parts').select('id').eq('vendor_id', profile?.id)
-          ),
+          supabase.from('order_items').select('*, orders(*)'),
           supabase.from('notifications').select('id', { count: 'exact' }).eq('user_id', profile?.id).is('read_at', null)
         ]);
 
