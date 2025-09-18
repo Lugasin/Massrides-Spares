@@ -246,8 +246,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (data.user) {
         toast.success('Welcome back!')
-        // Merge guest cart if exists
-        await mergeGuestCart()
+        
+        // Wait for profile to load before merging cart
+        try {
+          await loadUserProfile(data.user.id)
+          // Merge guest cart after profile is loaded
+          await mergeGuestCart()
+        } catch (profileError) {
+          console.error('Error loading profile after sign in:', profileError)
+          // Don't fail the sign in if profile loading fails
+        }
         
         // Log successful login
         const { data: userProfile } = await supabase

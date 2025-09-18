@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Check, X, ExternalLink } from 'lucide-react';
+import { Bell, Check, X, ExternalLink, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -46,7 +46,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
         .select('*')
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (error) throw error;
       setNotifications(data || []);
@@ -62,7 +62,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
     if (!profile?.id) return;
 
     const channel = supabase
-      .channel('notifications')
+      .channel('notifications-realtime')
       .on(
         'postgres_changes',
         {
@@ -74,7 +74,30 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
         (payload) => {
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
-          toast.info(newNotification.title);
+          
+          // Show toast notification
+          toast(newNotification.title, {
+            description: newNotification.message,
+            action: newNotification.action_url ? {
+              label: 'View',
+              onClick: () => window.location.href = newNotification.action_url!
+            } : undefined
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${profile.id}`
+        },
+        (payload) => {
+          const updatedNotification = payload.new as Notification;
+          setNotifications(prev => 
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+          );
         }
       )
       .subscribe();
@@ -86,12 +109,10 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
+      await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('id', notificationId);
-
-      if (error) throw error;
 
       setNotifications(prev =>
         prev.map(n =>
@@ -106,16 +127,12 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
   };
 
   const markAllAsRead = async () => {
-    if (!profile?.id) return;
-
     try {
-      const { error } = await supabase
+      await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
-        .eq('user_id', profile.id)
+        .eq('user_id', profile?.id)
         .is('read_at', null);
-
-      if (error) throw error;
 
       setNotifications(prev =>
         prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
@@ -127,11 +144,29 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
     }
   };
 
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      toast.success('Notification deleted');
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      toast.error('Failed to delete notification');
+    }
+  };
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'success': return 'bg-green-500';
       case 'warning': return 'bg-yellow-500';
       case 'error': return 'bg-red-500';
+      case 'welcome': return 'bg-purple-500';
+      case 'order': return 'bg-blue-500';
+      case 'payment': return 'bg-green-500';
       default: return 'bg-blue-500';
     }
   };
@@ -175,6 +210,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
           <div className="p-2">
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
                 Loading notifications...
               </div>
             ) : notifications.length === 0 ? (
@@ -208,28 +244,41 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
                               {!notification.read_at && (
                                 <div className="w-2 h-2 bg-primary rounded-full" />
                               )}
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteNotification(notification.id);
+                                }}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {notification.message}
                           </p>
-                          {notification.action_url && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="p-0 h-auto text-xs mt-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(notification.action_url, '_blank');
-                              }}
-                            >
-                              View Details
-                              <ExternalLink className="h-3 w-3 ml-1" />
-                            </Button>
-                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                            </span>
+                            {notification.action_url && (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="p-0 h-auto text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(notification.action_url, '_blank');
+                                }}
+                              >
+                                View Details
+                                <ExternalLink className="h-3 w-3 ml-1" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>
