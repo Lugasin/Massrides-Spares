@@ -1,283 +1,148 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  Activity, 
-  Search, 
-  Filter, 
-  Download,
-  User,
-  ShoppingCart,
-  CreditCard,
-  Settings,
-  LogIn,
-  LogOut
-} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DateRange } from 'react-day-picker';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { Loader2, SlidersHorizontal, Activity } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 
-interface ActivityLog {
+interface Log {
   id: string;
-  user_id: string;
-  activity_type: string;
-  additional_details: any;
-  ip_address: string;
-  user_agent: string;
   created_at: string;
-  user_profiles?: {
-    full_name: string;
-    email: string;
-  };
+  activity_type: string;
+  user_id: string;
+  user_profiles: {
+    full_name: string | null;
+    email: string | null;
+  } | null;
+  additional_details: any;
+  ip_address: string | null;
 }
 
-const ActivityLog = () => {
-  const { user, profile, userRole } = useAuth();
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState('all');
+const activityTypes = [
+  'user_signup', 'user_login', 'guest_login', 'password_reset', 
+  'profile_update', 'order_created', 'payment_processed', 'error_occurred', 
+  'unhandled_promise_rejection'
+];
 
-  useEffect(() => {
-    if (userRole === 'admin' || userRole === 'super_admin') {
-      fetchActivityLogs();
-      subscribeToLogs();
-    } else if (user) {
-      fetchUserActivityLogs();
-    }
-  }, [user, userRole]);
+const superAdminActivityTypes = [...activityTypes, 'security_event', 'manual_settlement'];
 
-  const fetchActivityLogs = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.functions.invoke('get-activity-logs', { body: {} });
-
-      if (error) throw new Error(error.message);
-
-      setLogs(data.logs || []);
-    } catch (error: any) {
-      console.error('Error fetching activity logs:', error);
-      toast.error(`Failed to load activity logs: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserActivityLogs = async () => {
-    try {
-      setLoading(true);
-const { data, error } = await supabase.functions.invoke('get-activity-logs', {
-        body: { user_id: profile?.id }
-      });
-
-      if (error) throw new Error(error.message);
-
-      setLogs(data.logs || []);
-    } catch (error: any) {
-      console.error('Error fetching user activity logs:', error);
-      toast.error(`Failed to load your activity logs: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const subscribeToLogs = () => {
-    const channel = supabase
-      .channel('activity-logs')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'activity_logs'
-        },
-        () => {
-          if (userRole === 'admin' || userRole === 'super_admin') {
-            fetchActivityLogs();
-          } else {
-            fetchUserActivityLogs();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  };
-
-  const getActionIcon = (actionType: string) => {
-    switch (actionType) {
-      case 'login':
-      case 'signup':
-        return <LogIn className="h-4 w-4 text-green-500" />;
-      case 'logout':
-        return <LogOut className="h-4 w-4 text-red-500" />;
-      case 'order_created':
-      case 'order_updated':
-        return <ShoppingCart className="h-4 w-4 text-blue-500" />;
-      case 'payment_processed':
-        return <CreditCard className="h-4 w-4 text-green-500" />;
-      case 'profile_updated':
-        return <User className="h-4 w-4 text-purple-500" />;
-      case 'settings_updated':
-        return <Settings className="h-4 w-4 text-gray-500" />;
-      default:
-        return <Activity className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
-
-  const getActionColor = (actionType: string) => {
-    switch (actionType) {
-      case 'login':
-      case 'signup':
-      case 'payment_processed':
-        return 'default';
-      case 'logout':
-        return 'destructive';
-      case 'order_created':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
-
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = !searchTerm || 
-      log.activity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.user_profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.user_profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesAction = actionFilter === 'all' || log.activity_type === actionFilter;
-    
-    return matchesSearch && matchesAction;
+const ActivityLogPage = () => {
+  const { userRole, profile } = useAuth();
+  const [filters, setFilters] = useState<{
+    activityType: string;
+    userId: string;
+    dateRange?: DateRange;
+  }>({
+    activityType: '',
+    userId: '',
+    dateRange: undefined,
   });
 
-  const actionTypes = Array.from(new Set(logs.map(log => log.activity_type)));
+  const { data: logs, isLoading, isError, error } = useQuery<Log[], Error>({
+    queryKey: ['activityLogs', filters],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('get-activity-logs', {
+        body: {
+          activity_type: filters.activityType || undefined,
+          user_id: filters.userId || undefined,
+          start_date: filters.dateRange?.from?.toISOString(),
+          end_date: filters.dateRange?.to?.toISOString(),
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data.logs;
+    },
+    enabled: !!profile && (userRole === 'admin' || userRole === 'super_admin'),
+  });
+
+  if (isError) {
+    toast.error(`Failed to fetch logs: ${error.message}`);
+  }
+
+  const currentActivityTypes = userRole === 'super_admin' ? superAdminActivityTypes : activityTypes;
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || 'Admin'}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-3xl font-bold">Activity Log</h1>
-              <p className="text-muted-foreground">
-                {userRole === 'admin' || userRole === 'super_admin' 
-                  ? 'System-wide activity monitoring' 
-                  : 'Your account activity history'}
-              </p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><SlidersHorizontal /> Filter Activity Logs</CardTitle>
+            <CardDescription>Refine the logs by type, user, or date range for a detailed system audit.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Select value={filters.activityType} onValueChange={(value) => setFilters(f => ({ ...f, activityType: value === 'all' ? '' : value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by type..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Activity Types</SelectItem>
+                {currentActivityTypes.map(type => (
+                  <SelectItem key={type} value={type} className="capitalize">{type.replace(/_/g, ' ')}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Filter by User ID..."
+              value={filters.userId}
+              onChange={(e) => setFilters(f => ({ ...f, userId: e.target.value }))}
+            />
+            <div className="lg:col-span-2">
+              <DatePickerWithRange
+                date={filters.dateRange}
+                onDateChange={(range) => setFilters(f => ({ ...f, dateRange: range }))}
+              />
             </div>
-          </div>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Recent Activity</CardTitle>
-              <div className="flex gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search activity..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
-                  />
-                </div>
-                <select
-                  value={actionFilter}
-                  onChange={(e) => setActionFilter(e.target.value)}
-                  className="px-3 py-2 border border-input rounded-md bg-background"
-                >
-                  <option value="all">All Actions</option>
-                  {actionTypes.map(type => (
-                    <option key={type} value={type}>
-                      {type.replace('_', ' ').toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <CardTitle className="flex items-center gap-2"><Activity /> System Activity Log</CardTitle>
+            <CardDescription>A comprehensive, real-time audit trail of all significant system and user actions.</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading activity logs...</p>
-              </div>
-            ) : filteredLogs.length === 0 ? (
-              <div className="text-center py-12">
-                <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">No activity found</h3>
-                <p className="text-muted-foreground">
-                  {searchTerm || actionFilter !== 'all' 
-                    ? 'Try adjusting your search or filters.' 
-                    : 'Activity will appear here as actions are performed.'}
-                </p>
-              </div>
-            ) : (
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Action</TableHead>
-                    {(userRole === 'admin' || userRole === 'super_admin') && (
-                      <TableHead>User</TableHead>
-                    )}
-                    <TableHead>Details</TableHead>
-                    <TableHead>Time</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Activity Type</TableHead>
+                    <TableHead>User</TableHead>
                     <TableHead>IP Address</TableHead>
+                    <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getActionIcon(log.activity_type)}
-                          <Badge variant={getActionColor(log.activity_type)} className="capitalize">
-                            {log.activity_type.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      {(userRole === 'admin' || userRole === 'super_admin') && (
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {log.user_profiles?.full_name || 'Guest User'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {log.user_profiles?.email || 'No email'}
-                            </p>
-                          </div>
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <div className="max-w-xs">
-                          <pre className="text-xs text-muted-foreground whitespace-pre-wrap">
-                            {JSON.stringify(log.additional_details, null, 2)}
-                          </pre>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {log.ip_address || 'Unknown'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></TableCell></TableRow>
+                  ) : logs && logs.length > 0 ? (
+                    logs.map(log => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-xs">{format(new Date(log.created_at), 'PPpp')}</TableCell>
+                        <TableCell className="font-medium capitalize text-primary">{log.activity_type.replace(/_/g, ' ')}</TableCell>
+                        <TableCell>{log.user_profiles?.email || log.user_id || 'System'}</TableCell>
+                        <TableCell>{log.ip_address || 'N/A'}</TableCell>
+                        <TableCell><pre className="text-xs bg-muted p-2 rounded-md max-w-xs overflow-auto">{JSON.stringify(log.additional_details, null, 2)}</pre></TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No logs found for the selected filters.</TableCell></TableRow>
+                  )}
                 </TableBody>
               </Table>
-            )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -285,4 +150,4 @@ const { data, error } = await supabase.functions.invoke('get-activity-logs', {
   );
 };
 
-export default ActivityLog;
+export default ActivityLogPage;

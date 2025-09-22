@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import AdminDashboard from "@/components/AdminDashboard";
 import VendorDashboard from "@/components/VendorDashboard";
 import CustomerDashboard from "@/components/CustomerDashboard";
+import SupportDashboard from "@/components/SupportDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -51,6 +52,9 @@ const Dashboard = () => {
       
       case 'customer':
         return <CustomerDashboard />;
+
+      case 'support':
+        return <SupportDashboard />;
       
       case 'guest':
       default:

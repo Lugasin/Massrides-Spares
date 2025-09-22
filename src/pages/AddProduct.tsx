@@ -14,7 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Package, Upload } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 
 // Define Zod schema for spare part creation validation
@@ -56,8 +56,10 @@ interface Category {
 const AddProduct: React.FC = () => {
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
+  const { productId } = useParams<{ productId: string }>();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const isEditMode = !!productId;
 
   const form = useForm<SparePartFormValues>({
     resolver: zodResolver(sparePartSchema),
@@ -84,7 +86,10 @@ const AddProduct: React.FC = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+    if (isEditMode) {
+      fetchProduct();
+    }
+  }, [isEditMode]);
 
   const fetchCategories = async () => {
     try {
@@ -102,6 +107,33 @@ const AddProduct: React.FC = () => {
     }
   };
 
+  const fetchProduct = async () => {
+    if (!productId) return;
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('spare_parts')
+        .select('*')
+        .eq('id', productId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        reset({
+          ...data,
+          compatibility: Array.isArray(data.compatibility) ? data.compatibility.join(', ') : '',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error fetching product:', error);
+      toast.error('Failed to load product data');
+      navigate('/vendor/inventory');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onSubmit = async (values: SparePartFormValues) => {
     if (!profile?.id) {
       toast.error('User profile not found');
@@ -111,7 +143,6 @@ const AddProduct: React.FC = () => {
     try {
       setLoading(true);
       
-      // Generate part number if not provided
       const partNumber = values.part_number || `${values.brand.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`;
       
       const sparePartData = {
@@ -134,25 +165,32 @@ const AddProduct: React.FC = () => {
         is_active: true
       };
 
-      const { data, error } = await supabase
-        .from('spare_parts')
-        .insert([sparePartData])
-        .select()
-        .single();
+      if (isEditMode) {
+        const { error } = await supabase
+          .from('spare_parts')
+          .update(sparePartData)
+          .eq('id', productId);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success('Spare part updated successfully!');
+      } else {
+        const { error } = await supabase
+          .from('spare_parts')
+          .insert([sparePartData]);
 
-      toast.success('Spare part added successfully!');
+        if (error) throw error;
+        toast.success('Spare part added successfully!');
+      }
+
       reset();
       
-      // Navigate to vendor inventory or dashboard
       setTimeout(() => {
         navigate('/vendor/inventory');
       }, 1500);
 
     } catch (error: any) {
-      console.error('Error creating spare part:', error);
-      toast.error(`Error creating spare part: ${error.message}`);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} spare part:`, error);
+      toast.error(`Error ${isEditMode ? 'updating' : 'creating'} spare part: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -177,8 +215,8 @@ const AddProduct: React.FC = () => {
         <div className="flex items-center gap-2">
           <Package className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold">Add New Spare Part</h1>
-            <p className="text-muted-foreground">Add a new spare part to your inventory</p>
+            <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Spare Part' : 'Add New Spare Part'}</h1>
+            <p className="text-muted-foreground">{isEditMode ? 'Update the details of your spare part.' : 'Add a new spare part to your inventory'}</p>
           </div>
         </div>
 
@@ -409,7 +447,7 @@ const AddProduct: React.FC = () => {
                   disabled={isSubmitting || loading}
                   className="flex-1"
                 >
-                  {isSubmitting || loading ? 'Adding Part...' : 'Add Spare Part'}
+                  {isSubmitting || loading ? (isEditMode ? 'Updating Part...' : 'Adding Part...') : (isEditMode ? 'Update Spare Part' : 'Add Spare Part')}
                 </Button>
                 <Button 
                   type="button" 

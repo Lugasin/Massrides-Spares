@@ -23,6 +23,7 @@ import AdminProfile from "./pages/AdminProfile";
 import VendorProfile from "./pages/VendorProfile";
 import CustomerProfile from "./pages/CustomerProfile";
 import SuperAdminProfile from "./pages/SuperAdminProfile";
+import SupportProfile from "./pages/SupportProfile";
 import VendorInventory from "./pages/VendorInventory"; // Import VendorInventory
 import VerifyEmail from "./pages/VerifyEmail"; // Import VerifyEmail page
 import Welcome from "./pages/Welcome"; // Import Welcome page
@@ -106,6 +107,7 @@ const AppContent = () => {
           <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
           <Route path="/vendor/inventory" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<VendorInventory />} />} />
           <Route path="/vendor/add-product" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<AddProduct />} />} />
+          <Route path="/vendor/edit-product/:productId" element={<ProtectedRoute allowedRoles={['vendor']} element={<AddProduct />} />} />
 
           {/* Dashboard and management routes */}
           <Route path="/orders" element={<ProtectedRoute element={<Orders />} />} />
@@ -128,6 +130,7 @@ const AppContent = () => {
           <Route path="/profile/guest" element={<Profile />} /> {/* Route for Guest Profile */}
           <Route path="/profile/vendor" element={<ProtectedRoute allowedRoles={['vendor']} element={<VendorProfile />} />} />
           <Route path="/profile/customer" element={<ProtectedRoute allowedRoles={['customer']} element={<CustomerProfile />} />} />
+          <Route path="/profile/support" element={<ProtectedRoute allowedRoles={['support']} element={<SupportProfile />} />} />
           <Route path="/dashboard/products/add" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<AddProduct />} />} /> {/* Protected Add Product Route */}
           <Route path="/dashboard/products" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<Products />} />} /> {/* Protected Products Management Route */}
           <Route path="/user-management" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']} element={<UserManagement />} />} />

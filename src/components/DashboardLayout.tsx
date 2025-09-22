@@ -14,11 +14,14 @@ import {
   LogOut,
   Menu,
   X,
-  Shield
+  Shield,
+  Activity,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface DashboardLayoutProps {
   userRole: "super_admin" | "admin" | "vendor" | "customer" | "guest" | null;
@@ -138,11 +141,12 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
   };
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      window.location.href = '/';
-    } catch (error) {
+    const { error } = await signOut();
+    if (error) {
       console.error('Sign out error:', error);
+      toast.error(`Sign out failed: ${error.message}`);
+    } else {
+      window.location.href = '/';
     }
   };
 

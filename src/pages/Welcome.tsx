@@ -1,64 +1,88 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Tractor, ArrowRight, Sparkles, Users, ShoppingCart } from 'lucide-react';
+import { CheckCircle, Tractor, ArrowRight, Sparkles, Users, ShoppingCart, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const Welcome: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const [isNewUser, setIsNewUser] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+interface UserProfile {
+  id: string;
+  user_id: string;
+  created_at: string;
+  email: string;
+  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest' | null;
+  is_verified: boolean;
+}
 
-  const token = searchParams.get('token');
-  const type = searchParams.get('type');
-  const email = searchParams.get('email');
+const Welcome: React.FC = () => {
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    handleWelcomeFlow();
-  }, [token, type]);
+    const handleWelcomeFlow = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const { data: profile, error } = await (supabase as any)
+            .from('user_profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
 
-  const handleWelcomeFlow = async () => {
-    try {
-      // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Get user profile
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
+          if (error) {
+            throw error;
+          }
 
-        if (profile) {
-          setUserProfile(profile);
-          // Check if this is a new user (created recently)
-          const createdAt = new Date(profile.created_at);
-          const now = new Date();
-          const timeDiff = now.getTime() - createdAt.getTime();
-          const isRecent = timeDiff < (24 * 60 * 60 * 1000); // Less than 24 hours
-          
-          setIsNewUser(isRecent);
-          
-          // Send welcome notification for new users
-          if (isRecent && profile.is_verified) {
-            await supabase.from('notifications').insert({
-              user_id: profile.id,
-              title: '🎉 Welcome to Massrides!',
-              message: 'Your account is verified and ready. Explore our comprehensive spare parts catalog and start building your equipment inventory.',
-              type: 'welcome'
-            });
+          if (profile) {
+            setUserProfile(profile);
+            const createdAt = new Date(profile.created_at);
+            const now = new Date();
+            const timeDiff = now.getTime() - createdAt.getTime();
+            const isRecent = timeDiff < (24 * 60 * 60 * 1000); // Less than 24 hours
+            
+            setIsNewUser(isRecent);
+            
+            if (isRecent && profile.is_verified) {
+              await (supabase as any).from('notifications').insert({
+                user_id: profile.id,
+                title: '🎉 Welcome to Massrides!',
+                message: 'Your account is verified and ready. Explore our comprehensive spare parts catalog and start building your equipment inventory.',
+                type: 'welcome'
+              });
+            }
           }
         }
+      } catch (error: any) {
+        console.error('Welcome flow error:', error);
+        toast.error('Could not load your welcome information.');
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      console.error('Welcome flow error:', error);
-      toast.error('Welcome flow error occurred');
-    }
-  };
+    };
+
+    handleWelcomeFlow();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader className="text-center">
+            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+            <CardTitle className="text-3xl font-bold mb-2">
+              Loading Your Welcome Page...
+            </CardTitle>
+            <p className="text-muted-foreground text-lg">
+              Please wait a moment.
+            </p>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background flex items-center justify-center p-4">
@@ -124,7 +148,7 @@ const Welcome: React.FC = () => {
                 <div>
                   <span className="text-muted-foreground">Role:</span> 
                   <span className="ml-1 px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium">
-                    {userProfile.role.replace('_', ' ').toUpperCase()}
+                    {userProfile.role?.replace('_', ' ').toUpperCase() || 'CUSTOMER'}
                   </span>
                 </div>
                 <div>

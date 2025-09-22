@@ -273,6 +273,35 @@ const VendorDashboard: React.FC = () => {
         </Card>
       </div>
 
+      {/* Vendor Profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vendor Profile</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Company Name</span>
+            <span>{profile?.company_name || 'N/A'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Contact Name</span>
+            <span>{profile?.full_name || 'N/A'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Email</span>
+            <span>{user?.email}</span>
+          </div>
+          <Button 
+            variant="outline" 
+            className="w-full"
+            onClick={() => navigate('/profile/vendor')}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Profile
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Recent Products */}
       <Card>
         <CardHeader>
@@ -297,7 +326,7 @@ const VendorDashboard: React.FC = () => {
                   <Badge variant={product.availability_status === 'in_stock' ? 'default' : 'secondary'}>
                     {product.availability_status}
                   </Badge>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/vendor/edit-product/${product.id}`)}>
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>

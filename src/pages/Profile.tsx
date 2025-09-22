@@ -30,6 +30,7 @@ import {
   ShoppingCart,
   Store
 } from 'lucide-react';
+import { Loader2, UserX, RefreshCw } from 'lucide-react';
 
 // Define Zod schema for profile validation
 const profileSchema = z.object({
@@ -108,7 +109,9 @@ const Profile: React.FC = () => {
 
   const handleSignOut = async () => {
     const { error } = await signOut();
-    if (!error) {
+    if (error) {
+      toast.error(`Sign out failed: ${error.message}`);
+    } else {
       navigate('/');
     }
   };
@@ -126,6 +129,42 @@ const Profile: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <DashboardLayout userRole={userRole as any} userName={user?.email || 'User'}>
+        <div className="flex justify-center items-center h-96">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary mb-4" />
+            <h2 className="text-xl font-semibold">Loading Profile...</h2>
+            <p className="text-muted-foreground">
+              Please wait while we fetch your details.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <DashboardLayout userRole={userRole as any} userName={user?.email || 'User'}>
+        <div className="flex justify-center items-center h-96">
+          <div className="text-center max-w-md">
+            <UserX className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <h2 className="text-xl font-semibold">Profile Data Not Found</h2>
+            <p className="text-muted-foreground mb-6">
+              We couldn't find your profile data. This can sometimes happen with a new account if things are still being set up. Reloading the page usually fixes it.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reload Page
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
     );
   }
 
@@ -400,45 +439,33 @@ const Profile: React.FC = () => {
               <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Back to Dashboard
               </Button>
-              <Button asChild className="bg-primary hover:bg-primary-hover">
-                <Link to="/catalog">
+              <Button className="bg-primary hover:bg-primary-hover" onClick={() => navigate('/catalog')}>
                 Go to Shop
-                </Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link to="/orders">
+              <Button variant="outline" onClick={() => navigate('/orders')}>
                 Manage Orders
-                </Link>
               </Button>
               {(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') && (
-                <Button asChild className="bg-secondary hover:bg-secondary-hover">
-                  <Link to="/vendor/inventory">
+                <Button className="bg-secondary hover:bg-secondary-hover" onClick={() => navigate('/vendor/inventory')}>
                   Update Inventory
-                  </Link>
                 </Button>
               )}
               {userRole === 'super_admin' && (
-                <Button asChild className="bg-destructive hover:bg-destructive/90">
-                  <Link to="/profile/super-admin">
+                <Button className="bg-destructive hover:bg-destructive/90" onClick={() => navigate('/profile/super-admin')}>
                   <Shield className="h-4 w-4 mr-2" />
                   Super Admin Panel
-                  </Link>
                 </Button>
               )}
               {userRole === 'admin' && (
-                <Button asChild variant="outline">
-                  <Link to="/profile/admin">
+                <Button variant="outline" onClick={() => navigate('/profile/admin')}>
                   <Shield className="h-4 w-4 mr-2" />
                   Admin Panel
-                  </Link>
                 </Button>
               )}
               {userRole === 'vendor' && (
-                <Button asChild variant="outline">
-                  <Link to="/profile/vendor">
+                <Button variant="outline" onClick={() => navigate('/profile/vendor')}>
                   <Store className="h-4 w-4 mr-2" />
                   Vendor Panel
-                  </Link>
                 </Button>
               )}
             </div>

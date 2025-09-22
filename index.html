@@ -9,6 +9,11 @@
     <meta name="author" content="Massrides Company Limited" />
     <meta name="theme-color" content="#ec8a04" />
 
+    <!-- Preconnect to Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Favicons -->
     <link rel="icon" href="/tractor.ico" type="image/x-icon" sizes="any" />
     <link rel="icon" type="image/png" sizes="16x16" href="/tractor-16x16.png" />
@@ -43,18 +48,6 @@
     <script type="module" src="/src/main.tsx"></script>
     
     <!-- Service Worker Registration -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('SW registered: ', registration);
-            })
-            .catch((registrationError) => {
-              console.log('SW registration failed: ', registrationError);
-            });
-        });
-      }
-    </script>
+    <script src="/src/service-worker.js"></script>
   </body>
 </html>

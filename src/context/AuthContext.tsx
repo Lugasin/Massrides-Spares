@@ -17,7 +17,7 @@ export interface UserProfile {
   zip_code?: string
   country?: string
   company_name?: string
-  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest'
+  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest' | 'support'
   website_url?: string
   avatar_url?: string
   bio?: string
@@ -181,6 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'admin': ['view_dashboard', 'manage_products', 'manage_orders', 'manage_users'],
         'vendor': ['manage_own_products', 'view_own_orders', 'manage_inventory'],
         'customer': ['place_orders', 'view_own_orders', 'request_quotes'],
+        'support': ['view_dashboard', 'manage_tickets', 'view_users'],
         'guest': ['browse_catalog', 'guest_checkout']
       }
       

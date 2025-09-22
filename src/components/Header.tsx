@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import NotificationsPanel from "@/components/NotificationsPanel";
+import { toast } from "sonner";
 import { useNotifications } from "@/hooks/useNotifications";
 import { 
   Bell,
@@ -210,7 +211,9 @@ export const Header = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={async () => {
                     const { error } = await signOut();
-                    if (!error) {
+                    if (error) {
+                      toast.error(`Sign out failed: ${error.message}`);
+                    } else {
                       window.location.href = '/';
                     }
                   }}>
@@ -309,7 +312,9 @@ export const Header = ({
 
                      <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={async () => {
                          const { error } = await signOut();
-                         if (!error) {
+                         if (error) {
+                           toast.error(`Sign out failed: ${error.message}`);
+                         } else {
                            window.location.href = '/';
                          }
                          setIsMobileMenuOpen(false);

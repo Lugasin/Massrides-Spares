@@ -7,6 +7,7 @@ const APP_SHELL_ASSETS = [
   '/index.html',
   '/src/main.tsx', // Your main entry point
   '/src/App.tsx', // Your main App component
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
   // Add paths to your core CSS, JS bundles, and essential assets here
   // Note: In a build process, these paths would typically be generated
   // For development, you might need to adjust these or use a tool
@@ -97,4 +98,11 @@ self.addEventListener('push', (event) => {
  }
 
  event.waitUntil(self.registration.showNotification('Agri Massrides Update', options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url)
+  );
 });

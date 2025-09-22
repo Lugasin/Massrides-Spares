@@ -1,27 +1,31 @@
-import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
+
+const guestCheckoutSchema = z.object({
+  fullName: z.string().min(2, 'Full name must be at least 2 characters.'),
+  email: z.string().email('Please enter a valid email address.'),
+});
+
+type GuestCheckoutFormValues = z.infer<typeof guestCheckoutSchema>;
 
 const GuestCheckoutForm = () => {
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<GuestCheckoutFormValues>({
+    resolver: zodResolver(guestCheckoutSchema),
+  });
 
-  const handleGuestCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !fullName) {
-      toast.error("Please enter your full name and email to proceed.");
-      return;
-    }
-
-    setLoading(true);
+  const handleGuestCheckout = async (data: GuestCheckoutFormValues) => {
     toast.info("Sending a secure login link to your email...");
 
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: data.email,
       options: {
         shouldCreateUser: true,
         // IMPORTANT: This URL should point to your payment confirmation page.
@@ -29,12 +33,11 @@ const GuestCheckoutForm = () => {
         emailRedirectTo: `${window.location.origin}/checkout/confirm`,
         data: {
           role: 'customer',
-          full_name: fullName,
+          full_name: data.fullName,
         },
       },
     });
 
-    setLoading(false);
     if (error) {
       toast.error(`Authentication failed: ${error.message}`);
     } else {
@@ -52,31 +55,32 @@ const GuestCheckoutForm = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleGuestCheckout} className="space-y-4">
+        <form onSubmit={handleSubmit(handleGuestCheckout)} className="space-y-4">
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <Label htmlFor="fullName">Full Name</Label>
             <Input
               id="fullName"
               type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              {...register('fullName')}
               placeholder="e.g., John Doe"
-              required
+              className="mt-1"
             />
+            {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName.message}</p>}
           </div>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+            <Label htmlFor="email">Email Address</Label>
             <Input
               id="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register('email')}
               placeholder="you@example.com"
-              required
+              className="mt-1"
             />
+            {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
           </div>
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Sending Link...' : 'Proceed to Payment'}
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting ? 'Sending Link...' : 'Proceed to Payment'}
           </Button>
         </form>
       </CardContent>

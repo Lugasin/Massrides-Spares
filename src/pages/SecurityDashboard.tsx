@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,7 +18,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Zap
+  Zap,
+  Package,
+  Edit,
+  UserX
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +53,14 @@ interface PaymentMetrics {
   sessions_created: number;
   success_rate: number;
   recent_activity: any[];
+  problematic_payments?: {
+    id: string;
+    order_number: string;
+    customer_email: string;
+    amount: number;
+    status: string;
+    created_at: string;
+  }[];
 }
 
 interface SystemHealth {
@@ -58,6 +69,14 @@ interface SystemHealth {
   metrics: any;
   uptime_percentage: number;
   last_incident: string | null;
+  low_stock_items_count?: number;
+  low_stock_items?: {
+    id: string;
+    name: string;
+    vendor_name: string;
+    stock_quantity: number;
+    min_stock_level: number;
+  }[];
 }
 
 const SecurityDashboard = () => {
@@ -192,6 +211,21 @@ const SecurityDashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-500">
+                {systemHealth?.low_stock_items_count || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Items needing reorder
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Security Events</CardTitle>
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -237,6 +271,7 @@ const SecurityDashboard = () => {
             <TabsTrigger value="alerts">Security Alerts</TabsTrigger>
             <TabsTrigger value="metrics">Security Metrics</TabsTrigger>
             <TabsTrigger value="payments">Payment Monitoring</TabsTrigger>
+            <TabsTrigger value="inventory">Inventory Control</TabsTrigger>
             <TabsTrigger value="system">System Health</TabsTrigger>
           </TabsList>
 
@@ -296,9 +331,17 @@ const SecurityDashboard = () => {
                             {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
                           </TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button variant="outline" size="icon" className="h-8 w-8">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => toast.info(`Blocking user associated with event ${alert.id}`)}>
+                                <UserX className="h-4 w-4" />
+                              </Button>
+                              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => toast.warning(`Initiating high-priority investigation for ${alert.id}`)}>
+                                <AlertTriangle className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -365,6 +408,82 @@ const SecurityDashboard = () => {
                     <div className="text-sm text-muted-foreground">Success Rate</div>
                   </div>
                 </div>
+                <h4 className="font-medium mt-6 mb-4">Problematic Payments</h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order #</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paymentMetrics?.problematic_payments?.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>{payment.order_number}</TableCell>
+                        <TableCell>{payment.customer_email}</TableCell>
+                        <TableCell>${payment.amount.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusColor(payment.status)}>{payment.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => toast.info(`Retrying payment for ${payment.order_number}`)}>Retry</Button>
+                            <Button variant="destructive" size="sm" onClick={() => toast.error(`Refunding payment for ${payment.order_number}`)}>Refund</Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!paymentMetrics?.problematic_payments || paymentMetrics.problematic_payments.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">No problematic payments found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inventory">
+            <Card>
+              <CardHeader>
+                <CardTitle>Low Stock Inventory</CardTitle>
+                <CardDescription>Products across all vendors that are below their minimum stock level.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product Name</TableHead>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Min. Level</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {systemHealth?.low_stock_items?.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>{item.vendor_name}</TableCell>
+                        <TableCell className="text-destructive font-bold">{item.stock_quantity}</TableCell>
+                        <TableCell>{item.min_stock_level}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => toast.info(`Notifying ${item.vendor_name} about low stock.`)}>Notify Vendor</Button>
+                            <Button variant="secondary" size="sm" onClick={() => toast.info(`Opening stock adjustment for ${item.name}`)}>Adjust Stock</Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!systemHealth?.low_stock_items || systemHealth.low_stock_items.length === 0) && (
+                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No low stock items found.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
