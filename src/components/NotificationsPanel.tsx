@@ -74,7 +74,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
         (payload) => {
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
-          
+
           // Show toast notification
           toast(newNotification.title, {
             description: newNotification.message,
@@ -95,7 +95,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
         },
         (payload) => {
           const updatedNotification = payload.new as Notification;
-          setNotifications(prev => 
+          setNotifications(prev =>
             prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
           );
         }
@@ -176,7 +176,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/50" onClick={onClose}>
       <div className="fixed top-16 right-4 w-96 max-h-[80vh] bg-background border border-border rounded-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -223,11 +223,10 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
                 {notifications.map((notification) => (
                   <Card
                     key={notification.id}
-                    className={`cursor-pointer transition-colors ${
-                      notification.read_at
+                    className={`cursor-pointer transition-colors ${notification.read_at
                         ? 'bg-muted/30 opacity-80'
                         : 'bg-background hover:bg-muted/20'
-                    }`}
+                      }`}
                     onClick={() => !notification.read_at && markAsRead(notification.id)}
                   >
                     <CardContent className="p-3">

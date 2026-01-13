@@ -14,11 +14,11 @@ const About = () => {
   return (
     <div className="min-h-screen bg-background">
       <ScrollToTop />
-      <Header 
+      <Header
         cartItemsCount={itemCount}
-        onAuthClick={() => {}}
+        onAuthClick={() => { }}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         {/* Back to Home */}
         <div className="mb-6">
@@ -33,7 +33,7 @@ const About = () => {
         <section className="text-center mb-16">
           <h1 className="text-4xl font-bold text-foreground mb-6">About MassRides</h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Empowering African agriculture through reliable spare parts and technical expertise. 
+            Empowering African agriculture through reliable spare parts and technical expertise.
             We're bridging the gap between equipment maintenance needs and quality spare parts availability.
           </p>
         </section>
@@ -47,8 +47,8 @@ const About = () => {
                 <h2 className="text-2xl font-bold">Our Mission</h2>
               </div>
               <p className="text-muted-foreground">
-                To democratize access to high-quality agricultural spare parts across Africa, 
-                enabling farmers to maintain their equipment efficiently, reduce downtime, and build 
+                To democratize access to high-quality agricultural spare parts across Africa,
+                enabling farmers to maintain their equipment efficiently, reduce downtime, and build
                 sustainable operations through reliable parts supply and technical support.
               </p>
             </CardContent>
@@ -61,8 +61,8 @@ const About = () => {
                 <h2 className="text-2xl font-bold">Our Vision</h2>
               </div>
               <p className="text-muted-foreground">
-                A future where every farmer in Africa has access to the spare parts and technical support 
-                they need to keep their equipment running, creating food security and economic prosperity 
+                A future where every farmer in Africa has access to the spare parts and technical support
+                they need to keep their equipment running, creating food security and economic prosperity
                 across the continent while minimizing equipment downtime.
               </p>
             </CardContent>
@@ -80,7 +80,7 @@ const About = () => {
               <div>
                 <h3 className="text-xl font-semibold mb-2">2020 - The Beginning</h3>
                 <p className="text-muted-foreground">
-                  Founded with a vision to revolutionize agricultural spare parts access in Zambia. 
+                  Founded with a vision to revolutionize spare parts access in Zambia. ms
                   Started with a small team of parts specialists and agricultural technicians.
                 </p>
               </div>
@@ -93,7 +93,7 @@ const About = () => {
               <div>
                 <h3 className="text-xl font-semibold mb-2">2021 - First Partnerships</h3>
                 <p className="text-muted-foreground">
-                  Established partnerships with leading spare parts suppliers and OEM manufacturers. 
+                  Established partnerships with leading spare parts suppliers and OEM manufacturers.
                   Launched our first digital platform connecting farmers with quality spare parts.
                 </p>
               </div>
@@ -119,7 +119,7 @@ const About = () => {
               <div>
                 <h3 className="text-xl font-semibold mb-2">2024 - Digital Innovation</h3>
                 <p className="text-muted-foreground">
-                  Launched our comprehensive e-commerce platform with advanced features 
+                  Launched our comprehensive e-commerce platform with advanced features
                   including parts compatibility checking, technical support, and mechanic training programs.
                 </p>
               </div>
@@ -138,7 +138,7 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Agricultural Engineers</h3>
                 <p className="text-muted-foreground">
-                  Expert team with decades of experience in agricultural equipment 
+                  Expert team with decades of experience in agricultural equipment
                   and spare parts compatibility across all major brands.
                 </p>
               </CardContent>
@@ -151,7 +151,7 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Technology Specialists</h3>
                 <p className="text-muted-foreground">
-                  Innovative developers and designers creating user-friendly platforms 
+                  Innovative developers and designers creating user-friendly platforms
                   that make spare parts identification and ordering accessible to all.
                 </p>
               </CardContent>
@@ -164,7 +164,7 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Local Partners</h3>
                 <p className="text-muted-foreground">
-                  Network of local parts dealers and mechanics ensuring 
+                  Network of local parts dealers and mechanics ensuring
                   farmers get the spare parts and technical support they need, when they need it.
                 </p>
               </CardContent>
@@ -184,7 +184,7 @@ const About = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Sustainability</h3>
@@ -193,7 +193,7 @@ const About = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Community</h3>
@@ -202,7 +202,7 @@ const About = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6 text-center">
                 <h3 className="font-semibold mb-2">Excellence</h3>

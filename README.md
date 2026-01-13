@@ -107,6 +107,26 @@ VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+### 2. Environment Configuration
+
+### 2.1. Environment Variables Setup
+
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Edit `.env` and add your Supabase credentials:
+   - Get `VITE_SUPABASE_URL` from Supabase Dashboard → Settings → API
+   - Get `VITE_SUPABASE_ANON_KEY` from Supabase Dashboard → Settings → API
+
+3. For production deployment, set these as environment variables in your hosting platform:
+   - Netlify: Site settings → Environment variables
+   - Vercel: Project settings → Environment Variables
+   - AWS: Systems Manager → Parameter Store
+
+**Important**: Never commit `.env` to version control. It's already in `.gitignore`.
+
 ### 3. Database Setup
 ```bash
 # Run migrations

@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  Package, 
-  ShoppingCart, 
+import {
+  Users,
+  Package,
+  ShoppingCart,
   MessageSquare,
   Settings,
   BarChart3,
@@ -94,7 +94,7 @@ const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-        <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Admin'}>
+      <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Admin'}>
         <div className="p-6 text-center">Loading dashboard...</div>
       </DashboardLayout>
     );
@@ -148,13 +148,13 @@ const AdminDashboard: React.FC = () => {
 
         {/* Detailed Management Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="analytics" className="hidden md:inline-flex">Analytics</TabsTrigger>
             {userRole === 'super_admin' && (
-              <TabsTrigger value="suspicious_activity">Suspicious Activity</TabsTrigger>
+              <TabsTrigger value="suspicious_activity" className="hidden md:inline-flex">Suspicious Activity</TabsTrigger>
             )}
           </TabsList>
 
@@ -218,7 +218,7 @@ const AdminDashboard: React.FC = () => {
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>${product.price.toLocaleString()}</TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={product.availability_status === 'available' ? 'default' : 'secondary'}
                           >
                             {product.availability_status}

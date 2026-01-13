@@ -99,7 +99,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
       .from('cart_items')
       .select('id, quantity')
       .eq('cart_id', cart.id)
-      .eq('spare_part_id', sparePartId)
+      .eq('product_id', sparePartId) // Updated col name
       .single();
 
     if (existingItem) {
@@ -112,7 +112,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
         .from('cart_items')
         .insert({ 
           cart_id: cart.id, 
-          spare_part_id: sparePartId, 
+          product_id: sparePartId, // Updated col name
           quantity 
         });
     }
@@ -147,7 +147,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
       .from('guest_cart_items')
       .select('id, quantity')
       .eq('guest_cart_id', guestCart.id)
-      .eq('spare_part_id', sparePartId)
+      .eq('product_id', sparePartId) // Updated col name
       .single()
 
     if (existingItem) {
@@ -158,7 +158,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
     } else {
       return await supabase
         .from('guest_cart_items')
-        .insert({ guest_cart_id: guestCart.id, spare_part_id: sparePartId, quantity })
+        .insert({ guest_cart_id: guestCart.id, product_id: sparePartId, quantity }) // Updated col name
     }
   }
 }
@@ -183,32 +183,45 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
     if (!cart) return [];
 
+    // Query cart_items and join products
     const { data: items } = await supabase
       .from('cart_items')
       .select(`
         id,
         quantity,
-        spare_part_id,
-        spare_part:spare_parts(
+        product_id, 
+        product:products(
           id,
-          name,
+          title,
           price,
-          part_number,
-          brand,
-          images,
-          description,
-          condition,
-          warranty
+          sku,
+          attributes,
+          main_image,
+          description
         )
       `)
       .eq('cart_id', cart.id);
 
-    return items?.map(item => ({
-      id: item.id,
-      spare_part_id: item.spare_part_id,
-      quantity: item.quantity,
-      spare_part: item.spare_part as any
-    })) || [];
+    return items?.map(item => {
+       const p = item.product as any;
+       const attrs = p.attributes || {};
+       return {
+          id: item.id,
+          spare_part_id: item.product_id, // Map product_id to spare_part_id for compatibility
+          quantity: item.quantity,
+          spare_part: {
+              id: p.id,
+              name: p.title,
+              price: p.price,
+              part_number: p.sku,
+              brand: attrs.brand || 'Generic',
+              images: p.main_image ? [p.main_image] : [],
+              description: p.description,
+              condition: attrs.condition || 'new',
+              warranty: attrs.warranty || '12 months'
+          }
+       };
+    }) || [];
   } else {
     // Guest user - get guest cart
     const sessionId = getOrCreateSessionId()
@@ -228,27 +241,39 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       .select(`
         id,
         quantity,
-        spare_part_id,
-        spare_part:spare_parts(
+        product_id,
+        product:products(
           id,
-          name,
+          title,
           price,
-          part_number,
-          brand,
-          images,
-          description,
-          condition,
-          warranty
+          sku,
+          attributes,
+          main_image,
+          description
         )
       `)
       .eq('guest_cart_id', guestCart.id)
 
-    return items?.map(item => ({
-      id: item.id,
-      spare_part_id: item.spare_part_id,
-      quantity: item.quantity,
-      spare_part: item.spare_part as any
-    })) || [];
+    return items?.map(item => {
+       const p = item.product as any;
+       const attrs = p.attributes || {};
+       return {
+          id: item.id,
+          spare_part_id: item.product_id,
+          quantity: item.quantity,
+          spare_part: {
+              id: p.id,
+              name: p.title,
+              price: p.price,
+              part_number: p.sku,
+              brand: attrs.brand || 'Generic',
+              images: p.main_image ? [p.main_image] : [],
+              description: p.description,
+              condition: attrs.condition || 'new',
+              warranty: attrs.warranty || '12 months'
+          }
+       };
+    }) || [];
   }
 }
 

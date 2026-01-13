@@ -46,16 +46,16 @@ const Dashboard = () => {
       case 'super_admin':
       case 'admin':
         return <AdminDashboard />;
-      
+
       case 'vendor':
         return <VendorDashboard />;
-      
+
       case 'customer':
         return <CustomerDashboard />;
 
       case 'support':
         return <SupportDashboard />;
-      
+
       case 'guest':
       default:
         return (
@@ -65,7 +65,7 @@ const Dashboard = () => {
                 Welcome to Massrides
               </h2>
               <p className="text-muted-foreground mb-6">
-                Discover our comprehensive range of agricultural spare parts
+                Discover our comprehensive range of spares
               </p>
             </div>
 
@@ -100,9 +100,10 @@ const Dashboard = () => {
   };
 
   return (
-    <DashboardLayout 
-      userRole={userRole as any} 
+    <DashboardLayout
+      userRole={userRole as any}
       userName={profile?.full_name || user?.email || 'User'}
+      showMetrics={userRole === 'guest'} // Only show default metrics for Guest
     >
       {renderDashboardContent()}
     </DashboardLayout>

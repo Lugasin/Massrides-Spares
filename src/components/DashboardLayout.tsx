@@ -16,7 +16,7 @@ import {
   X,
   Shield,
   Activity,
-  MessageSquare
+  MessageSquare // Added missing import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -27,6 +27,8 @@ interface DashboardLayoutProps {
   userRole: "super_admin" | "admin" | "vendor" | "customer" | "guest" | null;
   userName: string;
   children?: React.ReactNode;
+  showMetrics?: boolean;
+  metrics?: { label: string; value: string | number; icon: any; change: string }[];
 }
 
 const roleConfig = {
@@ -42,7 +44,7 @@ const roleConfig = {
     ]
   },
   admin: {
-    title: "Admin Dashboard", 
+    title: "Admin Dashboard",
     description: "User and order management",
     color: "bg-blue-500",
     metrics: [
@@ -76,7 +78,7 @@ const roleConfig = {
   },
   guest: {
     title: "Welcome",
-    description: "Manage your products and sales", 
+    description: "Manage your products and sales",
     color: "bg-green-500",
     metrics: [
       { label: "My Products", value: "28", icon: Package, change: "+2%" },
@@ -88,7 +90,7 @@ const roleConfig = {
   support: {
     title: "Support Dashboard",
     description: "Customer support and tickets",
-    color: "bg-orange-500", 
+    color: "bg-orange-500",
     metrics: [
       { label: "Open Tickets", value: "34", icon: Bell, change: "-8%" },
       { label: "Resolved Today", value: "17", icon: Users, change: "+12%" },
@@ -98,7 +100,7 @@ const roleConfig = {
   }
 };
 
-export const DashboardLayout = ({ userRole, userName, children }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ userRole, userName, children, showMetrics = true, metrics }: DashboardLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -106,12 +108,12 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
 
   if (!config) {
     return (
-        <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-            <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading Dashboard...</p>
-            </div>
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading Dashboard...</p>
         </div>
+      </div>
     );
   }
 
@@ -131,7 +133,7 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
     { label: "Settings", icon: Settings, href: "/settings" }
   ];
 
-  const visibleNavItems = navigationItems.filter(item => 
+  const visibleNavItems = navigationItems.filter(item =>
     !item.roles || item.roles.includes(userRole)
   );
 
@@ -154,13 +156,13 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
     <div className="min-h-screen bg-muted/30">
       {/* Mobile Menu Overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Same as before */}
       <aside className={cn(
         "fixed left-0 top-0 z-50 h-full w-64 bg-background border-r border-border transition-transform duration-300 lg:translate-x-0",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -211,8 +213,8 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
 
           {/* Footer */}
           <div className="p-4 border-t border-border">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="w-full justify-start gap-3 text-destructive hover:text-destructive"
               onClick={handleSignOut}
             >
@@ -238,8 +240,8 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
                 {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{config.title}</h1>
-                <p className="text-muted-foreground">{config.description}</p>
+                <h1 className="text-xl md:text-2xl font-bold text-foreground">{config.title}</h1>
+                <p className="hidden md:block text-muted-foreground">{config.description}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -255,30 +257,31 @@ export const DashboardLayout = ({ userRole, userName, children }: DashboardLayou
 
         {/* Dashboard Content */}
         <main className="p-6">
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {config.metrics.map((metric) => (
-              <Card key={metric.label} className="border-border/50">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {metric.label}
-                  </CardTitle>
-                  <metric.icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground mb-1">
-                    {metric.value}
-                  </div>
-                  <p className={cn(
-                    "text-xs font-medium",
-                    metric.change.startsWith('+') ? "text-success" : "text-destructive"
-                  )}>
-                    {metric.change} from last month
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {showMetrics && (
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+              {(metrics || config.metrics).map((metric) => (
+                <Card key={metric.label} className="border-border/50">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {metric.label}
+                    </CardTitle>
+                    <metric.icon className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-foreground mb-1">
+                      {metric.value}
+                    </div>
+                    <p className={cn(
+                      "text-xs font-medium",
+                      metric.change.startsWith('+') ? "text-success" : "text-destructive"
+                    )}>
+                      {metric.change} from last month
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Additional Content */}
           {children || (

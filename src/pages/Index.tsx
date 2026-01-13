@@ -159,38 +159,38 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
+      <Header
         cartItemsCount={itemCount}
         onAuthClick={handleAuthClick}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
       />
-      
+
       <main>
         {!showSuggestions ? (
           <>
             {/* Enhanced Hero Section with Parallax */}
             <HeroCarousel />
-            
+
             {/* Parallax Hero Section */}
             <ParallaxHero />
-            
+
             {/* Company Partners with Auto-Scroll */}
             <AutoScrollPartners partners={partners} />
-            
+
             {/* About Us Teaser */}
             <AboutUsTeaser />
-            
+
             {/* Features Section */}
             <FeaturesSection />
-            
+
             {/* Sticky Category Navigation */}
-            <StickyNavBar 
+            <StickyNavBar
               categories={categories}
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}
             />
-            
+
             {/* Featured Spare Parts with Masonry Grid */}
             <section id="featured-parts" className="py-20 bg-background">
               <div className="container mx-auto px-4">
@@ -198,10 +198,11 @@ const Index = () => {
                   <span className="inline-block bg-secondary/10 text-secondary px-4 py-2 rounded-full text-sm font-medium mb-4">
                     Featured Spare Parts
                   </span>
-                  <h2 className="text-3xl lg:text-4xl font-bold mb-6 text-foreground">
-                    Premium Agricultural Spare Parts
-                  </h2>
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight">
+                    <span className="text-white block">Massrides Spares</span>
+                    <span className="text-primary block mt-2">Premium Agricultural Parts</span>
+                  </h1>
+                  <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl mx-auto font-light">
                     Discover our curated selection of genuine and aftermarket spare parts for all your agricultural equipment.
                   </p>
                 </div>
@@ -232,12 +233,12 @@ const Index = () => {
                     </Card>
                   ))}
                 </div>
-                
+
                 {/* View All CTA */}
                 <div className="text-center mt-12">
-                  <Button 
+                  <Button
                     asChild
-                    size="lg" 
+                    size="lg"
                     className="bg-primary hover:bg-primary-hover group"
                   >
                     <Link to="/catalog">
@@ -248,10 +249,10 @@ const Index = () => {
                 </div>
               </div>
             </section>
-            
+
             {/* Testimonials Section */}
             <TestimonialSlider />
-            
+
             {/* Contact Section */}
             <ContactSection />
           </>
@@ -260,7 +261,7 @@ const Index = () => {
             {suggestedProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {suggestedProducts.map((part) => (
-                   <Card key={part.id} className="group overflow-hidden hover:shadow-earth transition-all duration-300 hover-scale border-border/50">
+                  <Card key={part.id} className="group overflow-hidden hover:shadow-earth transition-all duration-300 hover-scale border-border/50">
                     <Link to={`/parts/${part.id}`} className="block">
                       <div className="relative overflow-hidden">
                         <img
@@ -286,7 +287,7 @@ const Index = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="flex items-center text-yellow-500">
-                             {[...Array(5)].map((_, i) => (
+                            {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
                                 className={cn("h-4 w-4", i < 4 ? "fill-current" : "text-gray-300 fill-transparent")}
@@ -318,7 +319,7 @@ const Index = () => {
                       </CardContent>
 
                       <CardFooter className="p-4 pt-0">
-                         <Button 
+                        <Button
                           onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(part); }}
                           disabled={!part.inStock}
                           className="w-full bg-primary hover:bg-primary-hover"
@@ -331,7 +332,7 @@ const Index = () => {
                   </Card>
                 ))}
               </div>
-            ) : ( searchTerm && (
+            ) : (searchTerm && (
               <div className="text-center py-12">
                 <h3 className="text-lg font-medium text-foreground mb-2">
                   No spare parts found for "{searchTerm}"
@@ -344,9 +345,9 @@ const Index = () => {
           </section>
         )}
       </main>
-      
+
       <Footer />
-      
+
       <BackToTop />
     </div>
   );

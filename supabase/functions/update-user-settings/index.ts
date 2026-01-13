@@ -40,8 +40,7 @@ serve(async (req) => {
 
     const { data, error } = await supabase
       .from('user_settings')
-      .update(newSettings)
-      .eq('user_id', user.id)
+      .upsert({ user_id: user.id, ...newSettings })
       .select()
       .single();
 

@@ -18,7 +18,16 @@ serve(async (req) => {
     )
 
     // Get user from Authorization header.
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      )
+    }
     const userSupabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -40,19 +49,15 @@ serve(async (req) => {
       .from('orders')
       .select(`
         id,
-        order_number,
+        order_reference,
         created_at,
-        total_amount,
+        total,
         status,
         order_items (
           id,
           quantity,
-          unit_price,
-          spare_part:spare_parts (
-            id,
-            name,
-            images
-          )
+          price,
+          title
         )
       `)
       .eq('user_id', user.id)

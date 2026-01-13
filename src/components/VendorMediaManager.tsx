@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from "@/lib/logger";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Upload, 
-  Image as ImageIcon, 
-  Trash2, 
-  Edit, 
+import {
+  Upload,
+  Image as ImageIcon,
+  Trash2,
+  Edit,
   Plus,
   Eye,
   Download
@@ -79,12 +80,12 @@ export const VendorMediaManager = () => {
     }
 
     setUploading(true);
-    
+
     try {
       for (const file of selectedFiles) {
         // Upload to Supabase Storage
         const fileName = `${profile?.id}/${Date.now()}-${file.name}`;
-        
+
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('vendor-media')
           .upload(fileName, file);
@@ -114,7 +115,7 @@ export const VendorMediaManager = () => {
       setSelectedFiles([]);
       fetchMediaFiles();
     } catch (error: any) {
-      console.error('Error uploading files:', error);
+      logger.error('Error uploading files:', error);
       toast.error('Failed to upload files');
     } finally {
       setUploading(false);
@@ -123,10 +124,10 @@ export const VendorMediaManager = () => {
 
   const handleCreateAd = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-try {
+
+    try {
       // Placeholder until 'ads' table exists. Store ad data locally or send to backend when available.
-      console.log('Ad created (placeholder):', { vendor_id: profile?.id, ...adForm });
+      logger.log('Ad created (placeholder):', { vendor_id: profile?.id, ...adForm });
 
       toast.success('Advertisement saved (preview mode)');
       setShowAdForm(false);
@@ -192,7 +193,7 @@ try {
                     </div>
                   ))}
                 </div>
-                <Button 
+                <Button
                   onClick={handleFileUpload}
                   disabled={uploading}
                   className="w-full mt-4"

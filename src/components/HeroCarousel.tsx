@@ -161,15 +161,14 @@ export const HeroCarousel: React.FC = () => {
         {slides.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
-              index === currentSlide 
-                ? 'opacity-100 scale-100' 
+            className={`absolute inset-0 transition-all duration-1000 ease-in-out ${index === currentSlide
+                ? 'opacity-100 scale-100'
                 : 'opacity-0 scale-105'
-            }`}
+              }`}
           >
             {/* Background Image with Parallax Effect */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat transform transition-transform duration-[7000ms] ease-out"
+            <div
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat transform transition-transform duration-1000 ease-out"
               style={{
                 backgroundImage: `linear-gradient(
                   135deg, 
@@ -180,34 +179,31 @@ export const HeroCarousel: React.FC = () => {
                 transform: index === currentSlide ? 'scale(1.1)' : 'scale(1)'
               }}
             />
-            
+
             {/* Content Overlay */}
             <div className="relative z-10 h-full flex items-center">
               <div className="container mx-auto px-4 lg:px-8">
                 <div className="max-w-2xl">
-                  <h1 className={`text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 lg:mb-6 transition-all duration-1000 delay-300 ${
-                    index === currentSlide 
-                      ? 'opacity-100 translate-y-0' 
+                  <h1 className={`text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 lg:mb-6 transition-all duration-1000 delay-300 ${index === currentSlide
+                      ? 'opacity-100 translate-y-0'
                       : 'opacity-0 translate-y-8'
-                  }`}>
+                    }`}>
                     {slide.title}
                   </h1>
-                  
-                  <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-white/90 mb-6 lg:mb-8 leading-relaxed transition-all duration-1000 delay-500 ${
-                    index === currentSlide 
-                      ? 'opacity-100 translate-y-0' 
+
+                  <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-white/90 mb-6 lg:mb-8 leading-relaxed transition-all duration-1000 delay-500 ${index === currentSlide
+                      ? 'opacity-100 translate-y-0'
                       : 'opacity-0 translate-y-8'
-                  }`}>
+                    }`}>
                     {slide.description}
                   </p>
-                  
+
                   <Button
                     onClick={() => handleCTAClick(slide.link)}
-                    className={`bg-primary hover:bg-primary-hover text-white px-6 lg:px-8 py-3 lg:py-4 text-base lg:text-lg font-semibold rounded-lg transition-all duration-1000 delay-700 hover-scale ${
-                      index === currentSlide 
-                        ? 'opacity-100 translate-y-0' 
+                    className={`bg-primary hover:bg-primary-hover text-white px-6 lg:px-8 py-3 lg:py-4 text-base lg:text-lg font-semibold rounded-lg transition-all duration-1000 delay-700 hover-scale ${index === currentSlide
+                        ? 'opacity-100 translate-y-0'
                         : 'opacity-0 translate-y-8'
-                    }`}
+                      }`}
                   >
                     {slide.cta}
                   </Button>
@@ -226,7 +222,7 @@ export const HeroCarousel: React.FC = () => {
       >
         <ChevronLeft className="h-5 w-5 lg:h-6 lg:w-6" />
       </button>
-      
+
       <button
         onClick={nextSlide}
         className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-2 lg:p-3 rounded-full transition-all duration-300 hover-scale"
@@ -250,11 +246,10 @@ export const HeroCarousel: React.FC = () => {
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className={`w-2 h-2 lg:w-3 lg:h-3 rounded-full transition-all duration-300 ${
-              index === currentSlide 
-                ? 'bg-white scale-125' 
+            className={`w-2 h-2 lg:w-3 lg:h-3 rounded-full transition-all duration-300 ${index === currentSlide
+                ? 'bg-white scale-125'
                 : 'bg-white/50 hover:bg-white/75'
-            }`}
+              }`}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}
@@ -262,10 +257,9 @@ export const HeroCarousel: React.FC = () => {
 
       {/* Progress Bar */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20 z-20">
-        <div 
-          className={`h-full bg-primary transition-all duration-300 ${
-            isPlaying ? 'animate-[progress_5s_linear_infinite]' : ''
-          }`}
+        <div
+          className={`h-full bg-primary transition-all duration-300 ${isPlaying ? 'animate-[progress_5s_linear_infinite]' : ''
+            }`}
           style={{
             width: `${((currentSlide + 1) / slides.length) * 100}%`
           }}

@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Define a customizable background image URL - You can add more images to assets and change this
-const backgroundImage = tractorPlowing; 
+const backgroundImage = tractorPlowing;
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -103,32 +103,30 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left side - Background Image */}
-      <div className="h-32 lg:h-auto lg:flex lg:w-1/2 relative overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `linear-gradient(rgba(46, 125, 50, 0.6), rgba(46, 125, 50, 0.4)), url(${backgroundImage})`,
-          }}
-        />
-        <div className="relative z-10 flex items-center justify-center p-12">
-          <div className="text-white text-center">
-            <h1 className="text-2xl lg:text-4xl font-bold mb-2 lg:mb-4">Join Massrides</h1>
-            <p className="text-sm lg:text-xl opacity-90">
-              Start your agricultural spare parts journey today
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background Image */}
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImage})`,
+        }}
+      />
 
-      {/* Right side - Registration form */}
-      <div className="flex-1 lg:w-1/2 flex items-center justify-center p-4 lg:p-8 bg-gradient-farm">
-        <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm border-primary/20 shadow-primary">
+      {/* Registration form */}
+      <div className="relative z-10 w-full max-w-md">
+        <div className="text-center text-white mb-8">
+          <h1 className="text-3xl lg:text-4xl font-bold mb-2">Join Massrides</h1>
+          <p className="text-lg opacity-90">Start your spares journey today</p>
+          <p className="hidden lg:block text-gray-200 mt-2 max-w-sm mx-auto text-sm">
+            Join thousands of farmers and mechanics finding the right parts at the right price.
+          </p>
+        </div>
+
+        <Card className="w-full bg-white/95 backdrop-blur-sm border-primary/20 shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-xl lg:text-2xl font-bold text-primary">Create Account</CardTitle>
             <CardDescription>
-              Join our agricultural spare parts platform
+              Join our spares platform
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -237,8 +235,8 @@ export default function Register() {
                 </Link>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isLoading}
                 className="w-full h-11 bg-primary hover:bg-primary-hover hover-glow group"
               >
@@ -254,7 +252,7 @@ export default function Register() {
                   </>
                 )}
               </Button>
-              
+
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -263,7 +261,7 @@ export default function Register() {
                   <span className="bg-white px-2 text-muted-foreground">Or continue with</span>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <Button
                   type="button"
@@ -292,7 +290,7 @@ export default function Register() {
                   </svg>
                   Google
                 </Button>
-                
+
                 <Button
                   type="button"
                   variant="outline"
@@ -301,13 +299,13 @@ export default function Register() {
                   className="w-full"
                 >
                   <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>
                   Facebook
                 </Button>
               </div>
             </form>
-            
+
             {/* Back to Home */}
             <div className="text-center mt-4">
               <Button asChild variant="ghost">

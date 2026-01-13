@@ -6,14 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ShoppingCart, 
-  Plus, 
-  Minus, 
-  Trash2, 
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
   CreditCard,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Mail
 } from "lucide-react";
 import { useQuote } from "@/context/QuoteContext";
 import { Link, useNavigate } from "react-router-dom";
@@ -28,11 +29,11 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
+      <Header
         cartItemsCount={itemCount}
         onAuthClick={() => navigate('/login')}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -79,18 +80,18 @@ const Cart = () => {
                   <Card key={item.id} className="overflow-hidden">
                     <CardContent className="p-6">
                       <div className="flex gap-4">
-                        <img 
+                        <img
                           src={item.image}
                           alt={item.name}
                           className="w-24 h-24 object-cover rounded-md flex-shrink-0"
                           loading="lazy"
                         />
-                        
+
                         <div className="flex-1">
                           <h3 className="font-semibold text-card-foreground mb-2">
                             {item.name}
                           </h3>
-                          
+
                           <div className="flex flex-wrap gap-1 mb-3">
                             {item.specs.slice(0, 3).map((spec) => (
                               <Badge key={spec} variant="outline" className="text-xs">
@@ -98,7 +99,7 @@ const Cart = () => {
                               </Badge>
                             ))}
                           </div>
-                          
+
                           <div className="flex items-center justify-between">
                             <div className="text-lg font-bold text-primary">
                               ${item.price.toLocaleString()}
@@ -106,7 +107,7 @@ const Cart = () => {
                                 each
                               </span>
                             </div>
-                            
+
                             <div className="flex items-center gap-3">
                               <div className="flex items-center gap-2">
                                 <Button
@@ -129,7 +130,7 @@ const Cart = () => {
                                   <Plus className="h-3 w-3" />
                                 </Button>
                               </div>
-                              
+
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -140,7 +141,7 @@ const Cart = () => {
                               </Button>
                             </div>
                           </div>
-                          
+
                           <div className="mt-2 text-sm text-muted-foreground">
                             Subtotal: <span className="font-medium text-foreground">
                               ${(item.price * item.quantity).toLocaleString()}
@@ -160,7 +161,7 @@ const Cart = () => {
                     <h3 className="text-lg font-semibold text-card-foreground mb-4">
                       Order Summary
                     </h3>
-                    
+
                     <div className="space-y-3 mb-4">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Parts ({itemCount})</span>
@@ -175,18 +176,18 @@ const Cart = () => {
                         <span className="font-medium">Calculated at checkout</span>
                       </div>
                     </div>
-                    
+
                     <Separator className="my-4" />
-                    
+
                     <div className="flex justify-between items-center mb-6">
                       <span className="text-lg font-semibold text-foreground">Total</span>
                       <span className="text-xl font-bold text-primary">
                         ${total.toLocaleString()}
                       </span>
                     </div>
-                    
+
                     <div className="space-y-3">
-                      <Button 
+                      <Button
                         onClick={handleCheckout}
                         size="lg"
                         className="w-full bg-primary hover:bg-primary-hover group"
@@ -195,8 +196,39 @@ const Cart = () => {
                         Proceed to Checkout
                         <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                       </Button>
-                      
-                      <Button 
+
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        className="w-full"
+                        onClick={async () => {
+                          const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
+                          if (!user) {
+                            // Assuming toast is imported or available in scope, or we'll trigger login
+                            navigate('/login?redirect=/cart');
+                            return;
+                          }
+                          // Call edge function to email cart
+                          const { toast } = await import("sonner");
+                          toast.promise(
+                            import("@/integrations/supabase/client").then(m =>
+                              m.supabase.functions.invoke('send-notification-email', {
+                                body: { type: 'cart_summary', email: user.email, items, total }
+                              })
+                            ),
+                            {
+                              loading: 'Sending cart summary...',
+                              success: 'Cart summary sent to your email!',
+                              error: 'Failed to send email'
+                            }
+                          );
+                        }}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email Cart Summary
+                      </Button>
+
+                      <Button
                         asChild
                         variant="outline"
                         size="lg"

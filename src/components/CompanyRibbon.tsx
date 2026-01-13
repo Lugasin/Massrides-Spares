@@ -42,10 +42,12 @@ const CompanyRibbon: React.FC<CompanyRibbonProps> = ({ partners, loading = false
       <div className="container mx-auto px-4">
         <div className="text-center mb-6">
           <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-            Trusted by Leading Agricultural Brands
+            Trusted by Leading Brands
           </h3>
-          <p className="text-sm text-muted-foreground">
-            We partner with the world's most respected agricultural equipment manufacturers
+        </div>
+        <div className="md:w-2/3">
+          <p className="text-white/90 text-sm md:text-base leading-relaxed">
+            We partner with the world's most respected manufacturers
           </p>
         </div>
 

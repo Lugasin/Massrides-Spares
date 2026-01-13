@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  ShoppingCart, 
-  Star, 
+import {
+  ShoppingCart,
+  Star,
   Heart,
   Share2,
   Truck,
@@ -75,21 +75,49 @@ const SparePartDetail = () => {
   const fetchSparePartDetails = async () => {
     try {
       const { data, error } = await supabase
-        .from('spare_parts')
+        .from('products')
         .select(`
           *,
-          category:spare_part_categories(name),
-          equipment_compatibility(
-            is_direct_fit,
-            compatibility_notes,
-            equipment_type:equipment_types(name, brand)
-          )
+          category:categories!category_id(name),
+          inventory(quantity)
         `)
         .eq('id', partId)
         .single();
 
       if (error) throw error;
-      setSparePart(data as unknown as SparePart);
+
+      const product = data as any;
+      const attrs = product.attributes || {};
+      const totalStock = product.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+
+      const mappedPart: SparePart = {
+        id: product.id.toString(),
+        part_number: product.sku || '',
+        name: product.title,
+        description: product.description || '',
+        price: Number(product.price),
+        brand: attrs.brand || 'Generic',
+        oem_part_number: product.sku,
+        condition: attrs.condition || 'new',
+        availability_status: totalStock > 0 ? 'in_stock' : 'out_of_stock',
+        stock_quantity: totalStock,
+        images: product.main_image ? [product.main_image] : [],
+        technical_specs: attrs.technicalSpecs || {},
+        warranty_months: attrs.warranty ? parseInt(attrs.warranty) : 12,
+        weight_kg: attrs.weight,
+        dimensions_cm: attrs.dimensions,
+        featured: attrs.featured === true,
+        tags: attrs.tags || [],
+        category: {
+          name: product.category?.name || 'General'
+        },
+        equipment_compatibility: (attrs.compatibility || []).map((comp: string) => ({
+          equipment_type: { name: comp, brand: 'Universal' },
+          is_direct_fit: true
+        }))
+      };
+
+      setSparePart(mappedPart);
     } catch (error: any) {
       console.error('Error fetching spare part:', error);
       toast.error('Failed to load spare part details');
@@ -104,7 +132,7 @@ const SparePartDetail = () => {
     try {
       // Add to cart via Supabase
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user) {
         // User is logged in
         const { data: profile } = await supabase
@@ -135,7 +163,7 @@ const SparePartDetail = () => {
             .from('cart_items')
             .upsert({
               cart_id: cart!.id,
-              spare_part_id: sparePart.id,
+              product_id: parseInt(sparePart.id), // Ensure it's number if DB expects bigint, or string if uuid. Products ID is bigint (serial) in migration? Yes.
               quantity: quantity
             });
 
@@ -165,7 +193,7 @@ const SparePartDetail = () => {
           .from('guest_cart_items')
           .upsert({
             guest_cart_id: guestCart!.id,
-            spare_part_id: sparePart.id,
+            product_id: parseInt(sparePart.id),
             quantity: quantity
           });
 
@@ -242,7 +270,7 @@ const SparePartDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header cartItemsCount={itemCount} />
-      
+
       <main className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
@@ -261,7 +289,7 @@ const SparePartDetail = () => {
           {/* Image Gallery */}
           <div className="space-y-4">
             <div className="relative overflow-hidden rounded-lg bg-muted">
-              <img 
+              <img
                 src={sparePart.images[selectedImage] || sparePart.images[0]}
                 alt={sparePart.name}
                 className="w-full h-96 object-cover"
@@ -272,18 +300,18 @@ const SparePartDetail = () => {
                   Featured
                 </Badge>
               )}
-              <Badge 
+              <Badge
                 className={cn(
                   "absolute top-4 right-4",
-                  sparePart.availability_status === 'in_stock' 
-                    ? "bg-success text-success-foreground" 
+                  sparePart.availability_status === 'in_stock'
+                    ? "bg-success text-success-foreground"
                     : "bg-destructive text-destructive-foreground"
                 )}
               >
                 {sparePart.availability_status === 'in_stock' ? 'In Stock' : 'Out of Stock'}
               </Badge>
             </div>
-            
+
             {/* Thumbnail Gallery */}
             {sparePart.images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto">
@@ -296,7 +324,7 @@ const SparePartDetail = () => {
                       selectedImage === index ? "border-primary" : "border-border"
                     )}
                   >
-                    <img 
+                    <img
                       src={image}
                       alt={`${sparePart.name} view ${index + 1}`}
                       className="w-full h-full object-cover"
@@ -324,7 +352,7 @@ const SparePartDetail = () => {
                   <Heart className={cn("h-5 w-5", isFavorite && "fill-current")} />
                 </Button>
               </div>
-              
+
               <div className="flex items-center gap-4 mb-4">
                 <div className="flex items-center text-yellow-500">
                   {[...Array(5)].map((_, i) => (
@@ -343,7 +371,7 @@ const SparePartDetail = () => {
                   <p><span className="text-muted-foreground">OEM Part Number:</span> <span className="font-mono font-medium">{sparePart.oem_part_number}</span></p>
                 )}
                 <p><span className="text-muted-foreground">Brand:</span> <span className="font-medium">{sparePart.brand}</span></p>
-                <p><span className="text-muted-foreground">Condition:</span> 
+                <p><span className="text-muted-foreground">Condition:</span>
                   <Badge variant="outline" className="ml-2 capitalize">{sparePart.condition}</Badge>
                 </p>
               </div>
@@ -387,8 +415,8 @@ const SparePartDetail = () => {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="w-full bg-primary hover:bg-primary-hover"
                   onClick={handleAddToCart}
                   disabled={sparePart.availability_status !== 'in_stock'}
@@ -396,7 +424,7 @@ const SparePartDetail = () => {
                   <ShoppingCart className="h-5 w-5 mr-2" />
                   Add to Cart - ${(sparePart.price * quantity).toLocaleString()}
                 </Button>
-                
+
                 <div className="grid grid-cols-2 gap-3">
                   <Button variant="outline" size="lg">
                     <Heart className="h-4 w-4 mr-2" />
@@ -444,7 +472,7 @@ const SparePartDetail = () => {
                 <p className="text-muted-foreground leading-relaxed mb-6">
                   {sparePart.description}
                 </p>
-                
+
                 {sparePart.tags.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-3">Tags</h4>

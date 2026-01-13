@@ -35,12 +35,13 @@ const UserManagement: React.FC = () => {
     toast.info(`Updating role for user ${userId}...`);
 
     try {
+      // @ts-ignore: Suppress type error due to generated types mismatch
       const { error } = await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId);
 
       if (error) throw error;
 
       // Optimistically update UI
-      setUsers(users.map(user => 
+      setUsers(users.map(user =>
         user.id === userId ? { ...user, role: newRole } : user
       ));
 
@@ -50,7 +51,7 @@ const UserManagement: React.FC = () => {
         delete newState[userId];
         return newState;
       });
-      
+
       toast.success(`Role updated successfully for user ${userId}!`);
     } catch (error: any) {
       console.error('Error updating role:', error);
@@ -67,6 +68,9 @@ const UserManagement: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-bold">User Management</CardTitle>
+          <p className="text-muted-foreground">
+            Manage user roles and permissions. To add a new vendor or admin, wait for them to register, then upgrade their role in the list below.
+          </p>
         </CardHeader>
         <CardContent>
           <Table>

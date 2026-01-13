@@ -3,6 +3,11 @@ const CACHE_NAME = 'massrides-v2';
 const STATIC_CACHE = 'massrides-static-v2';
 const DYNAMIC_CACHE = 'massrides-dynamic-v2';
 
+// Logging helper - only log in development
+const isDev = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
+const log = (...args) => isDev && console.log('[SW]', ...args);
+const error = (...args) => console.error('[SW]', ...args);
+
 // Assets to cache immediately
 const STATIC_ASSETS = [
   '/',
@@ -21,12 +26,12 @@ const API_CACHE_PATTERNS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Installing...');
-  
+  log('Installing...');
+
   event.waitUntil(
     Promise.all([
       caches.open(STATIC_CACHE).then((cache) => {
-        console.log('Service Worker: Caching static assets');
+        log('Caching static assets');
         return cache.addAll(STATIC_ASSETS);
       }),
       self.skipWaiting()
@@ -36,15 +41,15 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Activating...');
-  
+  log('Activating...');
+
   event.waitUntil(
     Promise.all([
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-              console.log('Service Worker: Deleting old cache', cacheName);
+              log('Deleting old cache', cacheName);
               return caches.delete(cacheName);
             }
           })
@@ -79,7 +84,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          
+
           const networkResponse = await fetch(request);
           if (networkResponse.ok) {
             const cache = await caches.open(STATIC_CACHE);
@@ -112,7 +117,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          
+
           const networkResponse = await fetch(request);
           if (networkResponse.ok) {
             const cache = await caches.open(DYNAMIC_CACHE);
@@ -124,9 +129,9 @@ self.addEventListener('fetch', (event) => {
         // Strategy 4: Everything else - Network First
         return await fetch(request);
 
-      } catch (error) {
-        console.error('Service Worker: Fetch failed', error);
-        
+      } catch (err) {
+        error('Fetch failed', err);
+
         // Return offline page for navigation requests
         if (request.mode === 'navigate') {
           const offlineResponse = await caches.match('/');
@@ -134,8 +139,8 @@ self.addEventListener('fetch', (event) => {
             return offlineResponse;
           }
         }
-        
-        throw error;
+
+        throw err;
       }
     })()
   );
@@ -143,8 +148,8 @@ self.addEventListener('fetch', (event) => {
 
 // Background sync for offline actions
 self.addEventListener('sync', (event) => {
-  console.log('Service Worker: Background sync', event.tag);
-  
+  log('Background sync', event.tag);
+
   if (event.tag === 'cart-sync') {
     event.waitUntil(syncCart());
   } else if (event.tag === 'activity-log-sync') {
@@ -154,7 +159,7 @@ self.addEventListener('sync', (event) => {
 
 // Push notification handling
 self.addEventListener('push', (event) => {
-  console.log('Service Worker: Push received');
+  log('Push received');
 
   const options = {
     body: 'You have a new notification!',
@@ -182,8 +187,8 @@ self.addEventListener('push', (event) => {
       const data = event.data.json();
       options.body = data.message || options.body;
       options.data.url = data.url || options.data.url;
-    } catch (error) {
-      console.error('Error parsing push data:', error);
+    } catch (err) {
+      error('Error parsing push data:', err);
     }
   }
 
@@ -194,8 +199,8 @@ self.addEventListener('push', (event) => {
 
 // Notification click handling
 self.addEventListener('notificationclick', (event) => {
-  console.log('Service Worker: Notification clicked');
-  
+  log('Notification clicked');
+
   event.notification.close();
 
   if (event.action === 'view') {
@@ -219,11 +224,11 @@ async function syncCart() {
     const cartData = localStorage.getItem('guest_cart');
     if (cartData) {
       // Sync cart data when online
-      console.log('Service Worker: Syncing cart data');
+      log('Syncing cart data');
       // Implementation would depend on your cart sync API
     }
-  } catch (error) {
-    console.error('Service Worker: Cart sync failed', error);
+  } catch (err) {
+    error('Cart sync failed', err);
   }
 }
 
@@ -232,18 +237,18 @@ async function syncActivityLogs() {
     const pendingLogs = localStorage.getItem('pending_activity_logs');
     if (pendingLogs) {
       // Sync activity logs when online
-      console.log('Service Worker: Syncing activity logs');
+      log('Syncing activity logs');
       // Implementation would depend on your activity logging API
     }
-  } catch (error) {
-    console.error('Service Worker: Activity log sync failed', error);
+  } catch (err) {
+    error('Activity log sync failed', err);
   }
 }
 
 // Message handling for communication with main thread
 self.addEventListener('message', (event) => {
-  console.log('Service Worker: Message received', event.data);
-  
+  log('Message received', event.data);
+
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }

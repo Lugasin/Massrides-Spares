@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  CreditCard, 
-  Lock, 
-  ArrowLeft, 
+import {
+  CreditCard,
+  Lock,
+  ArrowLeft,
   CheckCircle,
   User,
   MapPin,
@@ -26,13 +26,16 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const Checkout = () => {
-  const { items, total, itemCount, clearCart } = useQuote();
+  const { items, total, itemCount, clearCart, updateQuantity } = useQuote();
   const { user, profile } = useAuth();
+  // ... (rest of imports)
+
+  // ... (rest of imports)
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [useShippingAddress, setUseShippingAddress] = useState(false);
-  
+
   const [customerInfo, setCustomerInfo] = useState({
     firstName: profile?.full_name?.split(' ')[0] || "",
     lastName: profile?.full_name?.split(' ').slice(1).join(' ') || "",
@@ -65,7 +68,7 @@ const Checkout = () => {
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
-    
+
     try {
       // Create order first
       const orderData = {
@@ -75,7 +78,7 @@ const Checkout = () => {
       };
 
       const token = user ? (await supabase.auth.getSession())?.data.session?.access_token : null;
-      
+
       const response = await supabase.functions.invoke('create-order', {
         body: orderData
       });
@@ -83,7 +86,7 @@ const Checkout = () => {
       if (response.error) {
         throw new Error(response.error.message || 'Failed to create order');
       }
-      
+
       const orderResult = response.data;
 
       // Create TJ payment session
@@ -105,12 +108,12 @@ const Checkout = () => {
       if (paymentResponse.error) {
         throw new Error(paymentResponse.error.message || 'Failed to create payment session');
       }
-      
+
       const paymentResult = paymentResponse.data;
 
       // Open TJ hosted payment page in new tab (following best practices)
       window.open(paymentResult.payment_url, '_blank');
-      
+
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Failed to process checkout');
@@ -145,11 +148,11 @@ const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
+      <Header
         cartItemsCount={itemCount}
         onAuthClick={() => navigate('/login')}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Progress Steps */}
@@ -198,7 +201,7 @@ const Checkout = () => {
                             id="firstName"
                             required
                             value={customerInfo.firstName}
-                            onChange={(e) => setCustomerInfo({...customerInfo, firstName: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, firstName: e.target.value })}
                           />
                         </div>
                         <div>
@@ -207,11 +210,11 @@ const Checkout = () => {
                             id="lastName"
                             required
                             value={customerInfo.lastName}
-                            onChange={(e) => setCustomerInfo({...customerInfo, lastName: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, lastName: e.target.value })}
                           />
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="email">Email *</Label>
@@ -220,7 +223,7 @@ const Checkout = () => {
                             type="email"
                             required
                             value={customerInfo.email}
-                            onChange={(e) => setCustomerInfo({...customerInfo, email: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
                           />
                         </div>
                         <div>
@@ -230,30 +233,30 @@ const Checkout = () => {
                             type="tel"
                             required
                             value={customerInfo.phone}
-                            onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
                           />
                         </div>
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="company">Company/Farm Name</Label>
                         <Input
                           id="company"
                           value={customerInfo.company}
-                          onChange={(e) => setCustomerInfo({...customerInfo, company: e.target.value})}
+                          onChange={(e) => setCustomerInfo({ ...customerInfo, company: e.target.value })}
                         />
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="address">Address *</Label>
                         <Input
                           id="address"
                           required
                           value={customerInfo.address}
-                          onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
+                          onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
                         />
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <Label htmlFor="city">City *</Label>
@@ -261,7 +264,7 @@ const Checkout = () => {
                             id="city"
                             required
                             value={customerInfo.city}
-                            onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, city: e.target.value })}
                           />
                         </div>
                         <div>
@@ -270,7 +273,7 @@ const Checkout = () => {
                             id="state"
                             required
                             value={customerInfo.state}
-                            onChange={(e) => setCustomerInfo({...customerInfo, state: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, state: e.target.value })}
                           />
                         </div>
                         <div>
@@ -279,11 +282,11 @@ const Checkout = () => {
                             id="zipCode"
                             required
                             value={customerInfo.zipCode}
-                            onChange={(e) => setCustomerInfo({...customerInfo, zipCode: e.target.value})}
+                            onChange={(e) => setCustomerInfo({ ...customerInfo, zipCode: e.target.value })}
                           />
                         </div>
                       </div>
-                      
+
                       <Button type="submit" size="lg" className="w-full">
                         Continue to Payment
                       </Button>
@@ -303,8 +306,8 @@ const Checkout = () => {
                   <CardContent>
                     <form onSubmit={handleCreateOrder} className="space-y-4">
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="useShippingAddress" 
+                        <Checkbox
+                          id="useShippingAddress"
                           checked={useShippingAddress}
                           onCheckedChange={(checked) => setUseShippingAddress(checked === true)}
                         />
@@ -312,11 +315,11 @@ const Checkout = () => {
                           Ship to a different address
                         </Label>
                       </div>
-                      
+
                       {useShippingAddress && (
                         <div className="space-y-4 p-4 border rounded-lg">
                           <h4 className="font-medium">Shipping Address</h4>
-                          
+
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <Label htmlFor="shippingFirstName">First Name *</Label>
@@ -324,7 +327,7 @@ const Checkout = () => {
                                 id="shippingFirstName"
                                 required
                                 value={shippingInfo.firstName}
-                                onChange={(e) => setShippingInfo({...shippingInfo, firstName: e.target.value})}
+                                onChange={(e) => setShippingInfo({ ...shippingInfo, firstName: e.target.value })}
                               />
                             </div>
                             <div>
@@ -333,30 +336,30 @@ const Checkout = () => {
                                 id="shippingLastName"
                                 required
                                 value={shippingInfo.lastName}
-                                onChange={(e) => setShippingInfo({...shippingInfo, lastName: e.target.value})}
+                                onChange={(e) => setShippingInfo({ ...shippingInfo, lastName: e.target.value })}
                               />
                             </div>
                           </div>
-                          
+
                           <div>
                             <Label htmlFor="shippingCompany">Company/Farm Name</Label>
                             <Input
                               id="shippingCompany"
                               value={shippingInfo.company}
-                              onChange={(e) => setShippingInfo({...shippingInfo, company: e.target.value})}
+                              onChange={(e) => setShippingInfo({ ...shippingInfo, company: e.target.value })}
                             />
                           </div>
-                          
+
                           <div>
                             <Label htmlFor="shippingAddress">Address *</Label>
                             <Input
                               id="shippingAddress"
                               required
                               value={shippingInfo.address}
-                              onChange={(e) => setShippingInfo({...shippingInfo, address: e.target.value})}
+                              onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
                             />
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                               <Label htmlFor="shippingCity">City *</Label>
@@ -364,7 +367,7 @@ const Checkout = () => {
                                 id="shippingCity"
                                 required
                                 value={shippingInfo.city}
-                                onChange={(e) => setShippingInfo({...shippingInfo, city: e.target.value})}
+                                onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
                               />
                             </div>
                             <div>
@@ -373,7 +376,7 @@ const Checkout = () => {
                                 id="shippingState"
                                 required
                                 value={shippingInfo.state}
-                                onChange={(e) => setShippingInfo({...shippingInfo, state: e.target.value})}
+                                onChange={(e) => setShippingInfo({ ...shippingInfo, state: e.target.value })}
                               />
                             </div>
                             <div>
@@ -382,24 +385,24 @@ const Checkout = () => {
                                 id="shippingZipCode"
                                 required
                                 value={shippingInfo.zipCode}
-                                onChange={(e) => setShippingInfo({...shippingInfo, zipCode: e.target.value})}
+                                onChange={(e) => setShippingInfo({ ...shippingInfo, zipCode: e.target.value })}
                               />
                             </div>
                           </div>
                         </div>
                       )}
-                      
+
                       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
                         <Lock className="h-4 w-4" />
                         Secure payment processing via Transaction Junction
                       </div>
-                      
+
                       <div>
                         <p className="text-sm text-muted-foreground">
                           You will be redirected to our secure payment partner to complete your purchase.
                         </p>
                       </div>
-                      
+
                       <div className="flex gap-4">
                         <Button
                           type="button"
@@ -473,16 +476,32 @@ const Checkout = () => {
                         />
                         <div className="flex-1">
                           <h4 className="font-medium text-sm">{item.name}</h4>
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>Qty: {item.quantity}</span>
+                          <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
+                            <div className="flex items-center gap-2 border rounded-md px-1">
+                              <button
+                                className="px-1 hover:text-primary font-bold"
+                                type="button"
+                                onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                              >
+                                -
+                              </button>
+                              <span className="text-xs font-medium w-4 text-center">{item.quantity}</span>
+                              <button
+                                className="px-1 hover:text-primary font-bold"
+                                type="button"
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              >
+                                +
+                              </button>
+                            </div>
                             <span>${(item.price * item.quantity).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
                     ))}
-                    
+
                     <Separator />
-                    
+
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
@@ -497,9 +516,9 @@ const Checkout = () => {
                         <span>TBD</span>
                       </div>
                     </div>
-                    
+
                     <Separator />
-                    
+
                     <div className="flex justify-between font-semibold">
                       <span>Total</span>
                       <span className="text-primary">${total.toLocaleString()}</span>

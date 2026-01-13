@@ -1,53 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Massrides - Premium Agricultural Spare Parts | Zambia</title>
-    <meta name="description" content="Leading supplier of agricultural spare parts in Zambia. Engine parts, hydraulic components, electrical parts, and tractor spare parts. Expert service and nationwide delivery." />
-    <meta name="keywords" content="agricultural spare parts, tractor parts, engine parts, hydraulic parts, electrical components, farming parts, Zambia, spare parts" />
-    <meta name="author" content="Massrides Company Limited" />
-    <meta name="theme-color" content="#ec8a04" />
 
-    <!-- Preconnect to Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Massrides - Premium Spares | Zambia</title>
+  <meta name="description"
+    content="Leading supplier of spares in Zambia. Engine parts, hydraulic components, electrical parts, and tractor spare parts. Expert service and nationwide delivery." />
+  <meta name="keywords"
+    content="spares, agricultural parts, tractor parts, engine parts, hydraulic parts, electrical components, farming parts, Zambia, spare parts" />
+  <meta name="author" content="Massrides Company Limited" />
+  <meta name="theme-color" content="#ec8a04" />
 
-    <!-- Favicons -->
-    <link rel="icon" href="/tractor.ico" type="image/x-icon" sizes="any" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/tractor-16x16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/tractor-32x32.png" />
-    <link rel="apple-touch-icon" href="/tractor-180x180.png" />
+  <!-- Preconnect to Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <!-- Android Chrome Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/tractor-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/tractor-512x512.png" />
+  <!-- Favicons -->
+  <link rel="icon" href="/tractor.ico" type="image/x-icon" sizes="any" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/tractor-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/tractor-32x32.png" />
+  <link rel="apple-touch-icon" href="/tractor-180x180.png" />
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="Massrides - Premium Agricultural Spare Parts" />
-    <meta property="og:description" content="Leading supplier of agricultural spare parts in Zambia. Engine parts, hydraulic components, electrical parts." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://massrides.co.zm" />
-    <meta property="og:image" content="/tractor-512x512.png" />
-    <meta property="og:locale" content="en_ZM" />
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <!-- Android Chrome Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/tractor-192x192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/tractor-512x512.png" />
 
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Massrides - Premium Agricultural Spare Parts" />
-    <meta name="twitter:description" content="Leading supplier of agricultural spare parts in Zambia" />
-    <meta name="twitter:image" content="/tractor-512x512.png" />
-  </head>
+  <!-- Open Graph -->
+  <meta property="og:title" content="Massrides - Premium Spares" />
+  <meta property="og:description"
+    content="Leading supplier of spares in Zambia. Engine parts, hydraulic components, electrical parts." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://massrides.co.zm" />
+  <meta property="og:image" content="/tractor-512x512.png" />
+  <meta property="og:locale" content="en_ZM" />
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Service Worker Registration -->
-    <script src="/src/service-worker.js"></script>
-  </body>
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Massrides - Premium Spares" />
+  <meta name="twitter:description" content="Leading supplier of agricultural spare parts in Zambia" />
+  <meta name="twitter:image" content="/tractor-512x512.png" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Service Worker Registration -->
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker registered:', reg.scope))
+          .catch(err => console.error('Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+
 </html>

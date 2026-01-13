@@ -1,51 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, TrendingUp, Users, DollarSign, Package, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const Analytics = () => {
   const { user, profile, userRole } = useAuth();
+  const { formatCurrency } = useSettings();
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const analyticsData = {
-    admin: {
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        if (userRole === 'vendor') {
+          const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data');
+          if (error) throw error;
+          setDashboardData(data.dashboardData);
+        }
+        // Future: Add Admin analytics fetch here
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [userRole]);
+
+  const viewData = useMemo(() => {
+    if (userRole === 'vendor' && dashboardData) {
+      return {
+        title: "Vendor Analytics",
+        cards: [
+          { title: "Sales Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, change: "Gross", icon: DollarSign },
+          { title: "Total Orders", value: dashboardData.totalOrders?.toString() || "0", change: "Total", icon: ShoppingCart },
+          { title: "Active Products", value: dashboardData.totalProducts?.toString() || "0", change: "Live", icon: Package },
+          { title: "Low Stock", value: dashboardData.lowStockProducts?.length.toString() || "0", change: "Alerts", icon: BarChart3 }
+        ]
+      };
+    }
+
+    // Default fallback (e.g. for Admin until implemented)
+    return {
       title: "System Analytics",
       cards: [
-        { title: "Total Revenue", value: "$124,590", change: "+12.5%", icon: DollarSign },
-        { title: "New Users", value: "245", change: "+8.2%", icon: Users },
-        { title: "Orders", value: "1,234", change: "+15.3%", icon: ShoppingCart },
-        { title: "Products", value: "567", change: "+4.1%", icon: Package }
+        { title: "Total Revenue", value: "$0", change: "-", icon: DollarSign },
+        { title: "New Users", value: "0", change: "-", icon: Users },
+        { title: "Orders", value: "0", change: "-", icon: ShoppingCart },
+        { title: "Products", value: "0", change: "-", icon: Package }
       ]
-    },
-    vendor: {
-      title: "Vendor Analytics",
-      cards: [
-        { title: "Sales Revenue", value: "$12,450", change: "+18.7%", icon: DollarSign },
-        { title: "Products Sold", value: "89", change: "+12.3%", icon: Package },
-        { title: "Active Listings", value: "34", change: "+5.2%", icon: BarChart3 },
-        { title: "Customer Views", value: "2,345", change: "+25.1%", icon: TrendingUp }
-      ]
-    },
-    customer: {
-      title: "Purchase Analytics",
-      cards: [
-        { title: "Total Spent", value: "$3,240", change: "+22.1%", icon: DollarSign },
-        { title: "Orders Placed", value: "12", change: "+3", icon: ShoppingCart },
-        { title: "Favorite Items", value: "8", change: "+2", icon: Package },
-        { title: "Savings", value: "$456", change: "+15.3%", icon: TrendingUp }
-      ]
-    }
-  };
-
-  const data = analyticsData[userRole as keyof typeof analyticsData] || analyticsData.customer;
+    };
+  }, [userRole, dashboardData]);
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{data.title}</h1>
+            <h1 className="text-3xl font-bold">{viewData.title}</h1>
             <p className="text-muted-foreground">Detailed insights and performance metrics</p>
           </div>
           <Button>
@@ -56,7 +74,7 @@ const Analytics = () => {
 
         {/* Analytics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {data.cards.map((card, index) => (
+          {viewData.cards.map((card, index) => (
             <Card key={index}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -67,7 +85,7 @@ const Analytics = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{card.value}</div>
                 <p className="text-xs text-success">
-                  {card.change} from last month
+                  {card.change}
                 </p>
               </CardContent>
             </Card>

@@ -9,7 +9,7 @@ const corsHeaders = {
 interface EmailNotificationRequest {
   to: string;
   subject: string;
-  type: 'security_alert' | 'payment_notification' | 'system_health' | 'order_update';
+  type: 'security_alert' | 'payment_notification' | 'system_health' | 'order_update' | 'cart_summary';
   data: any;
   priority?: 'low' | 'medium' | 'high' | 'critical';
 }
@@ -170,6 +170,13 @@ function generateEmailContent(type: string, data: any): string {
              `Time: ${data.updated_at}\n\n` +
              `The order status has been updated.`
 
+    case 'cart_summary':
+      return `Your Cart Quote\n\n` +
+             `Here is the summary of items currently in your cart:\n\n` +
+             (data.items || []).map((item: any) => `- ${item.name}: ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`).join('\n') +
+             `\n\nTotal: $${Math.round(data.total || 0).toLocaleString()}\n\n` +
+             `Return to checkout: ${data.checkout_url || 'https://massrides-agri.com/cart'}`
+
     default:
       return `Notification: ${JSON.stringify(data, null, 2)}`
   }
@@ -285,6 +292,43 @@ ${JSON.stringify(data.metadata || {}, null, 2)}
           <tr><th>Amount</th><td>$${data.total_amount || '0.00'}</td></tr>
           <tr><th>Updated</th><td>${data.updated_at || new Date().toISOString()}</td></tr>
         </table>
+      `
+
+    case 'cart_summary':
+      return `
+        <h2>Your Cart Quote</h2>
+        <p>You requested a copy of your current cart. Here are the items:</p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Quantity</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(data.items || []).map((item: any) => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>$${item.price.toLocaleString()}</td>
+                <td>$${(item.quantity * item.price).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+            <tr style="font-weight: bold; background-color: #f8f9fa;">
+              <td colspan="3" style="text-align: right;">Total</td>
+              <td>$${(data.total || 0).toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="margin-top: 20px; text-align: center;">
+          <a href="${data.checkout_url || 'https://massrides-agri.com/cart'}" 
+             style="display: inline-block; padding: 10px 20px; background-color: #0F172A; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            Return to Checkout
+          </a>
+        </div>
       `
 
     default:

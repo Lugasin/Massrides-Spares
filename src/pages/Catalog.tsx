@@ -26,10 +26,10 @@ const Catalog = () => {
   const brands = ["All", ...Array.from(new Set(products.map(part => part.brand))).sort()];
 
   const filteredProducts = products
-    .filter(part => 
+    .filter(part =>
       (part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       part.partNumber?.toLowerCase().includes(partNumberSearch.toLowerCase())) &&
+        part.partNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        part.partNumber?.toLowerCase().includes(partNumberSearch.toLowerCase())) &&
       (selectedCategory === "All" || part.category === selectedCategory) &&
       (selectedBrand === "All" || part.brand === selectedBrand) &&
       (minPrice === "" || part.price >= parseFloat(minPrice)) &&
@@ -61,16 +61,16 @@ const Catalog = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
+      <Header
         cartItemsCount={itemCount}
-        onAuthClick={() => {}}
+        onAuthClick={() => { }}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-4">
-            Agricultural Spare Parts Catalog
+            Massrides Spares Catalog
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Discover our comprehensive range of agricultural spare parts designed to keep your farming equipment running at peak performance.
@@ -88,14 +88,14 @@ const Catalog = () => {
               className="pl-10 w-full"
             />
           </div>
-          
+
           <Input
             placeholder="Part Number"
             value={partNumberSearch}
             onChange={(e) => setPartNumberSearch(e.target.value)}
             className="w-full"
           />
-          
+
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-full">
               <Filter className="h-4 w-4 mr-2" />
@@ -148,22 +148,22 @@ const Catalog = () => {
                   </Badge>
                 )}
               </div>
-              
+
               <CardContent className="p-4">
                 <h3 className="font-semibold text-card-foreground mb-2 line-clamp-2">
                   {part.name}
                 </h3>
-                
+
                 {part.partNumber && (
                   <p className="text-xs text-muted-foreground mb-2">
                     Part #: {part.partNumber}
                   </p>
                 )}
-                
+
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                   {part.description}
                 </p>
-                
+
                 <div className="flex flex-wrap gap-1 mb-3">
                   {part.specs.slice(0, 2).map((spec) => (
                     <Badge key={spec} variant="outline" className="text-xs">
@@ -176,12 +176,12 @@ const Catalog = () => {
                     </Badge>
                   )}
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-primary">
                     ${part.price.toLocaleString()}
                   </span>
-                  
+
                   <Button
                     onClick={() => handleAddToCart(part)}
                     disabled={!part.inStock}

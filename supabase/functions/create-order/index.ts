@@ -76,6 +76,8 @@ serve(async (req) => {
 
     // Get cart items (either from user cart or guest cart)
     let cartItems: any[] = []
+    let sourceCartId: string | null = null;
+    let sourceIsGuest = false;
     
     if (user && profile) {
       // Get user cart items
@@ -86,6 +88,7 @@ serve(async (req) => {
         .single()
 
       if (cart) {
+        sourceCartId = cart.id;
         const { data: userCartItems } = await supabase
           .from('cart_items')
           .select(`
@@ -107,6 +110,8 @@ serve(async (req) => {
         .single()
 
       if (guestCart) {
+        sourceCartId = guestCart.id;
+        sourceIsGuest = true;
         const { data: guestCartItems } = await supabase
           .from('guest_cart_items')
           .select(`
@@ -193,6 +198,8 @@ serve(async (req) => {
       throw new Error(`Failed to create order items: ${itemsError.message}`)
     }
 
+    }
+
     // Send notification if user is logged in
     if (user && profile) {
       await supabase.from('notifications').insert({
@@ -202,6 +209,16 @@ serve(async (req) => {
         type: 'info'
       })
     }
+
+    // Clear cart items
+    if (sourceCartId) {
+        if (sourceIsGuest) {
+            await supabase.from('guest_cart_items').delete().eq('guest_cart_id', sourceCartId);
+        } else {
+            await supabase.from('cart_items').delete().eq('cart_id', sourceCartId);
+        }
+    }
+
 
     return new Response(
       JSON.stringify({

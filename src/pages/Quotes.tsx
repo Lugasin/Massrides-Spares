@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -9,14 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Database } from '../integrations/supabase/types';
 import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle, Info, Trash2, Send, RefreshCw, Check, X } from 'lucide-react';
 
@@ -90,7 +91,7 @@ const Quotes: React.FC = () => {
     confirmText: 'Confirm',
     cancelText: 'Cancel'
   });
-  
+
   // State for editable quote details
   const [editableQuoteDetails, setEditableQuoteDetails] = useState<SupabaseQuote | null>(null);
 
@@ -112,20 +113,20 @@ const Quotes: React.FC = () => {
   const handleItemFieldChange = (itemId: string, field: 'quantity' | 'price', value: string) => {
     setEditableQuoteDetails(prevDetails => {
       if (!prevDetails) return null;
-      
+
       const numericValue = parseFloat(value) || 0;
-      const updatedItems = prevDetails.items.map(item => 
+      const updatedItems = prevDetails.items.map(item =>
         item.id === itemId ? { ...item, [field]: numericValue } : item
       );
-      
-      const totalAmount = updatedItems.reduce((sum, item) => 
+
+      const totalAmount = updatedItems.reduce((sum, item) =>
         sum + (item.quantity * item.price), 0
       );
-      
-      return { 
-        ...prevDetails, 
-        items: updatedItems, 
-        total_amount: totalAmount 
+
+      return {
+        ...prevDetails,
+        items: updatedItems,
+        total_amount: totalAmount
       };
     });
   };
@@ -139,46 +140,46 @@ const Quotes: React.FC = () => {
 
   const handleSendQuote = async (quoteId: string) => {
     if (!quoteId) return;
-    
+
     const { data, error } = await supabase
       .from('quotes')
       .update({ status: 'sent' })
       .eq('id', quoteId)
       .select()
       .single();
-      
+
     if (error) {
-      console.error('Error sending quote:', error);
-      toast({ 
-        title: 'Error', 
-        description: `Failed to send quote: ${error.message}`, 
-        variant: 'destructive' 
+      logger.error('Error sending quote:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to send quote: ${error.message}`,
+        variant: 'destructive'
       });
     } else {
-      toast({ 
-        title: 'Success', 
-        description: 'Quote sent successfully.', 
-        variant: 'default' 
+      toast({
+        title: 'Success',
+        description: 'Quote sent successfully.',
+        variant: 'default'
       });
     }
   };
 
   const handleReviseQuote = async (quoteId: string) => {
     if (!quoteId || !editableQuoteDetails) return;
-    
+
     try {
       // Update quote status and notes
       const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
-        .update({ 
-          status: 'revised', 
-          notes: editableQuoteDetails.notes, 
-          total_amount: editableQuoteDetails.total_amount 
+        .update({
+          status: 'revised',
+          notes: editableQuoteDetails.notes,
+          total_amount: editableQuoteDetails.total_amount
         })
         .eq('id', quoteId)
         .select()
         .single();
-        
+
       if (quoteError) throw quoteError;
 
       // Update quote items
@@ -188,33 +189,33 @@ const Quotes: React.FC = () => {
         created_at: item.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       }));
-      
+
       const { error: itemsError } = await (supabase as any).from('quote_items').upsert(itemUpdates, {
         onConflict: 'id'
       });
       if (itemsError) throw itemsError;
 
-      toast({ 
-        title: 'Success', 
-        description: 'Quote revised successfully.', 
-        variant: 'default' 
+      toast({
+        title: 'Success',
+        description: 'Quote revised successfully.',
+        variant: 'default'
       });
-      
+
       // Refresh the quote list (realtime updates should handle this, but this is a fallback)
-     fetchQuotesList(); // Call the dedicated function to refetch the list
+      fetchQuotesList(); // Call the dedicated function to refetch the list
     } catch (error: any) {
-      console.error('Error revising quote:', error);
-      toast({ 
-        title: 'Error', 
-        description: `Failed to revise quote: ${error.message}`, 
-        variant: 'destructive' 
+      logger.error('Error revising quote:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to revise quote: ${error.message}`,
+        variant: 'destructive'
       });
     }
   };
 
   const handleRejectQuote = async (quoteId: string) => {
     if (!quoteId) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('quotes')
@@ -222,30 +223,30 @@ const Quotes: React.FC = () => {
         .eq('id', quoteId)
         .select()
         .single();
-        
+
       if (error) throw error;
-      
-      toast({ 
-        title: 'Success', 
-        description: 'Quote rejected successfully.', 
-        variant: 'default' 
+
+      toast({
+        title: 'Success',
+        description: 'Quote rejected successfully.',
+        variant: 'default'
       });
-      
+
       // Refresh the quote list
-     fetchQuotesList(); // Call the dedicated function to refetch the list
+      fetchQuotesList(); // Call the dedicated function to refetch the list
     } catch (error: any) {
-      console.error('Error rejecting quote:', error);
-      toast({ 
-        title: 'Error', 
-        description: `Failed to reject quote: ${error.message}`, 
-        variant: 'destructive' 
+      logger.error('Error rejecting quote:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to reject quote: ${error.message}`,
+        variant: 'destructive'
       });
-    } 
+    }
   };
 
   const handleAcceptQuote = async (quoteId: string) => {
     if (!quoteId) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('quotes')
@@ -253,23 +254,23 @@ const Quotes: React.FC = () => {
         .eq('id', quoteId)
         .select()
         .single();
-        
+
       if (error) throw error;
-      
-      toast({ 
-        title: 'Success', 
-        description: 'Quote accepted successfully.', 
-        variant: 'default' 
+
+      toast({
+        title: 'Success',
+        description: 'Quote accepted successfully.',
+        variant: 'default'
       });
-      
+
       // Refresh the quote list
       fetchQuotesList(); // Call the dedicated function to refetch the list
     } catch (error: any) {
-      console.error('Error accepting quote:', error);
-      toast({ 
-        title: 'Error', 
-        description: `Failed to accept quote: ${error.message}`, 
-        variant: 'destructive' 
+      logger.error('Error accepting quote:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to accept quote: ${error.message}`,
+        variant: 'destructive'
       });
     }
   };
@@ -345,7 +346,7 @@ const Quotes: React.FC = () => {
       });
 
     } catch (error: any) {
-      console.error('Error saving edited quote:', error);
+      logger.error('Error saving edited quote:', error);
       toast({
         title: 'Error',
         description: `Failed to save quote: ${error.message}`,
@@ -362,7 +363,7 @@ const Quotes: React.FC = () => {
   };
 
   // Function to fetch the list of quotes with related data
- const fetchQuotesList = useCallback(async () => {
+  const fetchQuotesList = useCallback(async () => {
     setLoadingQuotes(true);
     setErrorFetchingQuotes(null);
 
@@ -375,7 +376,7 @@ const Quotes: React.FC = () => {
 
       setQuotes(data.quotes || []);
     } catch (error: any) {
-      console.error('Error fetching quotes:', error);
+      logger.error('Error fetching quotes:', error);
       toast({
         title: 'Error',
         description: `Failed to fetch quotes: ${error.message}`,
@@ -386,12 +387,12 @@ const Quotes: React.FC = () => {
     } finally {
       setLoadingQuotes(false);
     }
- }, [user, userRole, toast]);
+  }, [user, userRole, toast]);
 
   useEffect(() => {
     if (user) {
       fetchQuotesList();
-    } else { 
+    } else {
       setQuotes([]);
       setLoadingQuotes(false);
     }
@@ -402,9 +403,9 @@ const Quotes: React.FC = () => {
     const fetchQuoteDetails = async () => {
       setSelectedQuoteDetails(null);
       setLoadingQuoteDetails(true);
-      
+
       if (!selectedQuoteId) return;
-      
+
       const { data, error } = await supabase
         .from('quotes')
         .select('*, items:quote_items(*), client:user_profiles!quotes_client_id_fkey(full_name), vendor:user_profiles!quotes_vendor_id_fkey(full_name)')
@@ -412,17 +413,17 @@ const Quotes: React.FC = () => {
         .single();
 
       if (error) {
-        console.error('Error fetching quote details:', error);
+        logger.error('Error fetching quote details:', error);
         toast({
-          title: 'Error', 
-          description: `Failed to fetch quote details: ${error.message}`, 
+          title: 'Error',
+          description: `Failed to fetch quote details: ${error.message}`,
           variant: 'destructive'
         });
         setSelectedQuoteDetails(null);
       } else {
         setSelectedQuoteDetails(data as unknown as SupabaseQuote | null);
       }
-      
+
       setLoadingQuoteDetails(false);
     };
 
@@ -437,24 +438,24 @@ const Quotes: React.FC = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'quotes' } as any,
         (payload) => {
-          console.log('Quote change received!', payload);
-          
+          logger.log('Quote change received!', payload);
+
           // Refetch the entire list to ensure consistency with the edge function's data shape
           fetchQuotesList();
-          
+
           // If the change is for the currently selected quote, refetch its details
-          if (selectedQuoteId && 
-              (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') && 
-              payload.old?.id === selectedQuoteId) {
+          if (selectedQuoteId &&
+            (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') &&
+            payload.old?.id === selectedQuoteId) {
             if (payload.eventType === 'DELETE') {
               setSelectedQuoteDetails(null);
               setSelectedQuoteId(null);
             } else {
               fetchQuoteDetails(); // Use the dedicated function
             }
-          } else if (selectedQuoteId && 
-                     payload.eventType === 'INSERT' && 
-                     payload.new?.id === selectedQuoteId) {
+          } else if (selectedQuoteId &&
+            payload.eventType === 'INSERT' &&
+            payload.new?.id === selectedQuoteId) {
             fetchQuoteDetails();
           }
         }
@@ -467,19 +468,19 @@ const Quotes: React.FC = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'quote_items' } as any, // Using 'as any' because types are out of sync
         (payload) => {
-          console.log('Quote item change received!', payload);
-          
-          if (selectedQuoteId && 
-              (payload.eventType === 'INSERT' || 
-               payload.eventType === 'UPDATE' || 
-               payload.eventType === 'DELETE') && 
-               ((payload.new as any)?.quote_id === selectedQuoteId || 
-                (payload.old as any)?.quote_id === selectedQuoteId)) {
-            
+          logger.log('Quote item change received!', payload);
+
+          if (selectedQuoteId &&
+            (payload.eventType === 'INSERT' ||
+              payload.eventType === 'UPDATE' ||
+              payload.eventType === 'DELETE') &&
+            ((payload.new as any)?.quote_id === selectedQuoteId ||
+              (payload.old as any)?.quote_id === selectedQuoteId)) {
+
             fetchQuoteDetails();
           }
         })
-      .subscribe(); 
+      .subscribe();
 
     // Cleanup function to unsubscribe 
     return () => {
@@ -487,9 +488,9 @@ const Quotes: React.FC = () => {
       supabase.removeChannel(quoteItemsChannel);
     };
   }, [selectedQuoteId, user, userRole]);
-  
+
   const openConfirmationDialog = useCallback((
-    action: 'send' | 'revise' | 'reject' | 'accept', 
+    action: 'send' | 'revise' | 'reject' | 'accept',
     quoteId: string
   ) => {
     let title = '';
@@ -497,7 +498,7 @@ const Quotes: React.FC = () => {
     let icon = null;
     let confirmText = 'Confirm';
     let cancelText = 'Cancel';
-    
+
     switch (action) {
       case 'send':
         title = 'Send Quote';
@@ -524,7 +525,7 @@ const Quotes: React.FC = () => {
         confirmText = 'Accept Quote';
         break;
     }
-    
+
     setConfirmationDialog({
       isOpen: true,
       action,
@@ -536,12 +537,12 @@ const Quotes: React.FC = () => {
       cancelText
     });
   }, []);
-  
+
   const executeConfirmedAction = async () => {
     const { action, quoteId } = confirmationDialog;
-    
+
     if (!action || !quoteId) return;
-    
+
     try {
       switch (action) {
         case 'send':
@@ -558,7 +559,7 @@ const Quotes: React.FC = () => {
           break;
       }
     } catch (error) {
-      console.error(`Error executing ${action} action:`, error);
+      logger.error(`Error executing ${action} action:`, error);
     } finally {
       setConfirmationDialog(prev => ({ ...prev, isOpen: false }));
     }
@@ -588,7 +589,7 @@ const Quotes: React.FC = () => {
                   {(userRole === 'admin' || userRole === 'super_admin') && <TableHead>Vendor</TableHead>}
                   <TableHead>Actions</TableHead>
                 </TableRow>
-              </TableHeader> 
+              </TableHeader>
               <TableBody>
                 {loadingQuotes ? (
                   <TableRow>
@@ -606,8 +607,8 @@ const Quotes: React.FC = () => {
                         <AlertCircle className="h-8 w-8 text-destructive mb-2" />
                         <p className="text-destructive font-medium">Error Loading Quotes</p>
                         <p className="text-muted-foreground text-sm mt-1">{errorFetchingQuotes}</p>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="mt-3"
                           onClick={() => {
                             if (user) fetchQuotesList();
@@ -627,7 +628,7 @@ const Quotes: React.FC = () => {
                         </div>
                         <h3 className="text-lg font-semibold">No quotes found</h3>
                         <p className="text-muted-foreground max-w-sm text-center mt-2">
-                          {userRole === 'customer' 
+                          {userRole === 'customer'
                             ? 'You haven\'t requested any quotes yet. Click "New Quote Request" to get started!'
                             : 'There are no quotes to display. Quotes will appear here once they\'re created.'}
                         </p>
@@ -670,25 +671,25 @@ const Quotes: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Quote Details (Conditionally displayed) */}
       {selectedQuoteId && selectedQuoteDetails ? (
         <div className="lg:col-span-2">
           <Card className={`h-full overflow-y-auto sticky top-0 ${isEditing ? 'border-blue-500' : ''}`}>
             {/* Edit Button */}
-            {(userRole === 'vendor' || userRole === 'admin') && 
-             (selectedQuoteDetails.status === 'pending' || selectedQuoteDetails.status === 'revised') && 
-             !isEditing && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="absolute top-4 right-4" 
-                onClick={() => setIsEditing(true)}
-              >
-                Edit
-              </Button>
-            )}
-            
+            {(userRole === 'vendor' || userRole === 'admin') &&
+              (selectedQuoteDetails.status === 'pending' || selectedQuoteDetails.status === 'revised') &&
+              !isEditing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="absolute top-4 right-4"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Edit
+                </Button>
+              )}
+
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-2xl font-bold">
                 Quote Details: {selectedQuoteDetails.quote_number}
@@ -700,7 +701,7 @@ const Quotes: React.FC = () => {
                 Close Details
               </Button>
             </CardHeader>
-            
+
             <CardContent className="space-y-4">
               {loadingQuoteDetails ? (
                 <div className="flex flex-col items-center justify-center py-12">
@@ -741,24 +742,24 @@ const Quotes: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Notes Section */}
                   <div>
                     <p className="text-muted-foreground">Notes:</p>
-                    {(userRole === 'vendor' || userRole === 'admin') && 
-                     (selectedQuoteDetails.status === 'pending' || selectedQuoteDetails.status === 'revised') && 
-                     isEditing ? (
+                    {(userRole === 'vendor' || userRole === 'admin') &&
+                      (selectedQuoteDetails.status === 'pending' || selectedQuoteDetails.status === 'revised') &&
+                      isEditing ? (
                       <Textarea
                         value={editableQuoteDetails?.notes || ''}
                         onChange={(e) => handleNotesChange(e.target.value)}
-                        placeholder="Add internal notes..." 
+                        placeholder="Add internal notes..."
                         className="mt-2"
                       />
                     ) : (
                       <p className="mt-2">{selectedQuoteDetails.notes || 'No notes.'}</p>
                     )}
                   </div>
-                  
+
                   <h4 className="text-lg font-semibold mt-6">Items</h4>
                   <Table>
                     <TableHeader>
@@ -802,12 +803,12 @@ const Quotes: React.FC = () => {
                       ))}
                     </TableBody>
                   </Table>
-                  
+
                   {/* Total Amount */}
                   <div className="text-right text-xl font-bold text-primary mt-6">
                     Total: ${selectedQuoteDetails.total_amount.toLocaleString()}
                   </div>
-                  
+
                   {/* Action Buttons */}
                   <div className="flex justify-end gap-4 mt-6">
                     {isEditing ? (
@@ -823,61 +824,61 @@ const Quotes: React.FC = () => {
                       <>
                         {userRole === 'customer' && selectedQuoteDetails.status === 'sent' && (
                           <>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               onClick={() => openConfirmationDialog('reject', selectedQuoteDetails.id)}
                             >
                               Reject Quote
                             </Button>
-                            <Button 
+                            <Button
                               onClick={() => openConfirmationDialog('accept', selectedQuoteDetails.id)}
                             >
                               Accept Quote
                             </Button>
                           </>
                         )}
-                        
-                        {(userRole === 'vendor' || userRole === 'admin') && 
-                         (selectedQuoteDetails.status === 'pending' || selectedQuoteDetails.status === 'revised') && (
-                          <>
-                            <Button 
-                              variant="outline" 
-                              onClick={() => selectedQuoteDetails && openConfirmationDialog('revise', selectedQuoteDetails.id)}
+
+                        {(userRole === 'vendor' || userRole === 'admin') &&
+                          (selectedQuoteDetails.status === 'pending' || selectedQuoteDetails.status === 'revised') && (
+                            <>
+                              <Button
+                                variant="outline"
+                                onClick={() => selectedQuoteDetails && openConfirmationDialog('revise', selectedQuoteDetails.id)}
+                              >
+                                Revise Quote
+                              </Button>
+                              <Button
+                                onClick={() => selectedQuoteDetails && openConfirmationDialog('send', selectedQuoteDetails.id)}
+                              >
+                                {selectedQuoteDetails.status === 'pending' ? 'Send Quote' : 'Resend Quote'}
+                              </Button>
+                            </>
+                          )}
+
+                        {(userRole === 'vendor' || userRole === 'admin') &&
+                          selectedQuoteDetails.status === 'sent' && (
+                            <Button
+                              variant="outline"
+                              onClick={() => selectedQuoteDetails && openConfirmationDialog('reject', selectedQuoteDetails.id)}
                             >
-                              Revise Quote
+                              Reject Quote
                             </Button>
-                            <Button 
-                              onClick={() => selectedQuoteDetails && openConfirmationDialog('send', selectedQuoteDetails.id)}
-                            >
-                              {selectedQuoteDetails.status === 'pending' ? 'Send Quote' : 'Resend Quote'}
-                            </Button>
-                          </>
-                        )}
-                        
-                        {(userRole === 'vendor' || userRole === 'admin') && 
-                         selectedQuoteDetails.status === 'sent' && (
-                          <Button 
-                            variant="outline" 
-                            onClick={() => selectedQuoteDetails && openConfirmationDialog('reject', selectedQuoteDetails.id)}
-                          >
-                            Reject Quote
-                          </Button>
-                        )}
-                        
+                          )}
+
                         {userRole === 'customer' && selectedQuoteDetails.status === 'sent' && (
-                          <Button 
+                          <Button
                             onClick={() => openConfirmationDialog('accept', selectedQuoteDetails.id)}
                           >
                             Accept Quote
                           </Button>
                         )}
-                        
-                        {(userRole === 'vendor' || userRole === 'admin') && 
-                         selectedQuoteDetails.status === 'sent' && (
-                          <Button variant="outline">
-                            View as Sent
-                          </Button>
-                        )}
+
+                        {(userRole === 'vendor' || userRole === 'admin') &&
+                          selectedQuoteDetails.status === 'sent' && (
+                            <Button variant="outline">
+                              View as Sent
+                            </Button>
+                          )}
                       </>
                     )}
                   </div>
@@ -886,8 +887,8 @@ const Quotes: React.FC = () => {
                 <div className="text-center text-muted-foreground py-8">
                   <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p>Quote details could not be loaded. The quote may have been deleted.</p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="mt-3"
                     onClick={() => {
                       fetchQuoteDetails();
@@ -908,11 +909,11 @@ const Quotes: React.FC = () => {
                 <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Quote Details Unavailable</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  The quote details could not be loaded. This may be because the quote has been deleted 
+                  The quote details could not be loaded. This may be because the quote has been deleted
                   or you don't have permission to view it.
                 </p>
                 <div className="mt-6 flex justify-center gap-4">
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={() => {
                       setSelectedQuoteId(null);
@@ -921,7 +922,7 @@ const Quotes: React.FC = () => {
                   >
                     Back to Quotes
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => {
                       fetchQuoteDetails();
                     }}
@@ -934,9 +935,9 @@ const Quotes: React.FC = () => {
           </Card>
         </div>
       ) : null}
-      
+
       {/* Confirmation Dialog */}
-      <Dialog open={confirmationDialog.isOpen} onOpenChange={(open) => 
+      <Dialog open={confirmationDialog.isOpen} onOpenChange={(open) =>
         setConfirmationDialog(prev => ({ ...prev, isOpen: open }))
       }>
         <DialogContent>
@@ -950,14 +951,14 @@ const Quotes: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setConfirmationDialog(prev => ({ ...prev, isOpen: false }))}
             >
               {confirmationDialog.cancelText}
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={executeConfirmedAction}
             >
               {confirmationDialog.confirmText}

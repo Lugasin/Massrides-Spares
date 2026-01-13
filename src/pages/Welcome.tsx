@@ -24,7 +24,7 @@ const Welcome: React.FC = () => {
     const handleWelcomeFlow = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session?.user) {
           const { data: profile, error } = await (supabase as any)
             .from('user_profiles')
@@ -42,9 +42,9 @@ const Welcome: React.FC = () => {
             const now = new Date();
             const timeDiff = now.getTime() - createdAt.getTime();
             const isRecent = timeDiff < (24 * 60 * 60 * 1000); // Less than 24 hours
-            
+
             setIsNewUser(isRecent);
-            
+
             if (isRecent && profile.is_verified) {
               await (supabase as any).from('notifications').insert({
                 user_id: profile.id,
@@ -95,13 +95,13 @@ const Welcome: React.FC = () => {
             {isNewUser ? '🎉 Welcome to Massrides!' : '👋 Welcome Back!'}
           </CardTitle>
           <p className="text-muted-foreground text-lg">
-            {isNewUser 
+            {isNewUser
               ? 'Your account is verified and ready to use'
               : 'Good to see you again'
             }
           </p>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {isNewUser && (
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
@@ -109,16 +109,16 @@ const Welcome: React.FC = () => {
                 <Sparkles className="h-5 w-5 text-primary" />
                 Get Started with Massrides
               </h3>
-              
+
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="text-center p-4 bg-background rounded-lg border">
                   <Tractor className="h-8 w-8 text-primary mx-auto mb-2" />
                   <h4 className="font-medium mb-2">Browse Parts</h4>
                   <p className="text-sm text-muted-foreground">
-                    Explore our extensive catalog of agricultural spare parts
+                    Explore our extensive catalog of spares
                   </p>
                 </div>
-                
+
                 <div className="text-center p-4 bg-background rounded-lg border">
                   <ShoppingCart className="h-8 w-8 text-primary mx-auto mb-2" />
                   <h4 className="font-medium mb-2">Start Shopping</h4>
@@ -126,7 +126,7 @@ const Welcome: React.FC = () => {
                     Add parts to your cart and place orders easily
                   </p>
                 </div>
-                
+
                 <div className="text-center p-4 bg-background rounded-lg border">
                   <Users className="h-8 w-8 text-primary mx-auto mb-2" />
                   <h4 className="font-medium mb-2">Connect</h4>
@@ -146,18 +146,17 @@ const Welcome: React.FC = () => {
                   <span className="text-muted-foreground">Email:</span> {userProfile.email}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Role:</span> 
+                  <span className="text-muted-foreground">Role:</span>
                   <span className="ml-1 px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium">
                     {userProfile.role?.replace('_', ' ').toUpperCase() || 'CUSTOMER'}
                   </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
-                  <span className={`ml-1 px-2 py-1 rounded text-xs font-medium ${
-                    userProfile.is_verified 
+                  <span className={`ml-1 px-2 py-1 rounded text-xs font-medium ${userProfile.is_verified
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                       : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                  }`}>
+                    }`}>
                     {userProfile.is_verified ? 'VERIFIED' : 'PENDING'}
                   </span>
                 </div>
@@ -166,9 +165,9 @@ const Welcome: React.FC = () => {
           )}
 
           <div className="space-y-3">
-            <Button 
-              asChild 
-              size="lg" 
+            <Button
+              asChild
+              size="lg"
               className="w-full"
             >
               <Link to="/catalog">
@@ -177,11 +176,11 @@ const Welcome: React.FC = () => {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            
+
             <div className="grid gap-3 md:grid-cols-2">
-              <Button 
-                asChild 
-                variant="outline" 
+              <Button
+                asChild
+                variant="outline"
                 size="lg"
                 className="w-full"
               >
@@ -189,10 +188,10 @@ const Welcome: React.FC = () => {
                   Go to Dashboard
                 </Link>
               </Button>
-              
-              <Button 
-                asChild 
-                variant="outline" 
+
+              <Button
+                asChild
+                variant="outline"
                 size="lg"
                 className="w-full"
               >

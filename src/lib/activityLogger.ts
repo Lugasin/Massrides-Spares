@@ -32,18 +32,20 @@ export const logActivity = async ({
     }
 
     const { error } = await supabase
-      .from('activity_logs')
+      .from('audit_logs')
       .insert({
-        user_id: userId,
-        activity_type: actionType,
-        resource_type: resourceType || 'user_activity',
-        resource_id: resourceId ? parseInt(resourceId.toString()) : null,
-        additional_details: actionDetails || {},
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        risk_score: riskScore,
-        log_source: 'client_action'
-      });
+        actor_id: userId,
+        action: actionType,
+        object_type: resourceType || 'user_activity',
+        object_id: resourceId ? String(resourceId) : null,
+        diff: { 
+          ...actionDetails, 
+          risk_score: riskScore, 
+          log_source: 'client_action',
+          ip_address: ipAddress,
+          user_agent: userAgent
+        }
+      } as any);
 
     if (error) {
       console.error('Error logging activity:', error);

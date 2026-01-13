@@ -9,12 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Package, 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
+import {
+  Package,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
   Eye,
   Filter,
   MoreHorizontal,
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useSettings } from '@/context/SettingsContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -47,6 +48,7 @@ interface Product {
 }
 
 const ProductsManagement = () => {
+  const { formatCurrency } = useSettings();
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
@@ -65,25 +67,50 @@ const ProductsManagement = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
-        .from('spare_parts')
+        .from('products')
         .select(`
           *,
+          title,
+          sku,
           category:categories!category_id(name),
-          vendor:user_profiles!vendor_id(full_name, email, company_name)
+          vendor:user_profiles!vendor_id(full_name, email, company_name),
+          inventory(quantity)
         `)
         .order('created_at', { ascending: false });
 
       // Filter based on user role
       if (userRole === 'vendor') {
-        query = query.eq('vendor_id', profile?.id);
+        const { data: vendorData } = await supabase
+          .from('vendors')
+          .select('id')
+          .eq('owner_id', profile?.id)
+          .single();
+
+        if (vendorData) {
+          query = query.eq('vendor_id', vendorData.id);
+        } else {
+          // If no vendor record found, show no products
+          setProducts([]);
+          setLoading(false);
+          return;
+        }
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      setProducts(data || []);
+
+      const mappedData = data.map((p: any) => ({
+        ...p,
+        name: p.title,
+        part_number: p.sku || '',
+        stock_quantity: p.inventory?.[0]?.quantity || 0,
+        images: p.main_image ? [p.main_image] : [],
+      }));
+
+      setProducts(mappedData || []);
     } catch (error: any) {
       console.error('Error fetching products:', error);
       toast.error('Failed to load products');
@@ -116,7 +143,7 @@ const ProductsManagement = () => {
 
     try {
       const { error } = await supabase
-        .from('spare_parts')
+        .from('products')
         .delete()
         .eq('id', productId);
 
@@ -133,16 +160,16 @@ const ProductsManagement = () => {
   const handleToggleActive = async (productId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('spare_parts')
-        .update({ is_active: !currentStatus })
+        .from('products')
+        .update({ active: !currentStatus } as any)
         .eq('id', productId);
 
       if (error) throw error;
 
-      setProducts(products.map(p => 
+      setProducts(products.map(p =>
         p.id === productId ? { ...p, is_active: !currentStatus } : p
       ));
-      
+
       toast.success(`Product ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
     } catch (error: any) {
       console.error('Error toggling product status:', error);
@@ -151,23 +178,7 @@ const ProductsManagement = () => {
   };
 
   const handleToggleFeatured = async (productId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('spare_parts')
-        .update({ featured: !currentStatus })
-        .eq('id', productId);
-
-      if (error) throw error;
-
-      setProducts(products.map(p => 
-        p.id === productId ? { ...p, featured: !currentStatus } : p
-      ));
-      
-      toast.success(`Product ${!currentStatus ? 'featured' : 'unfeatured'} successfully`);
-    } catch (error: any) {
-      console.error('Error toggling featured status:', error);
-      toast.error('Failed to update featured status');
-    }
+    toast.info('Featured status checks are currently disabled pending schema update');
   };
 
   const filteredProducts = products.filter(product => {
@@ -204,7 +215,7 @@ const ProductsManagement = () => {
   };
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -341,11 +352,11 @@ const ProductsManagement = () => {
                       <div className="flex gap-4">
                         <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
                           {product.images?.[0] ? (
-                            <img 
-                              src={product.images[0]} 
-                              alt={product.name} 
-                              className="w-full h-full object-cover rounded-lg" 
-                              loading="lazy" 
+                            <img
+                              src={product.images[0]}
+                              alt={product.name}
+                              className="w-full h-full object-cover rounded-lg"
+                              loading="lazy"
                             />
                           ) : (
                             <Package className="h-6 w-6 text-muted-foreground" />
@@ -359,7 +370,7 @@ const ProductsManagement = () => {
                               <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-primary">${product.price.toLocaleString()}</p>
+                              <p className="text-lg font-bold text-primary">{formatCurrency(product.price)}</p>
                               <p className="text-sm text-muted-foreground">Stock: {product.stock_quantity}</p>
                             </div>
                           </div>
@@ -368,7 +379,7 @@ const ProductsManagement = () => {
                             <Badge variant="outline">{product.category?.name || 'No Category'}</Badge>
                             <Badge variant={getStatusColor(product.availability_status)} className="flex items-center gap-1">
                               {getStatusIcon(product.availability_status)}
-                              {product.availability_status.replace('_', ' ')}
+                              {(product.availability_status || '').replace('_', ' ')}
                             </Badge>
                             <Badge variant={product.is_active ? 'default' : 'secondary'}>
                               {product.is_active ? 'Active' : 'Inactive'}
@@ -383,9 +394,9 @@ const ProductsManagement = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => {
                             setSelectedProduct(product);
                             setShowDetailsDialog(true);
@@ -395,33 +406,33 @@ const ProductsManagement = () => {
                         </Button>
                         {(userRole === 'admin' || userRole === 'super_admin' || product.vendor?.email === user?.email) && (
                           <>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="ghost"
                               onClick={() => navigate(`/parts/${product.id}/edit`)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="ghost"
                               onClick={() => handleToggleActive(product.id, product.is_active)}
                             >
                               {product.is_active ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                             </Button>
                             {(userRole === 'admin' || userRole === 'super_admin') && (
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 onClick={() => handleToggleFeatured(product.id, product.featured)}
                                 className="text-yellow-600 hover:text-yellow-700"
                               >
                                 ⭐
                               </Button>
                             )}
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleDeleteProduct(product.id)}
                               className="text-destructive hover:text-destructive"
                             >
@@ -465,7 +476,7 @@ const ProductsManagement = () => {
                   </div>
                   <div>
                     <Label>Price</Label>
-                    <p className="text-lg font-bold text-primary">${selectedProduct.price.toLocaleString()}</p>
+                    <p className="text-lg font-bold text-primary">{formatCurrency(selectedProduct.price)}</p>
                   </div>
                   <div>
                     <Label>Stock Quantity</Label>
@@ -487,7 +498,7 @@ const ProductsManagement = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <Label>Description</Label>
                   <p className="text-sm text-muted-foreground mt-1">{selectedProduct.description}</p>

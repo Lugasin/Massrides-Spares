@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Mail, 
-  User, 
-  ShieldCheck, 
+import {
+  Mail,
+  User,
+  ShieldCheck,
   ArrowRight,
   CheckCircle,
   CreditCard,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { supabase } from '@/integrations/supabase/client';
+import { mergeGuestCart } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -33,31 +34,30 @@ const GuestCheckout = () => {
 
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !name) {
       toast.error('Please enter both name and email');
       return;
     }
 
     setIsVerifying(true);
-    
-    try {
-      const sessionId = localStorage.getItem('guest_session_id') || crypto.randomUUID();
-      localStorage.setItem('guest_session_id', sessionId);
 
-      const { data, error } = await supabase.functions.invoke('guest-verification', {
-        body: { 
-          email, 
-          session_id: sessionId,
-          action: 'send'
-        },
+    try {
+      // Use Supabase Auth for OTP
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          data: {
+            full_name: name,
+            role: 'customer' // Automatically make them a customer
+          }
+        }
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throw error;
 
-      // In production, the code would be sent to the user's email
-      // For demo purposes, we show it in a toast
-      toast.success(`Verification code sent. For demo: ${data.code}`);
+      toast.success('Verification code sent to your email.');
       setStep(2);
     } catch (error: any) {
       console.error('Error sending verification:', error);
@@ -69,30 +69,43 @@ const GuestCheckout = () => {
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!verificationCode) {
       toast.error('Please enter the verification code');
       return;
     }
 
     setIsVerifying(true);
-    
+
     try {
-      const sessionId = localStorage.getItem('guest_session_id');
-      
-      const { error } = await supabase.functions.invoke('guest-verification', {
-        body: { 
-          email, 
-          code: verificationCode, 
-          session_id: sessionId,
-          action: 'verify'
-        },
+      // Verify OTP and sign in
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: verificationCode,
+        type: 'email'
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throw error;
 
-      toast.success('Email verified successfully!');
-      setStep(3);
+      if (data.session) {
+        toast.success('Email verified successfully! You are now logged in.');
+
+        // Explicitly merge cart before proceeding
+        try {
+          await mergeGuestCart();
+          setStep(3);
+        } catch (error) {
+          console.error("Cart merge failed", error);
+          // Still proceed, as they are logged in, but warn? 
+          // Actually, if merge fails, their cart is empty. 
+          // But create-order might check guest_session_id if provided.
+          // Better to proceed.
+          setStep(3);
+        }
+      } else {
+        throw new Error('Verification successful but no session created.');
+      }
+
     } catch (error: any) {
       console.error('Error verifying code:', error);
       toast.error(`Verification failed: ${error.message}`);
@@ -103,7 +116,7 @@ const GuestCheckout = () => {
 
   const handleProceedToPayment = async () => {
     setIsProcessing(true);
-    
+
     try {
       const guest_session_id = localStorage.getItem('guest_session_id');
       if (!guest_session_id) {
@@ -147,13 +160,13 @@ const GuestCheckout = () => {
 
       // Redirect to TJ payment page
       window.open(paymentData.redirectUrl, '_blank');
-      
+
       // Clear local cart
       clearCart();
-      
+
       // Navigate to success page
       navigate(`/checkout/success?order=${order.order_number}`);
-      
+
     } catch (error: any) {
       console.error('Payment error:', error);
       toast.error(`Failed to process payment: ${error.message}`);
@@ -182,7 +195,7 @@ const GuestCheckout = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header cartItemsCount={itemCount} />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           {/* Back to Cart */}
@@ -240,7 +253,7 @@ const GuestCheckout = () => {
                       No account needed! Just verify your email and complete your purchase securely.
                     </p>
                   </div>
-                  
+
                   <div className="bg-muted/30 rounded-lg p-4 mb-6">
                     <h4 className="font-medium mb-2">Order Summary</h4>
                     <div className="flex justify-between items-center">
@@ -262,7 +275,7 @@ const GuestCheckout = () => {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="email">Email Address *</Label>
                     <Input
@@ -278,9 +291,9 @@ const GuestCheckout = () => {
                     </p>
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     size="lg"
                     disabled={isVerifying}
                   >
@@ -334,9 +347,9 @@ const GuestCheckout = () => {
                     />
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     size="lg"
                     disabled={isVerifying}
                   >
@@ -344,9 +357,9 @@ const GuestCheckout = () => {
                     <CheckCircle className="ml-2 h-4 w-4" />
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
+                  <Button
+                    type="button"
+                    variant="ghost"
                     className="w-full"
                     onClick={() => setStep(1)}
                   >
@@ -406,11 +419,11 @@ const GuestCheckout = () => {
                     <p className="text-sm text-muted-foreground mb-4">
                       You will be redirected to our secure payment partner to complete your purchase.
                     </p>
-                    
-                    <Button 
+
+                    <Button
                       onClick={handleProceedToPayment}
                       disabled={isProcessing}
-                      className="w-full bg-primary hover:bg-primary-hover" 
+                      className="w-full bg-primary hover:bg-primary-hover"
                       size="lg"
                     >
                       {isProcessing ? 'Processing...' : (

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { MessageCircle, Send, User } from 'lucide-react';
+import { MessageCircle, Send, User, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -83,8 +83,8 @@ const Messages: React.FC = () => {
 
       const processedConversations = data?.map(conv => ({
         ...conv,
-        other_participant: conv.participant_1_id === profile?.id 
-          ? conv.participant_2 
+        other_participant: conv.participant_1_id === profile?.id
+          ? conv.participant_2
           : conv.participant_1
       })) || [];
 
@@ -157,8 +157,8 @@ const Messages: React.FC = () => {
 
     try {
       setSending(true);
-      const recipientId = selectedConversation.participant_1_id === profile.id 
-        ? selectedConversation.participant_2_id 
+      const recipientId = selectedConversation.participant_1_id === profile.id
+        ? selectedConversation.participant_2_id
         : selectedConversation.participant_1_id;
 
       const { error } = await supabase
@@ -179,7 +179,7 @@ const Messages: React.FC = () => {
         .eq('id', selectedConversation.id);
 
       setNewMessageText('');
-      
+
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
@@ -203,12 +203,71 @@ const Messages: React.FC = () => {
   return (
     <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
       <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">Messages</h1>
-            <p className="text-muted-foreground">Communicate with vendors and customers</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">Messages</h1>
+              <p className="text-muted-foreground">Communicate with vendors and customers</p>
+            </div>
           </div>
+          <Button onClick={async () => {
+            try {
+              // Find a support user
+              const { data: supportUsers, error: supportError } = await supabase
+                .from('user_profiles')
+                .select('id')
+                .eq('role', 'support')
+                .limit(1);
+
+              if (supportError) throw supportError;
+
+              const supportUser = supportUsers?.[0];
+              if (!supportUser) {
+                toast.error('No support agents available currently.');
+                return;
+              }
+
+              // Check if conversation exists
+              const { data: existingConvs, error: convError } = await supabase
+                .from('conversations')
+                .select('id')
+                .or(`and(participant_1_id.eq.${profile?.id},participant_2_id.eq.${supportUser.id}),and(participant_1_id.eq.${supportUser.id},participant_2_id.eq.${profile?.id})`)
+                .single();
+
+              if (existingConvs) {
+                // Select existing
+                const conv = conversations.find(c => c.id === existingConvs.id);
+                if (conv) setSelectedConversation(conv);
+                else {
+                  // Fetch if not in list (should be)
+                  fetchConversations();
+                }
+              } else {
+                // Create new
+                const { data: newConv, error: createError } = await supabase
+                  .from('conversations')
+                  .insert({
+                    participant_1_id: profile?.id,
+                    participant_2_id: supportUser.id,
+                    last_message_at: new Date().toISOString()
+                  })
+                  .select()
+                  .single();
+
+                if (createError) throw createError;
+                toast.success('Started chat with support');
+                fetchConversations();
+              }
+
+            } catch (err: any) {
+              console.error('Error starting support chat:', err);
+              toast.error('Failed to contact support');
+            }
+          }}>
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            Contact Support
+          </Button>
         </div>
 
         <Card className="h-[calc(100vh-200px)]">
@@ -236,9 +295,8 @@ const Messages: React.FC = () => {
                   conversations.map(conv => (
                     <div
                       key={conv.id}
-                      className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                        selectedConversation?.id === conv.id ? 'bg-muted/50 border-l-4 border-l-primary' : ''
-                      }`}
+                      className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-muted/50 border-l-4 border-l-primary' : ''
+                        }`}
                       onClick={() => setSelectedConversation(conv)}
                     >
                       <div className="flex items-center gap-3">
@@ -282,7 +340,7 @@ const Messages: React.FC = () => {
                       </div>
                     </CardTitle>
                   </CardHeader>
-                  
+
                   <ScrollArea className="flex-1 p-4">
                     <div className="space-y-4">
                       {messages.length === 0 ? (
@@ -294,11 +352,10 @@ const Messages: React.FC = () => {
                       ) : (
                         messages.map(msg => (
                           <div key={msg.id} className={`flex ${msg.sender_id === profile?.id ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[70%] p-3 rounded-lg ${
-                              msg.sender_id === profile?.id 
-                                ? 'bg-primary text-primary-foreground' 
-                                : 'bg-muted'
-                            }`}>
+                            <div className={`max-w-[70%] p-3 rounded-lg ${msg.sender_id === profile?.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                              }`}>
                               <div className="text-sm font-medium mb-1">
                                 {msg.sender_id === profile?.id ? 'You' : msg.sender_profile?.full_name}
                               </div>
@@ -315,7 +372,7 @@ const Messages: React.FC = () => {
                       )}
                     </div>
                   </ScrollArea>
-                  
+
                   <div className="p-4 border-t">
                     <div className="flex items-end gap-2">
                       <Textarea
@@ -331,8 +388,8 @@ const Messages: React.FC = () => {
                         }}
                         disabled={sending}
                       />
-                      <Button 
-                        onClick={handleSendMessage} 
+                      <Button
+                        onClick={handleSendMessage}
                         disabled={!newMessageText.trim() || sending}
                         className="px-4"
                       >

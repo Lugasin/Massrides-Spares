@@ -1,12 +1,13 @@
 import { useState } from "react";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  Mail,
+  Phone,
+  MapPin,
   Clock,
   Send,
   MessageCircle
@@ -61,7 +62,7 @@ export const ContactSection = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Implement form submission logic (e.g., send to an API endpoint or Supabase function)
-    console.log("Form submitted:", formData);
+    logger.log("Form submitted:", formData);
     toast.success("Your message has been sent! We will get back to you shortly.");
     // Optionally reset form
   };
@@ -87,7 +88,7 @@ export const ContactSection = () => {
           <div className="lg:col-span-1 order-2 lg:order-1">
             <div className="space-y-6">
               {contactInfo.map((info, index) => (
-                <Card 
+                <Card
                   key={info.title}
                   className={cn(
                     "border-border/50 hover:shadow-earth transition-all duration-300 hover-scale",
@@ -116,7 +117,7 @@ export const ContactSection = () => {
                 </Card>
               ))}
             </div>
-            
+
             {/* Additional Info */}
             <Card className="mt-6 bg-secondary/10 border-secondary/20">
               <CardContent className="p-6">
@@ -157,7 +158,7 @@ export const ContactSection = () => {
                       <label className="text-sm font-medium text-foreground mb-2 block">
                         First Name *
                       </label>
-                      <Input 
+                      <Input
                         name="firstName"
                         placeholder="Enter your first name"
                         className="focus:ring-primary focus:border-primary h-11"
@@ -170,7 +171,7 @@ export const ContactSection = () => {
                       <label className="text-sm font-medium text-foreground mb-2 block">
                         Last Name *
                       </label>
-                      <Input 
+                      <Input
                         name="lastName"
                         placeholder="Enter your last name"
                         className="focus:ring-primary focus:border-primary h-11"
@@ -186,7 +187,7 @@ export const ContactSection = () => {
                       <label className="text-sm font-medium text-foreground mb-2 block">
                         Email Address *
                       </label>
-                      <Input 
+                      <Input
                         type="email"
                         name="email"
                         placeholder="your.email@example.com"
@@ -200,7 +201,7 @@ export const ContactSection = () => {
                       <label className="text-sm font-medium text-foreground mb-2 block">
                         Phone Number
                       </label>
-                      <Input 
+                      <Input
                         type="tel"
                         name="phone"
                         placeholder="+260 XX XXX XXXX"
@@ -215,7 +216,7 @@ export const ContactSection = () => {
                     <label className="text-sm font-medium text-foreground mb-2 block">
                       Equipment Interest
                     </label>
-                    <select 
+                    <select
                       name="interest"
                       className="w-full px-3 py-2 h-11 border border-input rounded-md focus:ring-primary focus:border-primary bg-background"
                       value={formData.interest}
@@ -235,7 +236,7 @@ export const ContactSection = () => {
                     <label className="text-sm font-medium text-foreground mb-2 block">
                       Message *
                     </label>
-                    <Textarea 
+                    <Textarea
                       name="message"
                       placeholder="Tell us about your equipment and the spare parts you need..."
                       rows={5}
@@ -247,10 +248,10 @@ export const ContactSection = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       name="newsletter"
-                      id="newsletter" 
+                      id="newsletter"
                       className="rounded border-input focus:ring-primary"
                       checked={formData.newsletter}
                       onChange={handleInputChange}
@@ -260,7 +261,7 @@ export const ContactSection = () => {
                     </label>
                   </div>
 
-                  <Button 
+                  <Button
                     type="submit"
                     size="lg"
                     className="bg-primary hover:bg-primary-hover shadow-primary group w-full sm:w-auto"

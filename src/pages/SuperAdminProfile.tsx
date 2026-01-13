@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from "@/lib/logger";
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Shield, 
-  Users, 
-  Settings, 
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import {
+  Shield,
+  Users,
+  Settings,
   Database,
   Activity,
   Bell,
@@ -93,17 +95,50 @@ const SuperAdminProfile: React.FC = () => {
     );
   }
 
+  const [financialStats, setFinancialStats] = useState({
+    total_commission_recorded: 0,
+    total_volume_released: 0,
+    pending_payouts: 0
+  });
+
+  /* State */
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+
   useEffect(() => {
     loadSystemSettings();
     loadUserStats();
+    loadFinancialStats();
+    loadAuditLogs();
   }, []);
 
-const loadSystemSettings = async () => {
+  const loadAuditLogs = async () => {
+    try {
+      const { data } = await supabase
+        .from('financial_audit_logs')
+        .select(`*, actor:actor_id(full_name)`) // Join with user_profiles via actor_id
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (data) setAuditLogs(data);
+    } catch (error) {
+      logger.error('Error loading audit logs', error);
+    }
+  };
+
+  const loadFinancialStats = async () => {
+    try {
+      const { data, error } = await supabase.from('super_admin_financial_summary').select('*').single();
+      if (data) setFinancialStats(data);
+    } catch (error) {
+      logger.error('Error loading financial stats', error);
+    }
+  };
+
+  const loadSystemSettings = async () => {
     try {
       // Use local state for now since system_settings table doesn't exist yet
-      console.log('System settings loaded (using defaults)');
+      logger.log('System settings loaded (using defaults)');
     } catch (error) {
-      console.error('Error loading system settings:', error);
+      logger.error('Error loading system settings:', error);
     }
   };
 
@@ -111,24 +146,24 @@ const loadSystemSettings = async () => {
     try {
       const { data: profiles, error } = await supabase
         .from('user_profiles')
-        .select('role, is_active');
-      
+        .select('role, is_active') as any; // Cast to any to bypass strict typing issues
+
       if (profiles) {
         const stats = {
           total_users: profiles.length,
-          active_users: profiles.filter(p => p.is_active).length,
-          vendors: profiles.filter(p => p.role === 'vendor').length,
-          customers: profiles.filter(p => p.role === 'customer').length,
-          admins: profiles.filter(p => p.role === 'admin' || p.role === 'super_admin').length
+          active_users: profiles.filter((p: any) => p.is_active).length,
+          vendors: profiles.filter((p: any) => p.role === 'vendor').length,
+          customers: profiles.filter((p: any) => p.role === 'customer').length,
+          admins: profiles.filter((p: any) => p.role === 'admin' || p.role === 'super_admin').length
         };
         setUserStats(stats);
       }
     } catch (error) {
-      console.error('Error loading user stats:', error);
+      logger.error('Error loading user stats:', error);
     }
   };
 
-const updateSystemSetting = async (key: string, value: any) => {
+  const updateSystemSetting = async (key: string, value: any) => {
     setLoading(true);
     try {
       // Update local state for now
@@ -150,11 +185,15 @@ const updateSystemSetting = async (key: string, value: any) => {
     // Implement cache clearing logic
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(amount);
+  };
+
   const systemMetrics = [
     { icon: Users, label: 'Total Users', value: userStats.total_users, color: 'text-blue-500' },
     { icon: Store, label: 'Vendors', value: userStats.vendors, color: 'text-green-500' },
-    { icon: Package, label: 'Products', value: '1,234', color: 'text-purple-500' },
-    { icon: DollarSign, label: 'Revenue', value: '$45,678', color: 'text-yellow-500' }
+    { icon: Package, label: 'Total Volume', value: formatCurrency(financialStats.total_volume_released), color: 'text-purple-500' },
+    { icon: DollarSign, label: 'Revenue', value: formatCurrency(financialStats.total_commission_recorded), color: 'text-yellow-500' }
   ];
 
   return (
@@ -202,13 +241,72 @@ const updateSystemSetting = async (key: string, value: any) => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-8">
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="financials">Financials</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="database" className="hidden md:inline-flex">Database</TabsTrigger>
+            <TabsTrigger value="logs" className="hidden md:inline-flex">Logs</TabsTrigger>
           </TabsList>
+
+          {/* Financials Management */}
+          <TabsContent value="financials" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Recorded Commission</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{formatCurrency(financialStats.total_commission_recorded)}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Pending Payouts</CardTitle></CardHeader>
+                <CardContent><div className="text-2xl font-bold">{financialStats.pending_payouts}</div></CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Financial Audit Logs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Event</TableHead>
+                        <TableHead>Entity</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Actor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditLogs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center h-24">No audit logs found.</TableCell>
+                        </TableRow>
+                      ) : (
+                        auditLogs.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
+                            <TableCell className="font-medium">{log.event_type.replace(/_/g, ' ').toUpperCase()}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-semibold">{log.entity_type}</span>
+                                <span className="text-xs text-muted-foreground truncate w-24" title={log.entity_id}>{log.entity_id}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{log.amount ? formatCurrency(log.amount) : '-'}</TableCell>
+                            <TableCell>
+                              <span className="text-sm">{log.actor?.full_name || 'System'}</span>
+                            </TableCell>
+                          </TableRow>
+                        )))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Users Management */}
           <TabsContent value="users" className="space-y-4">
@@ -221,23 +319,23 @@ const updateSystemSetting = async (key: string, value: any) => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button 
-                    className="h-20 flex-col gap-2" 
+                  <Button
+                    className="h-20 flex-col gap-2"
                     onClick={() => navigate('/role-manager')}
                   >
                     <UserPlus className="h-6 w-6" />
                     Manage Roles
                   </Button>
-                  <Button 
-                    className="h-20 flex-col gap-2" 
+                  <Button
+                    className="h-20 flex-col gap-2"
                     variant="outline"
                     onClick={() => navigate('/user-management')}
                   >
                     <Users className="h-6 w-6" />
                     View All Users
                   </Button>
-                  <Button 
-                    className="h-20 flex-col gap-2" 
+                  <Button
+                    className="h-20 flex-col gap-2"
                     variant="outline"
                     onClick={() => navigate('/activity-log')}
                   >
@@ -352,7 +450,7 @@ const updateSystemSetting = async (key: string, value: any) => {
 
                 <div className="space-y-2">
                   <Label>Currency</Label>
-                  <Select 
+                  <Select
                     value={systemSettings.currency}
                     onValueChange={(value) => updateSystemSetting('currency', value)}
                   >
@@ -432,7 +530,7 @@ const updateSystemSetting = async (key: string, value: any) => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button 
+                  <Button
                     className="h-20 flex-col gap-2"
                     onClick={handleBackupDatabase}
                   >
@@ -443,8 +541,8 @@ const updateSystemSetting = async (key: string, value: any) => {
                     <Upload className="h-6 w-6" />
                     Restore Database
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="h-20 flex-col gap-2"
                     onClick={handleClearCache}
                   >
@@ -494,7 +592,7 @@ const updateSystemSetting = async (key: string, value: any) => {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex gap-4">
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => navigate('/activity-log')}
                     >
@@ -538,7 +636,7 @@ const updateSystemSetting = async (key: string, value: any) => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => {
                   if (confirm('Are you sure you want to enter maintenance mode?')) {

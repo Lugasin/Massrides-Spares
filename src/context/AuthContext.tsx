@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { mergeGuestCart } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { logAuthEvent, logProfileEvent } from '@/lib/activityLogger'
+import { logger } from '@/lib/logger'
 
 export interface UserProfile {
   id: string
@@ -55,7 +56,7 @@ const AuthContext = createContext<AuthContextType>({
   hasPermission: () => false,
   isAdmin: false,
   userRole: 'guest',
-  refreshProfile: async () => {}
+  refreshProfile: async () => { }
 })
 
 export const useAuth = () => {
@@ -81,13 +82,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       setUser(session?.user ?? null)
-      
+
       if (session?.user) {
         await loadUserProfile(session.user.id)
       } else {
         setReady(true)
       }
-      
+
       setLoading(false)
     }
 
@@ -98,22 +99,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
-        
+
         if (event === 'SIGNED_IN' && session?.user) {
           try {
-            console.log('AuthContext: SIGNED_IN event triggered');
+            logger.log('AuthContext: SIGNED_IN event triggered');
             // Merge guest cart if exists
-            console.log('AuthContext: Merging guest cart...');
+            logger.log('AuthContext: Merging guest cart...');
             await mergeGuestCart()
-            console.log('AuthContext: Guest cart merged.');
-            console.log('AuthContext: Loading user profile...');
+            logger.log('AuthContext: Guest cart merged.');
+            logger.log('AuthContext: Loading user profile...');
             await loadUserProfile(session.user.id)
-            console.log('AuthContext: User profile loaded.');
+            logger.log('AuthContext: User profile loaded.');
           } catch (error) {
-            console.error('Error during sign in processing:', error)
+            logger.error('Error during sign in processing:', error)
           }
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('AuthContext: TOKEN_REFRESHED event triggered');
+          logger.log('AuthContext: TOKEN_REFRESHED event triggered');
           await loadUserProfile(session.user.id)
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)
@@ -124,31 +125,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem('user_role')
           localStorage.removeItem('guest_session_id')
         }
-        
+
         setLoading(false)
         setReady(true)
       }
     )
+
 
     return () => subscription.unsubscribe()
   }, [])
 
   const loadUserProfile = async (userId: string) => {
     try {
-      const { data: userData, error: userError } = await supabase
+      const { data: rawData, error: userError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
         .single()
 
       if (userError) {
-        console.error('Error loading user profile:', userError)
+        logger.error('Error loading user profile:', userError)
         // Don't show error toast for missing profile - it might be creating
         if (userError.code !== 'PGRST116') {
           toast.error(`Failed to load user profile: ${userError.message}`);
         }
         return
       }
+
+      if (!rawData) return
+
+      const userData = rawData;
 
       const profileData: UserProfile = {
         id: userData.id,
@@ -184,12 +190,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'support': ['view_dashboard', 'manage_tickets', 'view_users'],
         'guest': ['browse_catalog', 'guest_checkout']
       }
-      
+
       setUserPermissions(rolePermissions[userData.role] || [])
       setReady(true)
-      console.log('loadUserProfile: Auth context is ready.');
+      logger.log('loadUserProfile: Auth context is ready.');
     } catch (error) {
-      console.error('Error in loadUserProfile:', error)
+      logger.error('Error in loadUserProfile:', error)
       toast.error('An unexpected error occurred while loading your profile.');
     }
   }
@@ -214,18 +220,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailRedirectTo: `${window.location.origin}/verify-email`
         }
       })
-      
+
       if (error) {
         toast.error(`Registration failed: ${error.message}`)
         return { error }
       }
-      
+
       if (data.user && !data.user.email_confirmed_at) {
         toast.success('Registration successful! Please check your email to verify your account.')
       } else if (data.user) {
         toast.success('Registration successful! You can now sign in.')
       }
-      
+
       return { error: null }
     } catch (error: any) {
       toast.error(`Registration failed: ${error.message}`)
@@ -239,37 +245,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password
       })
-      
+
       if (error) {
         toast.error(`Sign in failed: ${error.message}`)
         return { error }
       }
-      
+
       if (data.user) {
         toast.success('Welcome back!')
-        
+
         // Wait for profile to load before merging cart
         try {
           await loadUserProfile(data.user.id)
           // Merge guest cart after profile is loaded
           await mergeGuestCart()
         } catch (profileError) {
-          console.error('Error loading profile after sign in:', profileError)
+          logger.error('Error loading profile after sign in:', profileError)
           // Don't fail the sign in if profile loading fails
         }
-        
+
         // Log successful login
         const { data: userProfile } = await supabase
           .from('user_profiles')
           .select('id')
           .eq('user_id', data.user.id)
           .single();
-        
+
         if (userProfile) {
+          // @ts-ignore: Suppress type error due to missing Generated Types
           logAuthEvent('login', userProfile.id, { email: data.user.email });
         }
       }
-      
+
       return { error: null }
     } catch (error: any) {
       toast.error(`Sign in failed: ${error.message}`)
@@ -280,21 +287,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut()
-      
+
       if (error) {
         toast.error(`Sign out failed: ${error.message}`)
         return { error }
       }
-      
+
       // Log successful logout
       if (profile) {
         logAuthEvent('logout', profile.id);
       }
-      
+
       // Clear local storage
       localStorage.removeItem('user_role')
       localStorage.removeItem('guest_session_id')
-      
+
       // Clear state
       setUser(null)
       setProfile(null)
@@ -302,9 +309,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserPermissions([])
       setUserRole('guest')
       setReady(false)
-      
+
       toast.success('Signed out successfully')
-      
+
       return { error: null }
     } catch (error: any) {
       toast.error(`Sign out failed: ${error.message}`)
@@ -342,12 +349,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Refresh profile data
       await refreshProfile()
       toast.success('Profile updated successfully!')
-      
+
       // Log profile update
       if (profile) {
         logProfileEvent('profile_updated', profile.id, updates);
       }
-      
+
       return { error: null }
     } catch (error: any) {
       toast.error(`Failed to update profile: ${error.message}`)
@@ -360,6 +367,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const isAdmin = hasPermission('view_dashboard') || userRole === 'admin' || userRole === 'super_admin'
+
+  // Auto Logout Logic
+  const inactivityTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+  const checkInactivity = React.useCallback(() => {
+    const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);
+    const now = Date.now();
+    const timeSinceLastActivity = now - lastActivity;
+
+    if (timeSinceLastActivity >= INACTIVITY_TIMEOUT) {
+      logger.log('AuthContext: Auto-logout triggered');
+      signOut().then(() => {
+        toast.info("Session expired due to inactivity.");
+        window.location.href = '/login';
+      });
+    } else {
+      const remainingTime = Math.max(1000, INACTIVITY_TIMEOUT - timeSinceLastActivity);
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(checkInactivity, remainingTime);
+    }
+  }, [user]);
+
+  const resetInactivityTimer = React.useCallback(() => {
+    localStorage.setItem('lastActivity', Date.now().toString());
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    if (user) {
+      inactivityTimer.current = setTimeout(checkInactivity, INACTIVITY_TIMEOUT);
+    }
+  }, [user, checkInactivity]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (!localStorage.getItem('lastActivity')) {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    const handleActivity = () => resetInactivityTimer();
+
+    resetInactivityTimer();
+    events.forEach(event => window.addEventListener(event, handleActivity));
+
+    return () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      events.forEach(event => window.removeEventListener(event, handleActivity));
+    };
+  }, [user, resetInactivityTimer]);
 
   const value = {
     user,

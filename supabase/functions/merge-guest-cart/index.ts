@@ -66,7 +66,7 @@ serve(async (req) => {
 
     const { data: guestItems } = await supabase
         .from('guest_cart_items')
-        .select('spare_part_id, quantity')
+        .select('product_id, quantity')
         .eq('guest_cart_id', guestCart.id)
 
     if (!guestItems || guestItems.length === 0) return new Response(JSON.stringify({ success: true }));
@@ -93,9 +93,9 @@ serve(async (req) => {
         .from('cart_items')
         .upsert({
             cart_id: userCart!.id,
-            spare_part_id: item.spare_part_id,
+            product_id: item.product_id,
             quantity: item.quantity
-        }, { onConflict: 'cart_id,spare_part_id' });
+        }, { onConflict: 'cart_id,product_id' });
     }
 
     // Delete guest cart

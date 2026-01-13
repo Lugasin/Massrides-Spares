@@ -66,16 +66,17 @@ const SparePartsCatalog = () => {
   const loadSparePartsFromDatabase = async () => {
     try {
       setLoading(true);
-      
+
       // First, try to load from database
+      // Query 'products' and join 'inventory'
       const { data: dbParts, error } = await supabase
-        .from('spare_parts')
+        .from('products')
         .select(`
           *,
-          category:categories!category_id(name)
+          category:categories!category_id(name),
+          inventory(quantity)
         `)
-        .eq('is_active', true)
-        .order('featured', { ascending: false })
+        .eq('active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -85,29 +86,35 @@ const SparePartsCatalog = () => {
         toast.info('Using local catalog data');
       } else if (dbParts && dbParts.length > 0) {
         // Transform database data to match our interface
-        const transformedParts: SparePart[] = dbParts.map(part => ({
-          id: part.id,
-          partNumber: part.part_number,
-          name: part.name,
-          description: part.description || '',
-          category: (part.category as any)?.name || 'General',
-          brand: part.brand,
-          oemPartNumber: part.oem_part_number,
-          aftermarketPartNumber: part.aftermarket_part_number,
-          price: parseFloat(part.price.toString()),
-          condition: part.condition as any,
-          availabilityStatus: part.availability_status as any,
-          stockQuantity: part.stock_quantity,
-          images: part.images || [],
-          technicalSpecs: part.technical_specs || {},
-          compatibility: part.compatibility || [],
-          warranty: `${part.warranty_months || 12} months`,
-          weight: part.weight ? parseFloat(part.weight.toString()) : undefined,
-          dimensions: part.dimensions,
-          featured: part.featured,
-          tags: part.tags || []
-        }));
-        
+        const transformedParts: SparePart[] = dbParts.map(part => {
+          const attrs = part.attributes || {};
+          // Calculate total stock from inventory records
+          const totalStock = part.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+
+          return {
+            id: part.id.toString(), // Convert BigInt/number to string
+            partNumber: part.sku || '',
+            name: part.title,
+            description: part.description || '',
+            category: (part.category as any)?.name || 'General',
+            brand: attrs.brand || 'Generic',
+            oemPartNumber: part.sku, // using SKU as fallback
+            aftermarketPartNumber: undefined,
+            price: parseFloat(part.price.toString()),
+            condition: (attrs.condition as any) || 'new',
+            availabilityStatus: totalStock > 0 ? 'in_stock' : 'out_of_stock',
+            stockQuantity: totalStock,
+            images: part.main_image ? [part.main_image] : [], // Use main_image
+            technicalSpecs: attrs.technicalSpecs || {},
+            compatibility: attrs.compatibility || [],
+            warranty: attrs.warranty || '12 months',
+            weight: attrs.weight ? parseFloat(attrs.weight.toString()) : undefined,
+            dimensions: attrs.dimensions,
+            featured: (attrs.featured === true || attrs.featured === 'true'),
+            tags: attrs.tags || []
+          };
+        });
+
         setSpareParts(transformedParts);
         toast.success(`Loaded ${transformedParts.length} parts from database`);
       } else {
@@ -126,7 +133,7 @@ const SparePartsCatalog = () => {
 
   const filterAndSortParts = () => {
     let filtered = spareParts.filter(part => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         part.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         part.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -135,9 +142,9 @@ const SparePartsCatalog = () => {
       const matchesCategory = selectedCategory === "All" || part.category === selectedCategory;
       const matchesBrand = selectedBrand === "All" || part.brand === selectedBrand;
       const matchesCondition = selectedCondition === "All" || part.condition === selectedCondition;
-      
+
       const matchesPrice = (!minPrice || part.price >= parseFloat(minPrice)) &&
-                          (!maxPrice || part.price <= parseFloat(maxPrice));
+        (!maxPrice || part.price <= parseFloat(maxPrice));
 
       return matchesSearch && matchesCategory && matchesBrand && matchesCondition && matchesPrice;
     });
@@ -170,19 +177,19 @@ const SparePartsCatalog = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
+      <Header
         cartItemsCount={itemCount}
-        onAuthClick={() => {}}
+        onAuthClick={() => { }}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-4">
-            Agricultural Spare Parts Catalog
+            Massrides Spares Catalog
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Discover our comprehensive range of genuine and aftermarket spare parts 
+            Discover our comprehensive range of genuine and aftermarket spare parts
             for all your agricultural equipment needs.
           </p>
         </div>
@@ -200,7 +207,7 @@ const SparePartsCatalog = () => {
                   className="pl-10"
                 />
               </div>
-              
+
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Category" />
@@ -239,7 +246,7 @@ const SparePartsCatalog = () => {
                 <SlidersHorizontal className="h-4 w-4" />
                 Advanced Filters
               </Button>
-              
+
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">
                   Showing {spareParts.length} parts

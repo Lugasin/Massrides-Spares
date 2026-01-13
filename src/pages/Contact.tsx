@@ -63,11 +63,11 @@ const Contact = () => {
   return (
     <div className="min-h-screen bg-background">
       <ScrollToTop />
-      <Header 
+      <Header
         cartItemsCount={itemCount}
-        onAuthClick={() => {}}
+        onAuthClick={() => { }}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         {/* Back to Home */}
         <div className="mb-6">
@@ -82,7 +82,7 @@ const Contact = () => {
         <section className="text-center mb-16">
           <h1 className="text-4xl font-bold text-foreground mb-6">Contact Us</h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Have questions about our agricultural spare parts or need technical assistance? 
+            Have questions about our parts or need technical assistance?
             We're here to help you find the exact parts you need for your equipment.
           </p>
         </section>
@@ -138,9 +138,9 @@ const Contact = () => {
                     />
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     size="lg"
                     disabled={isSubmitting}
                   >

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { 
+import {
   Tractor,
   Wrench,
   Truck,
@@ -59,7 +59,7 @@ export const FeaturesSection = () => {
             Your Trusted Spare Parts Partner
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We provide comprehensive agricultural spare parts solutions with quality components, 
+            We provide comprehensive spares solutions with quality components,
             expert technical support, and reliable delivery across Zambia.
           </p>
         </div>
@@ -67,7 +67,7 @@ export const FeaturesSection = () => {
         {/* Features Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
           {features.map((feature, index) => (
-            <Card 
+            <Card
               key={feature.title}
               className={cn(
                 "group hover:shadow-earth transition-all duration-300 hover-scale border-border/50",
@@ -97,7 +97,7 @@ export const FeaturesSection = () => {
         <div className="bg-white/50 dark:bg-black/20 rounded-2xl p-6 lg:p-12 backdrop-blur-sm border border-border/50">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <div 
+              <div
                 key={stat.label}
                 className={cn(
                   "text-center group animate-fade-in"
@@ -126,17 +126,17 @@ export const FeaturesSection = () => {
             Need Spare Parts for Your Equipment?
           </h3>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Explore our complete range of agricultural spare parts and find the exact components you need to keep your equipment running.
+            Explore our complete range of spares and find the exact components you need to keep your equipment running.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="bg-primary hover:bg-primary-hover shadow-primary"
             >
               Browse Parts
             </Button>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               variant="outline"
               className="border-primary text-primary hover:bg-primary/10"
             >

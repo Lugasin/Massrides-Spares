@@ -8,11 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Package, 
-  Search, 
-  Filter, 
-  Eye, 
+import {
+  Package,
+  Search,
+  Filter,
+  Eye,
   Download,
   Truck,
   CreditCard,
@@ -20,6 +20,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -38,19 +39,21 @@ interface Order {
   billing_address: any;
   guest_email?: string;
   order_items: Array<{
-    id: string;
+    id: number;
     quantity: number;
-    unit_price: number;
-    spare_part: {
-      name: string;
-      part_number: string;
-      images: string[];
-    };
+    price: number;
+    title: string;
+    products: {
+      id: number;
+      title: string;
+      main_image: string | null;
+    } | null;
   }>;
 }
 
 const Orders = () => {
   const { user, profile, userRole } = useAuth();
+  const { formatCurrency } = useSettings();
   const { itemCount } = useQuote();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +172,7 @@ const Orders = () => {
   }
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
       <div className="space-y-6">
         {/* Orders Header */}
         <div className="flex items-center justify-between">
@@ -233,7 +236,7 @@ const Orders = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Value</p>
                   <p className="text-2xl font-bold text-primary">
-                    ${orders.reduce((sum, o) => sum + o.total_amount, 0).toLocaleString()}
+                    {formatCurrency(orders.reduce((sum, o) => sum + o.total_amount, 0))}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-primary" />
@@ -283,8 +286,8 @@ const Orders = () => {
                 <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No orders found</h3>
                 <p className="text-muted-foreground mb-6">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Try adjusting your search or filters.' 
+                  {searchTerm || statusFilter !== 'all'
+                    ? 'Try adjusting your search or filters.'
                     : 'You haven\'t placed any orders yet.'}
                 </p>
                 <Button onClick={() => window.location.href = '/catalog'}>
@@ -322,7 +325,7 @@ const Orders = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">
-                        ${order.total_amount.toLocaleString()}
+                        {formatCurrency(order.total_amount)}
                       </TableCell>
                       <TableCell>
                         {order.order_items?.length || 0} items
@@ -417,32 +420,29 @@ const Orders = () => {
                         {selectedOrder.order_items?.map((item) => (
                           <div key={item.id} className="flex gap-4 p-4 border rounded-lg">
                             <img
-                              src={item.spare_part.images?.[0] || '/api/placeholder/80/80'}
-                              alt={item.spare_part.name}
+                              src={item.products?.main_image || '/api/placeholder/80/80'}
+                              alt={item.title}
                               className="w-16 h-16 object-cover rounded"
                               loading="lazy"
                             />
                             <div className="flex-1">
-                              <h4 className="font-medium">{item.spare_part.name}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Part #: {item.spare_part.part_number}
-                              </p>
+                              <h4 className="font-medium">{item.title}</h4>
                               <div className="flex justify-between mt-2">
                                 <span>Qty: {item.quantity}</span>
                                 <span className="font-medium">
-                                  ${(item.unit_price * item.quantity).toLocaleString()}
+                                  {formatCurrency(item.price * item.quantity)}
                                 </span>
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                      
+
                       <div className="border-t pt-4 mt-4">
                         <div className="flex justify-between text-lg font-bold">
                           <span>Total:</span>
                           <span className="text-primary">
-                            ${selectedOrder.total_amount.toLocaleString()}
+                            {formatCurrency(selectedOrder.total_amount)}
                           </span>
                         </div>
                       </div>

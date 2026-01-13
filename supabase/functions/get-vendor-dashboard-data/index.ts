@@ -18,7 +18,16 @@ serve(async (req) => {
     )
 
     // Get user from Authorization header.
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      )
+    }
     const userSupabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -36,20 +45,42 @@ serve(async (req) => {
       )
     }
 
-    // Get vendor profile
-    const { data: vendorProfile, error: profileError } = await supabase
+    // Check user role
+    const { data: userProfile } = await supabase
       .from('user_profiles')
-      .select('id')
+      .select('role')
       .eq('user_id', user.id)
       .single();
+    
+    const isSuperAdmin = userProfile?.role === 'super_admin' || userProfile?.role === 'admin';
 
-    if (profileError) throw profileError;
+    // Get vendor profile
+    // If super admin, get ANY vendor (first one)
+    // If vendor, get OWN vendor
+    let vendorQuery = supabase.from('vendors').select('id');
+    
+    if (!isSuperAdmin) {
+       vendorQuery = vendorQuery.eq('owner_id', user.id);
+    }
 
-    const vendorId = vendorProfile.id;
+    const { data: vendorRecord, error: vendorError } = await vendorQuery.limit(1).single();
 
-    // 1. Get vendor's products
+    if (vendorError) {
+       console.error('Vendor record not found:', vendorError);
+       // Return empty data if not a vendor
+       return new Response(
+         JSON.stringify({ dashboardData: { 
+            totalRevenue: 0, totalOrders: 0, recentOrders: [], lowStockProducts: [], totalProducts: 0 
+         }}),
+         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+       );
+    }
+
+    const vendorId = vendorRecord.id;
+    
+    // 1. Get vendor's products from 'products' table
     const { data: products, error: productsError } = await supabase
-      .from('spare_parts')
+      .from('products')
       .select('id')
       .eq('vendor_id', vendorId);
 
@@ -58,32 +89,48 @@ serve(async (req) => {
     const productIds = products.map(p => p.id);
 
     // 2. Get orders containing vendor's products
+    // Use 'product_id' instead of 'spare_part_id'
     const { data: orderItems, error: orderItemsError } = await supabase
       .from('order_items')
       .select('*, order:orders(*)')
-      .in('spare_part_id', productIds);
+      .in('product_id', productIds);
 
     if (orderItemsError) throw orderItemsError;
 
-    const uniqueOrders = [...new Map(orderItems.map(item => [item.order.id, item.order])).values()];
+    // Filter out items where order might be null (if RLS hides it? Order RLS is strict)
+    // Vendors need to see orders for THEIR products.
+    // We rely on service_role key?
+    // The client is created with `SUPABASE_SERVICE_ROLE_KEY` in line 17?
+    // YES! Line 15-18 creates `supabase` with SERVICE_ROLE_KEY.
+    // So RLS is bypassed. Great.
 
-    // 3. Calculate total revenue
-    const totalRevenue = orderItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+    const validItems = orderItems.filter(item => item.order);
+    const uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
+
+    // 3. Calculate total revenue (price * quantity)
+    const totalRevenue = validItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
 
     // 4. Get recent orders
     const recentOrders = uniqueOrders
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5);
 
-    // 5. Get low stock products
-    const { data: lowStockProducts, error: lowStockError } = await supabase
-      .from('spare_parts')
-      .select('*')
+    // 5. Get low stock products from 'inventory'
+    const { data: lowStockInv, error: lowStockError } = await supabase
+      .from('inventory')
+      .select('quantity, product:products(id, title)')
       .eq('vendor_id', vendorId)
-      .lt('stock_quantity', 10) // Assuming low stock is less than 10
-      .order('stock_quantity', { ascending: true });
+      .lt('quantity', 10)
+      .order('quantity', { ascending: true });
 
     if (lowStockError) throw lowStockError;
+    
+    // Map to expected format
+    const lowStockProducts = lowStockInv.map(inv => ({
+      id: inv.product?.id,
+      name: inv.product?.title,
+      stock_quantity: inv.quantity
+    }));
 
     const dashboardData = {
       totalRevenue,

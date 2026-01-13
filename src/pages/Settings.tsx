@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useSettings } from '@/context/SettingsContext';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Settings as SettingsIcon, 
-  Bell, 
-  Shield, 
-  Palette, 
+import {
+  Settings as SettingsIcon,
+  Bell,
+  Shield,
+  Palette,
   Globe,
   Save,
   Trash2
@@ -19,6 +20,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logActivity } from '@/lib/activityLogger';
 
 interface UserSettings {
   id: string;
@@ -36,94 +38,8 @@ interface UserSettings {
 }
 
 const Settings = () => {
-  const { user, profile, userRole, signOut } = useAuth();
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      fetchUserSettings();
-      subscribeToSettings();
-    }
-  }, [user]);
-
-  const fetchUserSettings = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('get-user-settings');
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.settings) {
-        setSettings(data.settings);
-      } else {
-        // If no settings exist, create them
-        const { data: newSettingsData, error: createError } = await supabase.functions.invoke('update-user-settings', {
-          body: {
-            email_notifications: true,
-            push_notifications: true,
-            marketing_emails: false,
-            order_updates: true,
-            theme: 'system',
-            language: 'en',
-            currency: 'USD',
-            timezone: 'Africa/Lusaka'
-          }
-        });
-
-        if (createError) throw new Error(createError.message);
-        setSettings(newSettingsData.settings);
-      }
-    } catch (error: any) {
-      console.error('Error fetching settings:', error);
-      toast.error(`Failed to load settings: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const subscribeToSettings = () => {
-    const channel = supabase
-      .channel('user-settings')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'user_settings',
-          filter: `user_id=eq.${profile?.id}`
-        },
-        (payload) => {
-          setSettings(payload.new as UserSettings);
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  };
-
-  const updateSetting = async (key: keyof UserSettings, value: any) => {
-    if (!settings) return;
-
-    try {
-      setSaving(true);
-      const { data, error } = await supabase.functions.invoke('update-user-settings', {
-        body: { [key]: value }
-      });
-
-      if (error) throw new Error(error.message);
-
-      setSettings(data.settings);
-      toast.success('Setting updated successfully');
-    } catch (error: any) {
-      console.error('Error updating setting:', error);
-      toast.error(`Failed to update setting: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const { user, profile, userRole } = useAuth();
+  const { settings, loading, updateSetting } = useSettings();
 
   const handleDeleteAccount = async () => {
     if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
@@ -131,12 +47,13 @@ const Settings = () => {
     }
 
     try {
-// Log the account deletion
-      await supabase.from('activity_logs').insert({
-        user_id: profile?.user_id,
-        activity_type: 'account_deletion_requested',
-        ip_address: '0.0.0.0',
-        additional_details: { timestamp: new Date().toISOString() }
+      // Log the account deletion
+      await logActivity({
+        userId: profile?.id,
+        actionType: 'account_deletion_requested',
+        resourceType: 'user_account',
+        actionDetails: { timestamp: new Date().toISOString() },
+        riskScore: 5
       });
 
       toast.success('Account deletion request submitted. You will be contacted within 24 hours.');
@@ -148,14 +65,14 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+      <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
         <div className="p-6 text-center">Loading settings...</div>
       </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
       <div className="space-y-6">
         <div className="flex items-center gap-2">
           <SettingsIcon className="h-8 w-8 text-primary" />
@@ -379,8 +296,8 @@ const Settings = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     These actions cannot be undone. Please be careful.
                   </p>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     onClick={handleDeleteAccount}
                     className="flex items-center gap-2"
                   >

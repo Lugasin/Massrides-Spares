@@ -4,10 +4,10 @@ import { Footer } from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ShoppingCart, 
-  Package, 
-  Star, 
+import {
+  ShoppingCart,
+  Package,
+  Star,
   ArrowRight,
   User,
   Heart
@@ -18,7 +18,7 @@ import { spareParts as sparePartsData, SparePart } from '@/data/products';
 
 const GuestShoppingLanding = () => {
   const { itemCount, addItem } = useQuote();
-  
+
   // Get featured parts for guest users
   const featuredParts = sparePartsData.filter(part => part.featured).slice(0, 6) as SparePart[];
 
@@ -36,7 +36,7 @@ const GuestShoppingLanding = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header cartItemsCount={itemCount} />
-      
+
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Section */}
         <div className="text-center mb-12">
@@ -44,13 +44,15 @@ const GuestShoppingLanding = () => {
             <User className="h-4 w-4" />
             <span className="text-sm font-medium">Shopping as Guest</span>
           </div>
-          <h1 className="text-4xl font-bold text-foreground mb-4">
-            Welcome to Agri Massrides
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Browse our extensive catalog of agricultural spare parts. 
-            Create an account for a personalized experience and faster checkout.
-          </p>
+          <div className="text-center max-w-2xl mx-auto mb-12 animate-fade-in relative z-10">
+            <h1 className="text-4xl md:text-5xl font-bold text-[#1A1F2C] mb-4 tracking-tight">
+              Welcome to Massrides Spares
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Browse our extensive catalog of agricultural spare parts.
+              <span className="font-semibold text-primary"> No account required to shop.</span>
+            </p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg">
               <Link to="/catalog">
@@ -78,7 +80,7 @@ const GuestShoppingLanding = () => {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6 text-center">
               <Package className="h-12 w-12 text-primary mx-auto mb-4" />
@@ -88,7 +90,7 @@ const GuestShoppingLanding = () => {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6 text-center">
               <Heart className="h-12 w-12 text-primary mx-auto mb-4" />
@@ -151,10 +153,10 @@ const GuestShoppingLanding = () => {
                   </CardContent>
                 </Link>
                 <div className="p-4 pt-0">
-                  <Button 
-                    onClick={(e) => { 
-                      e.preventDefault(); 
-                      handleAddToCart(part); 
+                  <Button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleAddToCart(part);
                     }}
                     className="w-full bg-primary hover:bg-primary-hover"
                     disabled={!part.inStock}

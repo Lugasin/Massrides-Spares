@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Package, 
-  ShoppingCart, 
+import {
+  Package,
+  ShoppingCart,
   DollarSign,
   TrendingUp,
   AlertTriangle,
@@ -32,6 +32,7 @@ interface Product {
   price: number;
   stock_quantity: number;
   min_stock_level: number;
+  vendor_name?: string;
   availability_status: string;
 }
 
@@ -62,46 +63,61 @@ const VendorDashboard: React.FC = () => {
 
       // Fetch vendor products
       const { data: productsData, error: productsError } = await supabase
-        .from('spare_parts')
-        .select('*')
-        .eq('vendor_id', profile?.id);
+        .from('products')
+        .select(`
+          *,
+          inventory(quantity),
+          category:categories(name),
+          vendor:user_profiles(full_name, company_name)
+        `);
+      // Filter removed to allow vendors to view all stock as requested
 
       if (productsError) throw productsError;
-      setProducts(productsData || []);
+
+      // Transform data to match Product interface
+      const transformedProducts = productsData?.map((p: any) => ({
+        ...p,
+        name: p.title, // Map title to name
+        stock_quantity: p.inventory?.[0]?.quantity || 0,
+        min_stock_level: 5, // Defaulting min_stock_level as it's not in DB yet
+        availability_status: (p.inventory?.[0]?.quantity || 0) > 0 ? 'in_stock' : 'out_of_stock'
+      })) || [];
+
+      setProducts(transformedProducts);
 
       // Calculate metrics
-      const lowStockItems = productsData?.filter(p => p.stock_quantity <= (p.min_stock_level || 5)).length || 0;
+      const lowStockItems = transformedProducts.filter(p => p.stock_quantity <= p.min_stock_level).length;
 
       // Fetch order data for this vendor's products
-      const productIds = productsData?.map(p => p.id) || [];
+      // Note: This requires order_items to be linked to products
+      const productIds = transformedProducts.map(p => p.id);
+
+      let vendorRevenue = 0;
+      let uniqueOrders: any[] = [];
+      let pendingOrders = 0;
+
       if (productIds.length > 0) {
         const { data: orderItems } = await supabase
           .from('order_items')
           .select('*, order:orders(*)')
-          .in('spare_part_id', productIds);
+          .in('product_id', productIds)
+          .returns<any[]>(); // Use returns<any[]>() to bypass strict type check for joined data
 
-        const vendorRevenue = orderItems?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
-        const uniqueOrders = [...new Map(orderItems?.map(item => [item.order.id, item.order]) || []).values()];
-        const pendingOrders = uniqueOrders.filter(order => order.status === 'pending').length;
-
-        setMetrics({
-          totalProducts: productsData?.length || 0,
-          totalOrders: uniqueOrders.length,
-          totalRevenue: vendorRevenue,
-          lowStockItems,
-          pendingOrders,
-          averageRating: 4.8 // This would come from actual reviews
-        });
-      } else {
-        setMetrics({
-          totalProducts: 0,
-          totalOrders: 0,
-          totalRevenue: 0,
-          lowStockItems: 0,
-          pendingOrders: 0,
-          averageRating: 0
-        });
+        if (orderItems) {
+          vendorRevenue = orderItems.reduce((sum: number, item: any) => sum + (item.unit_price * item.quantity), 0);
+          uniqueOrders = [...new Map(orderItems.map((item: any) => [item.order.id, item.order])).values()];
+          pendingOrders = uniqueOrders.filter((order: any) => order.status === 'pending').length;
+        }
       }
+
+      setMetrics({
+        totalProducts: transformedProducts.length,
+        totalOrders: uniqueOrders.length,
+        totalRevenue: vendorRevenue,
+        lowStockItems,
+        pendingOrders,
+        averageRating: 4.8 // Placeholder
+      });
 
     } catch (error: any) {
       console.error('Error fetching vendor data:', error);
@@ -119,7 +135,7 @@ const VendorDashboard: React.FC = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'spare_parts',
+          table: 'products',
           filter: `vendor_id=eq.${profile?.id}`
         },
         fetchVendorData
@@ -129,7 +145,7 @@ const VendorDashboard: React.FC = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'orders'
+          table: 'inventory'
         },
         fetchVendorData
       )
@@ -138,7 +154,7 @@ const VendorDashboard: React.FC = () => {
     return () => supabase.removeChannel(channel);
   };
 
-  const lowStockProducts = products.filter(p => p.stock_quantity <= (p.min_stock_level || 5));
+  const lowStockProducts = products.filter(p => p.stock_quantity <= p.min_stock_level);
 
   return (
     <div className="space-y-6">
@@ -225,8 +241,8 @@ const VendorDashboard: React.FC = () => {
                   {lowStockProducts.length} products are running low on stock.
                 </p>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => navigate('/vendor/inventory')}
                 className="ml-auto"
@@ -291,8 +307,8 @@ const VendorDashboard: React.FC = () => {
             <span className="text-muted-foreground">Email</span>
             <span>{user?.email}</span>
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full"
             onClick={() => navigate('/profile/vendor')}
           >

@@ -1,18 +1,26 @@
 {
-  "name": "Massrides Agricultural Spare Parts",
+  "name": "Massrides Spares",
   "short_name": "Massrides",
-  "description": "Leading agricultural spare parts supplier in Zambia - Engine Parts, Hydraulic Components, Electrical Parts",
+  "description": "Leading spares supplier in Zambia - Engine Parts, Hydraulic Components, Electrical Parts",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fefefe",
   "theme_color": "#ec8a04",
   "orientation": "any",
-  "categories": ["business", "productivity", "shopping"],
+  "categories": [
+    "business",
+    "productivity",
+    "shopping"
+  ],
   "lang": "en",
   "dir": "ltr",
   "scope": "/",
   "prefer_related_applications": false,
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "icons": [
     {
       "src": "/tractor.ico",
@@ -26,7 +34,7 @@
       "purpose": "maskable any"
     },
     {
-      "src": "/tractor-512x512.png", 
+      "src": "/tractor-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"

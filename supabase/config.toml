@@ -1,4 +1,4 @@
-project_id = "nngzclreycvdgycyuqoe"
+project_id = "ocfljbhgssymtbjsunfr"
 
 [auth]
 enabled = true
@@ -25,3 +25,58 @@ secure_password_change = false
 max_frequency = "1m0s"
 otp_length = 6
 otp_expiry = 3600
+
+[functions.calculate-commission]
+enabled = true
+verify_jwt = true
+import_map = "./functions/calculate-commission/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/calculate-commission/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/calculate-commission/*.html" ]
+
+[functions.release-escrow]
+enabled = true
+verify_jwt = true
+import_map = "./functions/release-escrow/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/release-escrow/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/release-escrow/*.html" ]
+
+[functions.process-vendor-payout]
+enabled = true
+verify_jwt = true
+import_map = "./functions/process-vendor-payout/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/process-vendor-payout/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/process-vendor-payout/*.html" ]
+
+[functions.handle-vesicash-webhook]
+enabled = true
+verify_jwt = true
+import_map = "./functions/handle-vesicash-webhook/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/handle-vesicash-webhook/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/handle-vesicash-webhook/*.html" ]
+
+[functions.auto-release-escrow]
+enabled = true
+verify_jwt = true
+import_map = "./functions/auto-release-escrow/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/auto-release-escrow/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/auto-release-escrow/*.html" ]

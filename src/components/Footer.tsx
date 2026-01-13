@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import {
-  Mail, 
-  Phone, 
+  Mail,
+  Phone,
   MapPin,
   Facebook,
   Twitter,
@@ -35,7 +36,7 @@ export const Footer = () => {
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email) {
-      console.log("Newsletter subscription for:", email);
+      logger.log("Newsletter subscription for:", email);
       // TODO: Implement actual newsletter subscription logic (e.g., API call)
       toast.success(`Thank you for subscribing, ${email}!`);
       setEmail('');
@@ -52,7 +53,7 @@ export const Footer = () => {
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }} />
       </div>
-      
+
       <div className="container mx-auto px-4 py-12 lg:py-16 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Company Info */}
@@ -132,7 +133,7 @@ export const Footer = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Newsletter Section */}
         <div className="border-t border-gray-700 pt-8 mb-8">
           <div className="max-w-2xl mx-auto text-center">
@@ -203,7 +204,7 @@ export const Footer = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Powered by E-Place */}
           <div className="text-center mt-6 pt-6 border-t border-gray-700">
             <p className="text-gray-400 text-xs">
