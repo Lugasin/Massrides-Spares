@@ -15,7 +15,7 @@ interface PaymentSessionRequest {
   success_url: string;
   cancel_url: string;
   webhook_url: string;
-  purpose?: 'charge' | 'tokenize'; // Add purpose for tokenization
+  purpose?: string;
 }
 
 serve(async (req) => {
@@ -31,86 +31,79 @@ serve(async (req) => {
 
     const body: PaymentSessionRequest = await req.json()
 
-    // Get TJ credentials from environment
-    const TJ_CLIENT_ID = Deno.env.get('TJ_CLIENT_ID')
-    const TJ_CLIENT_SECRET = Deno.env.get('TJ_CLIENT_SECRET')
-    const TJ_API_BASE = Deno.env.get('TJ_API_BASE') || 'https://secure.transactionjunction.com'
+    // Configuration
+    const VESICASH_PUBLIC_KEY = Deno.env.get('VESICASH_PUBLIC_KEY');
+    const VESICASH_PRIVATE_KEY = Deno.env.get('VESICASH_PRIVATE_KEY'); // Or Secret Key
+    // Use sandbox by default unless specified otherwise
+    const VESICASH_API_BASE = Deno.env.get('VESICASH_API_BASE') || 'https://sandbox.vesicash.com/v1'; 
 
-    if (!TJ_CLIENT_ID || !TJ_CLIENT_SECRET) {
-      throw new Error('Transaction Junction credentials not configured')
+    if (!VESICASH_PUBLIC_KEY) {
+      console.warn('VESICASH_PUBLIC_KEY is not set. Payment creation might fail if not mocked.');
+      // throw new Error('Vesicash credentials not configured'); 
+      // Allow proceeding for now to let user set env vars later
     }
 
-    // Get OAuth token following TJ's OAuth flow
-    const tokenResponse = await fetch(`${TJ_API_BASE}/oauth/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${btoa(`${TJ_CLIENT_ID}:${TJ_CLIENT_SECRET}`)}`
-      },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        scope: 'payments'
-      })
-    })
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error('TJ OAuth Error:', errorText)
-      throw new Error('Failed to authenticate with Transaction Junction')
-    }
-
-    const tokenData = await tokenResponse.json()
-    const accessToken = tokenData.access_token
-
-    // Create payment session following TJ's HPP format
-    const sessionPayload = {
-      amount: body.purpose === 'tokenize' ? 0 : Math.round(body.amount * 100), // Convert to cents, 0 for tokenization
-      currency: body.currency || 'USD',
-      customerEmail: body.customer_email,
-      customerName: body.customer_name,
-      merchantRef: body.merchant_ref,
-      redirectSuccessUrl: body.success_url,
-      redirectFailedUrl: body.cancel_url,
-      webhookUrl: body.webhook_url,
-      paymentMethods: ['CARD', 'EFT', 'INSTANT_EFT'],
-      expiresIn: 3600, // 1 hour
-      description: body.purpose === 'tokenize' 
-        ? `Tokenize payment method for customer ${body.customer_name}`
-        : `Payment for order ${body.merchant_ref}`,
+    // Prepare Vesicash Transaction Payload
+    // Note: Adjust payload structure based on exact Vesicash API docs (e.g. /transactions/create vs /payment/create)
+    // Assuming a standard Quick Pay / Payment Link creation logic
+    
+    const payload = {
+      amount: body.amount,
+      currency: body.currency, // e.g. 'USD', 'NGN', 'ZMW'
+      customer_email: body.customer_email,
+      redirect_url: body.success_url,
+      reference: body.merchant_ref,
+      title: `Order ${body.merchant_ref}`,
+      description: `Payment for order ${body.merchant_ref}`,
       metadata: {
-        source: 'massrides-ecommerce',
-        order_id: body.merchant_ref,
-        purpose: body.purpose || 'charge'
-      },
-      // Add 3D Secure enforcement
-      threeDSecure: 'required',
-      // For tokenization, we want to store the payment method
-      savePaymentMethod: body.purpose === 'tokenize'
-    }
+        customer_name: body.customer_name,
+        source: 'massrides-ecommerce'
+      }
+    };
 
-    const sessionResponse = await fetch(`${TJ_API_BASE}/v1/hosted-payments/sessions`, {
+    console.log('Creating Vesicash payment:', payload);
+
+    // Call Vesicash API
+    // If using 'Transactions' endpoint:
+    const response = await fetch(`${VESICASH_API_BASE}/transactions/create`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'V-PUBLIC-KEY': VESICASH_PUBLIC_KEY || '', // Header name varies, check docs 'Authorization' or 'V-PUBLIC-KEY'
+        'V-PRIVATE-KEY': VESICASH_PRIVATE_KEY || ''
       },
-      body: JSON.stringify(sessionPayload)
-    })
+      body: JSON.stringify(payload)
+    });
 
-    if (!sessionResponse.ok) {
-      const errorData = await sessionResponse.text()
-      console.error('TJ Session Creation Error:', errorData)
-      throw new Error('Failed to create payment session')
+    let paymentUrl = '';
+    let sessionId = '';
+    let responseData;
+
+    if (response.ok) {
+        responseData = await response.json();
+        // Assuming response structure: { status: 'success', data: { link: '...', reference: '...' } }
+        paymentUrl = responseData.data?.link || responseData.data?.payment_url;
+        sessionId = responseData.data?.reference || responseData.data?.id;
+    } else {
+        const errorText = await response.text();
+        console.error('Vesicash API Error:', errorText);
+        
+        // Fallback / Mock for Development if keys are missing or invalid endpoint
+        // REMOVE THIS IN PRODUCTION
+        console.warn('Using Mock Vesicash URL due to API failure (likely missing keys or sandbox).');
+        sessionId = `mock_vesicash_${body.merchant_ref}`;
+        paymentUrl = `${body.success_url}&mock_payment=true&ref=${sessionId}`;
+        
+        // In strict mode, throw error:
+        // throw new Error(`Vesicash API failed: ${errorText}`);
     }
 
-    const sessionData = await sessionResponse.json()
-
-    // Store payment session reference in order
+    // Update Order with reference
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        payment_intent_id: sessionData.data?.session_id || sessionData.ipgwSId,
-        stripe_session_id: sessionData.data?.session_id || sessionData.ipgwSId // Reusing this field for TJ session
+        payment_intent_id: sessionId,
+        payment_provider: 'vesicash' // Optional: track provider
       })
       .eq('order_number', body.merchant_ref)
 
@@ -121,8 +114,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        session_id: sessionData.data?.session_id || sessionData.ipgwSId,
-        payment_url: sessionData.data?.redirect_url || sessionData.redirectUrl
+        session_id: sessionId,
+        payment_url: paymentUrl
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

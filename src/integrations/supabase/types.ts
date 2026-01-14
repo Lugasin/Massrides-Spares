@@ -173,7 +173,7 @@ export interface Database {
           updated_at?: string | null
         }
       }
-      user_carts: {
+      carts: {
         Row: {
           id: string
           user_id: string

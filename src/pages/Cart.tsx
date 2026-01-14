@@ -20,7 +20,7 @@ import { useQuote } from "@/context/QuoteContext";
 import { Link, useNavigate } from "react-router-dom";
 
 const Cart = () => {
-  const { items, total, itemCount, updateQuantity, removeItem } = useQuote();
+  const { items, total, itemCount, updateQuantity, removeItem, loading } = useQuote();
   const navigate = useNavigate();
 
   const handleCheckout = () => {
@@ -37,17 +37,43 @@ const Cart = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-8">
-            <ShoppingCart className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">Shopping Cart</h1>
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center gap-3">
+              <ShoppingCart className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">Shopping Cart</h1>
+              {itemCount > 0 && (
+                <Badge className="bg-primary text-primary-foreground text-lg px-3 py-1">
+                  {itemCount} {itemCount === 1 ? 'part' : 'parts'}
+                </Badge>
+              )}
+            </div>
             {itemCount > 0 && (
-              <Badge className="bg-primary text-primary-foreground text-lg px-3 py-1">
-                {itemCount} {itemCount === 1 ? 'part' : 'parts'}
-              </Badge>
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  if (confirm("Are you sure you want to clear your cart?")) {
+                    // Assuming clearCart is exposed from useQuote
+                    const { clearCart } = useQuote();
+                    clearCart();
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Cart
+              </Button>
             )}
           </div>
 
-          {items.length === 0 ? (
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-6 h-32"></CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : items.length === 0 ? (
             /* Empty Cart */
             <div className="text-center py-16">
               <ShoppingCart className="h-24 w-24 text-muted-foreground mx-auto mb-6 opacity-50" />

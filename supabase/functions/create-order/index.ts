@@ -30,6 +30,7 @@ interface CreateOrderRequest {
     country?: string;
   };
   guest_session_id?: string;
+  send_receipt?: boolean;
 }
 
 serve(async (req) => {
@@ -79,6 +80,8 @@ serve(async (req) => {
     let sourceCartId: string | null = null;
     let sourceIsGuest = false;
     
+    console.log(`Processing order for: User=${user?.id}, GuestSession=${guest_session_id}`);
+
     if (user && profile) {
       // Get user cart items
       const { data: cart } = await supabase
@@ -86,6 +89,8 @@ serve(async (req) => {
         .select('id')
         .eq('user_id', profile.id)
         .single()
+      
+      console.log('User ID found:', user.id, 'Cart:', cart);
 
       if (cart) {
         sourceCartId = cart.id;
@@ -103,16 +108,20 @@ serve(async (req) => {
       }
     } else if (guest_session_id) {
       // Get guest cart items
-      const { data: guestCart } = await supabase
+      console.log('Searching for guest cart with session:', guest_session_id);
+      
+      const { data: guestCart, error: guestCartError } = await supabase
         .from('guest_carts')
         .select('id')
         .eq('session_id', guest_session_id)
         .single()
+      
+      console.log('Guest Cart Result:', { guestCart, error: guestCartError });
 
       if (guestCart) {
         sourceCartId = guestCart.id;
         sourceIsGuest = true;
-        const { data: guestCartItems } = await supabase
+        const { data: guestCartItems, error: itemsError } = await supabase
           .from('guest_cart_items')
           .select(`
             id,
@@ -121,12 +130,15 @@ serve(async (req) => {
             product:products(*)
           `)
           .eq('guest_cart_id', guestCart.id)
+        
+        console.log('Guest Cart Items Result:', { count: guestCartItems?.length, error: itemsError });
 
         cartItems = guestCartItems || []
       }
     }
 
     if (!cartItems || cartItems.length === 0) {
+      console.error('Cart Empty Check Failed. Items:', cartItems);
       throw new Error('Cart is empty')
     }
 
@@ -198,7 +210,7 @@ serve(async (req) => {
       throw new Error(`Failed to create order items: ${itemsError.message}`)
     }
 
-    }
+
 
     // Send notification if user is logged in
     if (user && profile) {
@@ -241,11 +253,17 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message,
+        debug: {
+            user_id: user?.id,
+            guest_session_id,
+            sourceCartId,
+            sourceIsGuest
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200, // Return 200 to allow client to parse error message
       }
     )
   }

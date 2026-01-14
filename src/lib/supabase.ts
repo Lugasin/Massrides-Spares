@@ -79,14 +79,14 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
 
     // Get or create user cart
     let { data: cart } = await supabase
-      .from('user_carts')
+      .from('carts')
       .select('id')
       .eq('user_id', profile.id)
       .single();
 
     if (!cart) {
       const { data: newCart, error } = await supabase
-        .from('user_carts')
+        .from('carts')
         .insert({ user_id: profile.id })
         .select('id')
         .single();
@@ -137,7 +137,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
 
       if (error) {
         console.error('Error creating guest cart:', error);
-        return { error };
+        throw error;
       }
       guestCart = newGuestCart;
     }
@@ -176,7 +176,7 @@ export const getCartItems = async (): Promise<CartItem[]> => {
     if (!profile) return [];
 
     const { data: cart } = await supabase
-      .from('user_carts')
+      .from('carts')
       .select('id')
       .eq('user_id', profile.id)
       .single();
@@ -308,6 +308,62 @@ export const updateCartItemQuantity = async (itemId: string, quantity: number) =
       .eq('id', itemId)
   }
 }
+
+export const clearCart = async () => {
+  console.log("clearCart called");
+  const { data: { user } } = await supabase.auth.getUser()
+  console.log("User:", user?.id);
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    console.log("Profile:", profile?.id);
+      
+    if (!profile) return;
+
+    const { data: cart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', profile.id)
+      .single();
+    console.log("Cart:", cart?.id);
+      
+    if (cart) {
+      const { error, count } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('cart_id', cart.id)
+        .select('*', { count: 'exact', head: true }); // Use select to get count/error
+      console.log("Delete result:", { error, count });
+      return { error };
+    }
+  } else {
+    // ... guest logic ...
+    const sessionId = localStorage.getItem('guest_session_id')
+    console.log("Guest Session:", sessionId);
+    if (!sessionId) return
+    
+    const { data: guestCart } = await supabase
+      .from('guest_carts')
+      .select('id')
+      .eq('session_id', sessionId)
+      .single()
+    console.log("Guest Cart:", guestCart?.id);
+      
+    if (guestCart) {
+      const { error } = await supabase
+        .from('guest_cart_items')
+        .delete()
+        .eq('guest_cart_id', guestCart.id);
+      console.log("Guest delete error:", error);
+      return { error };
+    }
+  }
+}
+
 
 // Merge guest cart with user cart on login
 export const mergeGuestCart = async () => {

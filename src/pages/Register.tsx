@@ -307,7 +307,7 @@ export default function Register() {
             </form>
 
             {/* Back to Home */}
-            <div className="text-center mt-4">
+            <div className="text-center mt-4 relative z-20">
               <Button asChild variant="ghost">
                 <Link to="/">
                   ← Back to Home

@@ -49,16 +49,32 @@ export default function Login() {
     setIsLoading(false);
   };
 
-  const handleGuestLogin = () => {
-    // Set guest session
-    localStorage.setItem('guest_session_id', crypto.randomUUID());
-    localStorage.setItem('user_role', 'guest');
+  const handleGuestLogin = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
 
-    // Log guest login
-    logAuthEvent('guest_login', undefined, { session_id: localStorage.getItem('guest_session_id') });
+    try {
+      // Robust UUID generation with fallback
+      const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'guest-' + Date.now() + '-' + Math.random().toString(36).substring(2);
 
-    toast.success('Logged in as Guest');
-    navigate('/guest-shopping');
+      localStorage.setItem('guest_session_id', sessionId);
+      localStorage.setItem('user_role', 'guest');
+
+      // Log guest login - wrapped in try/catch silently
+      try {
+        logAuthEvent('guest_login', undefined, { session_id: sessionId });
+      } catch (err) {
+        console.warn('Failed to log guest login:', err);
+      }
+
+      toast.success('Logged in as Guest');
+      navigate('/guest-shopping');
+    } catch (error) {
+      console.error('Guest login error:', error);
+      // Fallback navigation even if something fails
+      navigate('/guest-shopping');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -241,13 +257,13 @@ export default function Login() {
                 </Button>
               </div>
 
-              <div className="text-center">
+              <div className="text-center relative z-20">
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={handleGuestLogin}
+                  onClick={(e) => handleGuestLogin(e)}
                   disabled={isLoading}
-                  className="text-sm text-muted-foreground hover:text-primary"
+                  className="text-sm text-muted-foreground hover:text-primary cursor-pointer"
                 >
                   Continue as Guest
                 </Button>
@@ -255,7 +271,7 @@ export default function Login() {
             </form>
 
             {/* Back to Home */}
-            <div className="text-center mt-4">
+            <div className="text-center mt-4 relative z-20">
               <Button asChild variant="ghost">
                 <Link to="/">
                   ← Back to Home

@@ -366,14 +366,15 @@ const SparePartDetail = () => {
               </div>
 
               <div className="space-y-2 text-sm">
-                <p><span className="text-muted-foreground">Part Number:</span> <span className="font-mono font-medium">{sparePart.part_number}</span></p>
+                <div className="text-sm"><span className="text-muted-foreground">Part Number:</span> <span className="font-mono font-medium">{sparePart.part_number}</span></div>
                 {sparePart.oem_part_number && (
-                  <p><span className="text-muted-foreground">OEM Part Number:</span> <span className="font-mono font-medium">{sparePart.oem_part_number}</span></p>
+                  <div className="text-sm"><span className="text-muted-foreground">OEM Part Number:</span> <span className="font-mono font-medium">{sparePart.oem_part_number}</span></div>
                 )}
-                <p><span className="text-muted-foreground">Brand:</span> <span className="font-medium">{sparePart.brand}</span></p>
-                <p><span className="text-muted-foreground">Condition:</span>
-                  <Badge variant="outline" className="ml-2 capitalize">{sparePart.condition}</Badge>
-                </p>
+                <div className="text-sm"><span className="text-muted-foreground">Brand:</span> <span className="font-medium">{sparePart.brand}</span></div>
+                <div className="flex items-center gap-2 text-sm mt-1">
+                  <span className="text-muted-foreground">Condition:</span>
+                  <Badge variant="outline" className="capitalize">{sparePart.condition}</Badge>
+                </div>
               </div>
             </div>
 

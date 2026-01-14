@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Mail,
   User,
@@ -31,6 +32,7 @@ const GuestCheckout = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sendReceipt, setSendReceipt] = useState(true);
 
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +118,11 @@ const GuestCheckout = () => {
 
   const handleProceedToPayment = async () => {
     setIsProcessing(true);
+    setPaymentProcessingMessage("Initializing secure payment...");
+    toast.info("Proceeding to payment gateway...");
+
+    // Add delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
       const guest_session_id = localStorage.getItem('guest_session_id');
@@ -136,30 +143,38 @@ const GuestCheckout = () => {
             state: 'Guest State',
             zipCode: '00000',
             country: 'Zambia',
-          }
+          },
+          send_receipt: sendReceipt
         }
       });
 
       if (orderError) throw new Error(orderError.message);
       const { order } = orderData;
 
-      // Create TJ payment session
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke('tj-create-session', {
+      // Create Payment session (Vesicash via generic endpoint)
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-payment-session', {
         body: {
-          orderId: order.id,
           amount: order.total_amount,
           currency: 'USD',
-          returnSuccessUrl: `${window.location.origin}/checkout/success?order=${order.order_number}`,
-          returnFailedUrl: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
-          customerEmail: email,
-          customerName: name
+          customer_email: email,
+          customer_name: name,
+          merchant_ref: order.order_number,
+          success_url: `${window.location.origin}/checkout/success?order=${order.order_number}`,
+          cancel_url: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
+          webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
         }
       });
 
       if (paymentError) throw new Error(paymentError.message);
 
-      // Redirect to TJ payment page
-      window.open(paymentData.redirectUrl, '_blank');
+      // Redirect to payment page
+      // Handle both potential response formats (generic or direct)
+      const redirectUrl = paymentData.payment_url || paymentData.redirectUrl;
+      if (redirectUrl) {
+        window.open(redirectUrl, '_blank');
+      } else {
+        throw new Error('No redirect URL received from payment provider');
+      }
 
       // Clear local cart
       clearCart();
@@ -420,6 +435,17 @@ const GuestCheckout = () => {
                       You will be redirected to our secure payment partner to complete your purchase.
                     </p>
 
+                    <div className="flex items-center justify-center space-x-2 mb-4">
+                      <Checkbox
+                        id="sendReceipt"
+                        checked={sendReceipt}
+                        onCheckedChange={(checked) => setSendReceipt(checked === true)}
+                      />
+                      <Label htmlFor="sendReceipt">
+                        Email me a copy of the order receipt
+                      </Label>
+                    </div>
+
                     <Button
                       onClick={handleProceedToPayment}
                       disabled={isProcessing}
@@ -436,12 +462,24 @@ const GuestCheckout = () => {
 
                     <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
                       <ShieldCheck className="h-4 w-4" />
-                      <span>Secure payment processing via Transaction Junction</span>
+                      <span>Secure payment processing via Vesicash</span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {isProcessing && (
+            <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+              <Card className="w-full max-w-md p-6 shadow-lg border-primary/20">
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  <p className="text-lg font-medium">{paymentProcessingMessage || "Processing..."}</p>
+                  <p className="text-sm text-muted-foreground">Please do not close this window.</p>
+                </div>
+              </Card>
+            </div>
           )}
         </div>
       </main>

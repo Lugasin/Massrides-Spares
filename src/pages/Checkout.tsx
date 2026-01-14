@@ -35,6 +35,7 @@ const Checkout = () => {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [useShippingAddress, setUseShippingAddress] = useState(false);
+  const [sendReceipt, setSendReceipt] = useState(true);
 
   const [customerInfo, setCustomerInfo] = useState({
     firstName: profile?.full_name?.split(' ')[0] || "",
@@ -65,16 +66,24 @@ const Checkout = () => {
     setStep(2);
   };
 
+  const [paymentProcessingMessage, setPaymentProcessingMessage] = useState<string | null>(null);
+
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
+    setPaymentProcessingMessage("Initializing secure payment...");
+    toast.info("Proceeding to payment gateway...");
+
+    // Add small delay for UX
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
       // Create order first
       const orderData = {
         customer_info: customerInfo,
         shipping_info: useShippingAddress ? shippingInfo : null,
-        guest_session_id: !user ? localStorage.getItem('guest_session_id') : null
+        guest_session_id: !user ? localStorage.getItem('guest_session_id') : null,
+        send_receipt: sendReceipt
       };
 
       const token = user ? (await supabase.auth.getSession())?.data.session?.access_token : null;
@@ -89,6 +98,10 @@ const Checkout = () => {
 
       const orderResult = response.data;
 
+      if (!orderResult.success) {
+        throw new Error(orderResult.error || 'Failed to create order');
+      }
+
       // Create TJ payment session
       const paymentSessionData = {
         amount: total,
@@ -98,7 +111,7 @@ const Checkout = () => {
         merchant_ref: orderResult.order.order_number,
         success_url: `${window.location.origin}/checkout/success?order=${orderResult.order.order_number}`,
         cancel_url: `${window.location.origin}/checkout/cancel?order=${orderResult.order.order_number}`,
-        webhook_url: `https://biipyscibeygppqqybay.supabase.co/functions/v1/handle-payment-webhook`
+        webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
       };
 
       const paymentResponse = await supabase.functions.invoke('create-payment-session', {
@@ -117,6 +130,12 @@ const Checkout = () => {
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Failed to process checkout');
+
+      // Temporary debug helper
+      if (error.message === 'Cart is empty') {
+        console.log("Debug info might be in network tab response");
+      }
+
       setIsProcessing(false);
     }
   };
@@ -394,13 +413,24 @@ const Checkout = () => {
 
                       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
                         <Lock className="h-4 w-4" />
-                        Secure payment processing via Transaction Junction
+                        Secure payment processing via Vesicash
                       </div>
 
                       <div>
                         <p className="text-sm text-muted-foreground">
                           You will be redirected to our secure payment partner to complete your purchase.
                         </p>
+                      </div>
+
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox
+                          id="sendReceipt"
+                          checked={sendReceipt}
+                          onCheckedChange={(checked) => setSendReceipt(checked === true)}
+                        />
+                        <Label htmlFor="sendReceipt">
+                          Email me a copy of the order receipt
+                        </Label>
                       </div>
 
                       <div className="flex gap-4">
@@ -441,6 +471,23 @@ const Checkout = () => {
                     <p className="text-muted-foreground mb-8">
                       Thank you for your order. We'll send you a confirmation email shortly with tracking information.
                     </p>
+
+                    <div className="bg-muted/30 rounded-lg p-6 mb-8 max-w-md mx-auto text-left">
+                      <h4 className="font-medium mb-4">Order Summary</h4>
+                      <div className="space-y-3">
+                        {items.map((item) => (
+                          <div key={item.id} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{item.name} x{item.quantity}</span>
+                            <span>${(item.price * item.quantity).toLocaleString()}</span>
+                          </div>
+                        ))}
+                        <Separator className="my-2" />
+                        <div className="flex justify-between font-bold">
+                          <span>Total</span>
+                          <span className="text-primary">${total.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex gap-4 justify-center">
                       <Button asChild size="lg">
                         <Link to="/catalog">
