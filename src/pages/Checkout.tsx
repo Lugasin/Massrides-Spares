@@ -109,6 +109,7 @@ const Checkout = () => {
         customer_email: customerInfo.email,
         customer_name: `${customerInfo.firstName} ${customerInfo.lastName}`,
         merchant_ref: orderResult.order.order_number,
+        public_key: import.meta.env.VITE_VESICASH_PUBLIC_KEY,
         success_url: `${window.location.origin}/checkout/success?order=${orderResult.order.order_number}`,
         cancel_url: `${window.location.origin}/checkout/cancel?order=${orderResult.order.order_number}`,
         webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`

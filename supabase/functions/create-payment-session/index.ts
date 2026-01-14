@@ -16,6 +16,7 @@ interface PaymentSessionRequest {
   cancel_url: string;
   webhook_url: string;
   purpose?: string;
+  public_key?: string;
 }
 
 serve(async (req) => {
@@ -32,7 +33,7 @@ serve(async (req) => {
     const body: PaymentSessionRequest = await req.json()
 
     // Configuration
-    const VESICASH_PUBLIC_KEY = Deno.env.get('VESICASH_PUBLIC_KEY');
+    const VESICASH_PUBLIC_KEY = body.public_key || Deno.env.get('VESICASH_PUBLIC_KEY');
     const VESICASH_PRIVATE_KEY = Deno.env.get('VESICASH_PRIVATE_KEY'); // Or Secret Key
     // Use sandbox by default unless specified otherwise
     const VESICASH_API_BASE = Deno.env.get('VESICASH_API_BASE') || 'https://sandbox.vesicash.com/v1'; 
