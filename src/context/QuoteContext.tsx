@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface CartItem {
-  id: string;
+  id: string; // Database Row ID (UUID)
+  product_id?: string; // Product ID (for uniqueness check)
   name: string;
   price: number;
   quantity: number;
@@ -53,15 +54,15 @@ interface QuoteProviderProps {
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
 
-  // Create a reusable loadCart function
   const loadCart = async () => {
     try {
       setLoading(true);
       const savedItems = await import('@/lib/supabase').then(m => m.getCartItems());
       const ContextItems = savedItems.map((i: any) => ({
-        id: i.spare_part_id || i.product_id || i.id, // Using product ID for context tracking usually
+        id: i.id, // Correctly use the Row UUID for deletions/updates
+        product_id: i.spare_part_id || i.product_id, // Store Product ID for lookups
         name: i.spare_part?.name || 'Unknown Part',
         price: i.spare_part?.price || 0,
         quantity: i.quantity,
@@ -83,24 +84,35 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   }, []);
 
   const addItem = async (item: Omit<CartItem, 'quantity'>) => {
+    // The incoming 'item.id' is typically the Product ID from the UI/Catalog
+    const incomingProductId = item.id;
+
     // Optimistic update
     setItems(prev => {
-      const existingItem = prev.find(i => i.id === item.id);
+      // Check if we already have this product using product_id (preferred) or id fallback
+      const existingItem = prev.find(i =>
+        (i.product_id && i.product_id === incomingProductId) ||
+        i.id === incomingProductId
+      );
+
       if (existingItem) {
         return prev.map(i =>
-          i.id === item.id
+          // match by Row ID if we found it, or fallback to checking product_id again
+          (i.id === existingItem.id)
             ? { ...i, quantity: i.quantity + 1 }
             : i
         );
       }
-      return [...prev, { ...item, quantity: 1 }];
+      // For new optimistic items, we temporarily use Product ID as 'id' until reload
+      return [...prev, { ...item, id: incomingProductId, product_id: incomingProductId, quantity: 1 }];
     });
 
     // Sync with DB
     try {
       const { addToCart } = await import('@/lib/supabase');
-      await addToCart(item.id, 1);
-      // Reload to ensure we have valid row IDs for future operations
+      // Pass the Product ID to addToCart
+      await addToCart(incomingProductId, 1);
+      // Reload to replace the temporary optimistic item with the real DB row (UUID)
       await loadCart();
     } catch (error) {
       console.error("Failed to sync add item", error);
@@ -114,7 +126,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     // Sync with DB
     try {
       const { removeFromCart } = await import('@/lib/supabase');
-      // If the ID is a row ID (which it should be after loadCart), this works.
+      // 'id' is now the proper Row UUID (from loadCart), so this delete works!
       await removeFromCart(id);
       await loadCart();
     } catch (error) {
