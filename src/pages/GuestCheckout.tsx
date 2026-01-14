@@ -25,13 +25,16 @@ import { useNavigate, Link } from 'react-router-dom';
 
 const GuestCheckout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Hook must be first
+  // Initialize from localStorage immediately
+  const [sessionId] = useState(() => localStorage.getItem('guest_session_id') || '');
   const [step, setStep] = useState(1); // 1: Email, 2: Verification, 3: Payment
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentProcessingMessage, setPaymentProcessingMessage] = useState<string | null>(null);
   const [sendReceipt, setSendReceipt] = useState(true);
 
   const handleSendVerification = async (e: React.FormEvent) => {
@@ -125,18 +128,19 @@ const GuestCheckout = () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
-      const guest_session_id = localStorage.getItem('guest_session_id');
+      // Use state variable which persists even if localStorage is cleared by mergeGuestCart
+      const currentSessionId = sessionId; // Use state
 
       // If not logged in and no guest session, we can't proceed
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !guest_session_id) {
+      if (!session && !currentSessionId) {
         throw new Error("Session not found. Please start checkout again.");
       }
 
       // Create order using Edge Function
       const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
         body: {
-          guest_session_id,
+          guest_session_id: currentSessionId,
           customer_info: {
             email,
             firstName: name.split(' ')[0],

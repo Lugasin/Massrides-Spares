@@ -82,7 +82,7 @@ const Checkout = () => {
       const orderData = {
         customer_info: customerInfo,
         shipping_info: useShippingAddress ? shippingInfo : null,
-        guest_session_id: !user ? localStorage.getItem('guest_session_id') : null,
+        guest_session_id: localStorage.getItem('guest_session_id'),
         send_receipt: sendReceipt
       };
 
