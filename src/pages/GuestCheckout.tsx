@@ -126,7 +126,10 @@ const GuestCheckout = () => {
 
     try {
       const guest_session_id = localStorage.getItem('guest_session_id');
-      if (!guest_session_id) {
+
+      // If not logged in and no guest session, we can't proceed
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !guest_session_id) {
         throw new Error("Session not found. Please start checkout again.");
       }
 

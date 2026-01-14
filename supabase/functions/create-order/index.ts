@@ -106,7 +106,10 @@ serve(async (req) => {
 
         cartItems = userCartItems || []
       }
-    } else if (guest_session_id) {
+    } 
+    
+    // Fallback: If no user items found (or user not logged in), check guest cart
+    if (cartItems.length === 0 && guest_session_id) {
       // Get guest cart items
       console.log('Searching for guest cart with session:', guest_session_id);
       
