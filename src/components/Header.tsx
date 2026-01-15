@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import { toast } from "sonner";
 import { useNotifications } from "@/hooks/useNotifications";
-import { 
+import {
   Bell,
   LayoutDashboard,
   Leaf,
@@ -14,12 +14,17 @@ import {
   Mail,
   Menu,
   MessageSquare,
+  Package,
   Search,
   Settings,
-  ShoppingCart, 
-  User, 
-  X, 
+  ShoppingCart,
+  User,
+  UserPlus,
+  Users,
+  LogIn,
+  X,
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/context/AuthContext';
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -27,8 +32,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 interface HeaderProps {
   cartItemsCount?: number;
   onAuthClick?: () => void;
-  searchTerm?: string; 
-  onSearchChange?: (term: string) => void; 
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const Header = ({
@@ -135,10 +140,10 @@ export const Header = ({
             {/* Cart with badge */}
             {/* Notifications */}
             {user && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="relative"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative hidden lg:flex"
                 onClick={() => setIsNotificationsOpen(true)}
               >
                 <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
@@ -148,19 +153,19 @@ export const Header = ({
               </Button>
             )}
 
-            {/* Messages */}
+            {/* Messages - Desktop only */}
             {user && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="relative"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative hidden lg:flex"
                 onClick={() => navigate('/messages')}
               >
                 <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
               </Button>
             )}
 
-            <Link to="/cart">
+            <Link to="/cart" className="hidden lg:block">
               <Button variant="ghost" size="sm" className="relative">
                 <ShoppingCart className="h-4 w-4 lg:h-5 lg:w-5" />
                 {cartItemsCount > 0 && (
@@ -173,8 +178,8 @@ export const Header = ({
 
             {/* Shop Now CTA - Conditionally rendered */}
             {!isCatalogPage && (
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="bg-secondary hover:bg-secondary-hover text-secondary-foreground hidden lg:flex animate-pulse"
                 onClick={handleShopNowClick}
               >
@@ -217,32 +222,33 @@ export const Header = ({
                       window.location.href = '/';
                     }
                   }}>
-                     <LogOut className="mr-2 h-4 w-4" />
+                    <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 {localStorage.getItem('guest_session_id') && (
-                  <Badge variant="secondary" className="text-xs">Guest</Badge>
+                  <Badge variant="secondary" className="text-xs hidden sm:inline-flex">Guest</Badge>
                 )}
                 <Link to="/login">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-xs lg:text-sm"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs lg:text-sm px-2 sm:px-3"
                   >
+                    <LogIn className="h-4 w-4 sm:hidden" />
                     <span className="hidden sm:inline">Login</span>
-                    <span className="sm:hidden">Login</span>
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button 
-                    size="sm" 
-                    className="text-xs lg:text-sm hidden sm:flex"
+                  <Button
+                    size="sm"
+                    className="text-xs lg:text-sm px-2 sm:px-3"
                   >
-                    Sign Up
+                    <UserPlus className="h-4 w-4 sm:hidden" />
+                    <span className="hidden sm:inline">Sign Up</span>
                   </Button>
                 </Link>
               </div>
@@ -274,12 +280,12 @@ export const Header = ({
                 />
               </div>
             )}
-            
+
             {navItems.map((item) => (
               <a
                 key={item.label}
                 href={item.href}
-                 onClick={(e) => {
+                onClick={(e) => {
                   e.preventDefault();
                   handleNavLinkClick(item.href);
                   setIsMobileMenuOpen(false);
@@ -289,62 +295,117 @@ export const Header = ({
                 {item.label}
               </a>
             ))}
-            
+
             {/* Mobile user menu */}
             <div className="border-t border-border mt-2 pt-2">
-               {user ? (
-                 <div className="flex flex-col gap-1">
-                    <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Profile</Link>
-                    <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Dashboard</Link>
+              {user ? (
+                <div className="flex flex-col gap-1">
+                  {/* Secondary Desktop actions moved to primary Mobile links */}
+                  <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Cart
+                    </div>
+                    {cartItemsCount > 0 && <Badge className="bg-primary text-primary-foreground">{cartItemsCount}</Badge>}
+                  </Link>
 
-                    {/* Role-based links */}
-                    {(userRole === 'vendor' || userRole === 'admin') && (
-                      <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Product Management</Link>
-                    )}
+                  <Button
+                    variant="ghost"
+                    className="justify-start px-2 py-3 h-auto font-medium hover:bg-muted/50 text-foreground"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsNotificationsOpen(true);
+                    }}
+                  >
+                    <Bell className="mr-2 h-4 w-4" />
+                    Notifications
+                    {unreadCount > 0 && <Badge className="ml-auto bg-primary text-primary-foreground">{unreadCount}</Badge>}
+                  </Button>
 
-                    {(userRole === 'admin' || userRole === 'super_admin') && (
-                      <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">User Management</Link>
-                    )}
+                  <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Messages
+                  </Link>
 
-                    <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Settings</Link>
+                  <Separator className="my-1" />
 
-                    <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50">Messages</Link>
+                  <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
+                  <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Link>
 
-                     <Button variant="ghost" className="justify-start px-2 py-3 h-auto" onClick={async () => {
-                         const { error } = await signOut();
-                         if (error) {
-                           toast.error(`Sign out failed: ${error.message}`);
-                         } else {
-                           window.location.href = '/';
-                         }
-                         setIsMobileMenuOpen(false);
-                     }}>
-                       <LogOut className="mr-2 h-4 w-4" />
-                       Logout
-                     </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {localStorage.getItem('guest_session_id') && (
-                      <div className="px-2 py-1">
-                        <Badge variant="secondary" className="text-xs">Guest User</Badge>
-                      </div>
-                    )}
-                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="justify-start px-2 py-3 h-auto w-full">
-                        <User className="mr-2 h-4 w-4" />
-                        Sign In
-                      </Button>
+                  {/* Role-based links */}
+                  {(userRole === 'vendor' || userRole === 'admin') && (
+                    <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                      <Package className="mr-2 h-4 w-4" />
+                      Product Management
                     </Link>
-                    <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                      <Button variant="outline" className="justify-start px-2 py-3 h-auto w-full">
-                        Sign Up
-                      </Button>
+                  )}
+
+                  {(userRole === 'admin' || userRole === 'super_admin') && (
+                    <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                      <Users className="mr-2 h-4 w-4" />
+                      User Management
                     </Link>
-                  </div>
-                )}
+                  )}
+
+                  <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+
+                  <Separator className="my-1" />
+
+                  <Button variant="ghost" className="justify-start px-2 py-3 h-auto text-destructive hover:text-destructive hover:bg-destructive/10" onClick={async () => {
+                    const { error } = await signOut();
+                    if (error) {
+                      toast.error(`Sign out failed: ${error.message}`);
+                    } else {
+                      window.location.href = '/';
+                    }
+                    setIsMobileMenuOpen(false);
+                  }}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {localStorage.getItem('guest_session_id') && (
+                    <div className="px-2 py-1">
+                      <Badge variant="secondary" className="text-xs">Guest User</Badge>
+                    </div>
+                  )}
+
+                  {/* Cart, Notifications, Messages for mobile when logged out */}
+                  <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Cart
+                    </div>
+                    {cartItemsCount > 0 && <Badge className="bg-primary text-primary-foreground">{cartItemsCount}</Badge>}
+                  </Link>
+
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button variant="ghost" className="justify-start px-2 py-3 h-auto w-full">
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button variant="outline" className="justify-start px-2 py-3 h-auto w-full text-secondary-foreground bg-secondary hover:bg-secondary-hover mt-1">
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Sign Up
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
-            
+
             <div className="flex items-center gap-2 py-2 px-2 text-sm text-muted-foreground border-t border-border mt-2 pt-3">
               <Mail className="h-4 w-4" />
               <span>info@massrides.co.zm</span>
@@ -352,9 +413,9 @@ export const Header = ({
           </nav>
         </div>
       </div>
-      
+
       {/* Notifications Panel */}
-      <NotificationsPanel 
+      <NotificationsPanel
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
       />

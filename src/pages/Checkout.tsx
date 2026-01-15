@@ -72,13 +72,11 @@ const Checkout = () => {
     e.preventDefault();
     setIsProcessing(true);
     setPaymentProcessingMessage("Initializing secure payment...");
-    toast.info("Proceeding to payment gateway...");
-
-    // Add small delay for UX
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
-      // Create order first
+      // 1. Create Generic Order
+      toast.info("Creating order record...");
+
       const orderData = {
         customer_info: customerInfo,
         shipping_info: useShippingAddress ? shippingInfo : null,
@@ -86,57 +84,41 @@ const Checkout = () => {
         send_receipt: sendReceipt
       };
 
-      const token = user ? (await supabase.auth.getSession())?.data.session?.access_token : null;
-
       const response = await supabase.functions.invoke('create-order', {
         body: orderData
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to create order');
-      }
+      if (response.error) throw new Error(response.error.message);
+      if (!response.data.success) throw new Error(response.data.error);
 
-      const orderResult = response.data;
+      const { order } = response.data;
 
-      if (!orderResult.success) {
-        throw new Error(orderResult.error || 'Failed to create order');
-      }
-
-      // Create TJ payment session
-      const paymentSessionData = {
-        amount: total,
-        currency: 'USD',
-        customer_email: customerInfo.email,
-        customer_name: `${customerInfo.firstName} ${customerInfo.lastName}`,
-        merchant_ref: orderResult.order.order_number,
-        public_key: import.meta.env.VITE_VESICASH_PUBLIC_KEY,
-        success_url: `${window.location.origin}/checkout/success?order=${orderResult.order.order_number}`,
-        cancel_url: `${window.location.origin}/checkout/cancel?order=${orderResult.order.order_number}`,
-        webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
-      };
+      // 2. Initialize Payment Session (Fintech-Grade)
+      toast.info("Connecting to secure payment gateway...");
 
       const paymentResponse = await supabase.functions.invoke('create-payment-session', {
-        body: paymentSessionData
+        body: {
+          order_id: order.id, // Passing the UUID is critical for the new flow
+          return_url: `${window.location.origin}/checkout/success`
+        }
       });
 
-      if (paymentResponse.error) {
-        throw new Error(paymentResponse.error.message || 'Failed to create payment session');
+      if (paymentResponse.error) throw new Error(paymentResponse.error.message);
+      if (!paymentResponse.data.success) throw new Error(paymentResponse.data.error);
+
+      // 3. Redirect to Payment
+      const { payment_url } = paymentResponse.data;
+
+      if (payment_url) {
+        toast.success("Redirecting to payment...");
+        window.location.href = payment_url;
+      } else {
+        throw new Error("No payment URL received via secure channel.");
       }
-
-      const paymentResult = paymentResponse.data;
-
-      // Open TJ hosted payment page in new tab (following best practices)
-      window.open(paymentResult.payment_url, '_blank');
 
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Failed to process checkout');
-
-      // Temporary debug helper
-      if (error.message === 'Cart is empty') {
-        console.log("Debug info might be in network tab response");
-      }
-
       setIsProcessing(false);
     }
   };
@@ -434,12 +416,12 @@ const Checkout = () => {
                         </Label>
                       </div>
 
-                      <div className="flex gap-4">
+                      <div className="flex flex-col sm:flex-row gap-4 pt-4">
                         <Button
                           type="button"
                           variant="outline"
                           onClick={() => setStep(1)}
-                          className="flex-1"
+                          className="w-full sm:flex-1"
                         >
                           <ArrowLeft className="h-4 w-4 mr-2" />
                           Back
@@ -447,7 +429,7 @@ const Checkout = () => {
                         <Button
                           type="submit"
                           disabled={isProcessing}
-                          className="flex-1 bg-primary hover:bg-primary-hover"
+                          className="w-full sm:flex-1 bg-primary hover:bg-primary-hover"
                         >
                           {isProcessing ? "Creating Order..." : (
                             <>

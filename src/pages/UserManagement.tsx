@@ -73,54 +73,56 @@ const UserManagement: React.FC = () => {
           </p>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Current Role</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.full_name || 'N/A'}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <select
-                      value={pendingRoleChanges[user.id] || user.role}
-                      onChange={(e) => {
-                        setPendingRoleChanges(prev => ({
-                          ...prev,
-                          [user.id]: e.target.value as UserProfile['role']
-                        }));
-                      }}
-                      className="block w-fit px-2 py-1 border border-input rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                    >
-                      {roles.map((roleOption) => (
-                        <option key={roleOption} value={roleOption}>
-                          {roleOption}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (pendingRoleChanges[user.id]) {
-                          handleUpdateRole(user.id, pendingRoleChanges[user.id]);
-                        }
-                      }}
-                      disabled={!pendingRoleChanges[user.id] || pendingRoleChanges[user.id] === user.role}
-                    >
-                      Update Role
-                    </Button>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Current Role</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.full_name || 'N/A'}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.role}</TableCell>
+                    <TableCell className="flex items-center gap-2">
+                      <select
+                        value={pendingRoleChanges[user.id] || user.role}
+                        onChange={(e) => {
+                          setPendingRoleChanges(prev => ({
+                            ...prev,
+                            [user.id]: e.target.value as UserProfile['role']
+                          }));
+                        }}
+                        className="block w-fit px-2 py-1 border border-input rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                      >
+                        {roles.map((roleOption) => (
+                          <option key={roleOption} value={roleOption}>
+                            {roleOption}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (pendingRoleChanges[user.id]) {
+                            handleUpdateRole(user.id, pendingRoleChanges[user.id]);
+                          }
+                        }}
+                        disabled={!pendingRoleChanges[user.id] || pendingRoleChanges[user.id] === user.role}
+                      >
+                        Update Role
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
           {users.length === 0 && (
             <div className="text-center py-4 text-muted-foreground">
               No users found.

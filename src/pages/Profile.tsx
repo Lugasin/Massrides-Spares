@@ -14,13 +14,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Building, 
-  Globe, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  Globe,
   CreditCard,
   Shield,
   LogOut,
@@ -92,18 +92,18 @@ const Profile: React.FC = () => {
 
   const onSubmit = async (values: ProfileFormValues) => {
     setIsSaving(true);
-    
+
     // Filter out empty strings and undefined values
     const updates = Object.fromEntries(
       Object.entries(values).filter(([_, value]) => value !== undefined && value !== '')
     ) as Partial<UserProfile>;
 
     const { error } = await updateProfile(updates);
-    
+
     if (!error) {
       toast.success('Profile updated successfully!');
     }
-    
+
     setIsSaving(false);
   };
 
@@ -194,8 +194,8 @@ const Profile: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleSignOut}
                 className="text-destructive hover:text-destructive"
               >
@@ -223,11 +223,11 @@ const Profile: React.FC = () => {
                     <Mail className="h-4 w-4" />
                     Email Address
                   </Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    value={user.email || ''} 
-                    disabled 
+                  <Input
+                    id="email"
+                    type="email"
+                    value={user.email || ''}
+                    disabled
                     className="bg-muted"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -433,48 +433,48 @@ const Profile: React.FC = () => {
               </div>
             </form>
           </CardContent>
-          
-          <CardFooter className="flex justify-between pt-6">
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate('/dashboard')}>
+
+          <CardFooter className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-6">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} className="flex-1 sm:flex-none">
                 Back to Dashboard
               </Button>
-              <Button className="bg-primary hover:bg-primary-hover" onClick={() => navigate('/catalog')}>
+              <Button size="sm" className="bg-primary hover:bg-primary-hover flex-1 sm:flex-none" onClick={() => navigate('/catalog')}>
                 Go to Shop
               </Button>
-              <Button variant="outline" onClick={() => navigate('/orders')}>
+              <Button variant="outline" size="sm" onClick={() => navigate('/orders')} className="flex-1 sm:flex-none">
                 Manage Orders
               </Button>
               {(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') && (
-                <Button className="bg-secondary hover:bg-secondary-hover" onClick={() => navigate('/vendor/inventory')}>
+                <Button size="sm" className="bg-secondary hover:bg-secondary-hover flex-1 sm:flex-none" onClick={() => navigate('/vendor/inventory')}>
                   Update Inventory
                 </Button>
               )}
               {userRole === 'super_admin' && (
-                <Button className="bg-destructive hover:bg-destructive/90" onClick={() => navigate('/profile/super-admin')}>
+                <Button size="sm" className="bg-destructive hover:bg-destructive/90 flex-1 sm:flex-none" onClick={() => navigate('/profile/super-admin')}>
                   <Shield className="h-4 w-4 mr-2" />
-                  Super Admin Panel
+                  Super Panel
                 </Button>
               )}
               {userRole === 'admin' && (
-                <Button variant="outline" onClick={() => navigate('/profile/admin')}>
+                <Button variant="outline" size="sm" onClick={() => navigate('/profile/admin')} className="flex-1 sm:flex-none">
                   <Shield className="h-4 w-4 mr-2" />
                   Admin Panel
                 </Button>
               )}
               {userRole === 'vendor' && (
-                <Button variant="outline" onClick={() => navigate('/profile/vendor')}>
+                <Button variant="outline" size="sm" onClick={() => navigate('/profile/vendor')} className="flex-1 sm:flex-none">
                   <Store className="h-4 w-4 mr-2" />
                   Vendor Panel
                 </Button>
               )}
             </div>
-            
-            <Button 
-              type="submit" 
-              form="profile-form" 
+
+            <Button
+              type="submit"
+              form="profile-form"
               disabled={!isDirty || isSaving}
-              className="bg-primary hover:bg-primary-hover"
+              className="bg-primary hover:bg-primary-hover w-full sm:w-auto"
             >
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save Changes'}
@@ -497,7 +497,7 @@ const Profile: React.FC = () => {
               <p className="text-muted-foreground mb-6">
                 Manage your saved payment methods for faster checkout.
               </p>
-              <Button 
+              <Button
                 onClick={() => setShowPaymentSection(true)}
                 className="bg-primary hover:bg-primary-hover"
               >
@@ -514,24 +514,24 @@ const Profile: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-20 flex-col gap-2"
                 onClick={() => navigate('/orders')}
               >
                 <Package className="h-6 w-6" />
                 View Orders
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-20 flex-col gap-2"
                 onClick={() => navigate('/messages')}
               >
                 <MessageSquare className="h-6 w-6" />
                 Messages
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-20 flex-col gap-2"
                 onClick={() => navigate('/catalog')}
               >

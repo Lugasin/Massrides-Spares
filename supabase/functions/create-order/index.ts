@@ -38,6 +38,15 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+    // Variables declared outside try block for scope access
+    let user = null
+    let profile = null
+    let cartItems: any[] = []
+    let sourceCartId: string | null = null;
+    let sourceIsGuest = false;
+
+    let guest_session_id: string | undefined; // ensure this is also available
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -45,8 +54,6 @@ serve(async (req) => {
     )
 
     // Try to get authenticated user (may be null for guest checkout)
-    let user = null
-    let profile = null
     const authHeader = req.headers.get('Authorization')
     
     if (authHeader) {
@@ -73,12 +80,10 @@ serve(async (req) => {
     }
 
     const body: CreateOrderRequest = await req.json()
-    const { customer_info, shipping_info, guest_session_id } = body
+    const { customer_info, shipping_info, guest_session_id: gs_id } = body
+    guest_session_id = gs_id;
 
     // Get cart items (either from user cart or guest cart)
-    let cartItems: any[] = []
-    let sourceCartId: string | null = null;
-    let sourceIsGuest = false;
     
     console.log(`Processing order for: User=${user?.id}, GuestSession=${guest_session_id}`);
 

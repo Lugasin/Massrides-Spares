@@ -341,103 +341,105 @@ const VendorInventory: React.FC = () => {
                 <p className="text-muted-foreground">Loading inventory...</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]"></TableHead>
-                    <TableHead>Part Number</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Brand</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredParts.map((part) => (
-                    <TableRow key={part.id}>
-                      <TableCell>
-                        {part.main_image ? (
-                          <img src={part.main_image} alt={part.name} className="h-8 w-8 object-cover rounded" />
-                        ) : (
-                          <div className="h-8 w-8 bg-muted rounded flex items-center justify-center">
-                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead>Part Number</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Brand</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredParts.map((part) => (
+                      <TableRow key={part.id}>
+                        <TableCell>
+                          {part.main_image ? (
+                            <img src={part.main_image} alt={part.name} className="h-8 w-8 object-cover rounded" />
+                          ) : (
+                            <div className="h-8 w-8 bg-muted rounded flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{part.part_number}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{part.name}</p>
+                            {part.featured && (
+                              <Badge variant="secondary" className="text-xs mt-1">Featured</Badge>
+                            )}
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{part.part_number}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{part.name}</p>
-                          {part.featured && (
-                            <Badge variant="secondary" className="text-xs mt-1">Featured</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{part.category?.name || 'No Category'}</TableCell>
-                      <TableCell>{part.brand}</TableCell>
-                      <TableCell>${part.price.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className={part.stock_quantity <= part.min_stock_level ? 'text-yellow-600 font-medium' : ''}>
-                            {part.stock_quantity}
-                          </span>
-                          {part.stock_quantity <= part.min_stock_level && (
-                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge
-                            variant={part.availability_status === 'in_stock' ? 'default' : 'secondary'}
-                            className="capitalize text-xs"
-                          >
-                            {part.availability_status.replace('_', ' ')}
-                          </Badge>
-                          <Badge
-                            variant={part.is_active ? 'default' : 'outline'}
-                            className="text-xs"
-                          >
-                            {part.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {(userRole === 'admin' || userRole === 'super_admin' || userRole === 'vendor') && (
+                        </TableCell>
+                        <TableCell>{part.category?.name || 'No Category'}</TableCell>
+                        <TableCell>{part.brand}</TableCell>
+                        <TableCell>${part.price.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className={part.stock_quantity <= part.min_stock_level ? 'text-yellow-600 font-medium' : ''}>
+                              {part.stock_quantity}
+                            </span>
+                            {part.stock_quantity <= part.min_stock_level && (
+                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant={part.availability_status === 'in_stock' ? 'default' : 'secondary'}
+                              className="capitalize text-xs"
+                            >
+                              {part.availability_status.replace('_', ' ')}
+                            </Badge>
+                            <Badge
+                              variant={part.is_active ? 'default' : 'outline'}
+                              className="text-xs"
+                            >
+                              {part.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {(userRole === 'admin' || userRole === 'super_admin' || userRole === 'vendor') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/vendor/edit-product/${part.id}`)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => navigate(`/vendor/edit-product/${part.id}`)}
+                              onClick={() => handleToggleActive(part.id, part.is_active)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleActive(part.id, part.is_active)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {(userRole === 'admin' || userRole === 'super_admin') && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeletePart(part.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            {(userRole === 'admin' || userRole === 'super_admin') && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeletePart(part.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
 
             {filteredParts.length === 0 && !loading && (

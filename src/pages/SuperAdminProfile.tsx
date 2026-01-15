@@ -40,6 +40,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PaymentMonitoringPanel } from '@/components/admin/PaymentMonitoringPanel';
 
 interface SystemSettings {
   maintenance_mode: boolean;
@@ -241,13 +242,14 @@ const SuperAdminProfile: React.FC = () => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-8">
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="financials">Financials</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="database" className="hidden md:inline-flex">Database</TabsTrigger>
-            <TabsTrigger value="logs" className="hidden md:inline-flex">Logs</TabsTrigger>
+          <TabsList className="flex w-full overflow-x-auto overflow-y-hidden whitespace-nowrap bg-background border-b border-border p-0 h-auto gap-1 mb-8 scrollbar-none">
+            <TabsTrigger value="users" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Users</TabsTrigger>
+            <TabsTrigger value="financials" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Financials</TabsTrigger>
+            <TabsTrigger value="payments" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Payments & Alerts</TabsTrigger>
+            <TabsTrigger value="system" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">System</TabsTrigger>
+            <TabsTrigger value="security" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Security</TabsTrigger>
+            <TabsTrigger value="database" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Database</TabsTrigger>
+            <TabsTrigger value="logs" className="flex-1 md:flex-none px-4 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Logs</TabsTrigger>
           </TabsList>
 
           {/* Financials Management */}
@@ -268,7 +270,7 @@ const SuperAdminProfile: React.FC = () => {
                 <CardTitle>Recent Financial Audit Logs</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -578,6 +580,11 @@ const SuperAdminProfile: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Payments & Alerts (Fintech) */}
+          <TabsContent value="payments" className="space-y-4">
+            <PaymentMonitoringPanel />
           </TabsContent>
 
           {/* Activity Logs */}

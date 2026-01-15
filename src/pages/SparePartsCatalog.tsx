@@ -7,7 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, SlidersHorizontal, Package, Wrench, Zap, Settings, Thermometer, Fuel, Disc, Home, PenTool as Tool } from "lucide-react";
+import { Search, Filter, SlidersHorizontal, Package, Wrench, Zap, Settings, Thermometer, Fuel, Disc, Home, PenTool as Tool, X } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+  SheetClose
+} from "@/components/ui/sheet";
 import { sparePartsData, sparePartCategories, SparePart } from "@/data/sparePartsData";
 import SparePartsGrid from "@/components/SparePartsGrid";
 import { useQuote } from "@/context/QuoteContext";
@@ -196,118 +206,247 @@ const SparePartsCatalog = () => {
 
         {/* Search and Quick Filters */}
         <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <div className="relative md:col-span-2">
+          <CardContent className="p-4 md:p-6">
+            {/* Mobile View: Search + Filter Button */}
+            <div className="flex gap-2 md:hidden">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search parts, part numbers, or descriptions..."
+                  placeholder="Search parts..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
-
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoriesWithIcons.map(category => (
-                    <SelectItem key={category.id} value={category.id}>
-                      <div className="flex items-center gap-2">
-                        {category.icon}
-                        {category.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name A-Z</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Advanced Filters Toggle */}
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Advanced Filters
-              </Button>
-
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  Showing {spareParts.length} parts
-                </span>
-                {(searchTerm || selectedCategory !== "All" || selectedBrand !== "All" || selectedCondition !== "All" || minPrice || maxPrice) && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    Clear Filters
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Filter className="h-4 w-4" />
                   </Button>
-                )}
-              </div>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[300px] sm:w-[540px] overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Filter & Sort</SheetTitle>
+                    <SheetDescription>
+                      Refine your search to find the exact parts you need.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="py-6 space-y-6">
+                    {/* Sort By */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Sort By</h4>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name">Name A-Z</SelectItem>
+                          <SelectItem value="price-low">Price: Low to High</SelectItem>
+                          <SelectItem value="price-high">Price: High to Low</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Category */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Category</h4>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categoriesWithIcons.map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              <div className="flex items-center gap-2">
+                                {category.icon}
+                                {category.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Brand */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Brand</h4>
+                      <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Brand" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {brands.map(brand => (
+                            <SelectItem key={brand} value={brand}>
+                              {brand}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Condition */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Condition</h4>
+                      <Select value={selectedCondition} onValueChange={setSelectedCondition}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Condition" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {conditions.map(condition => (
+                            <SelectItem key={condition} value={condition}>
+                              <span className="capitalize">{condition === "All" ? "All" : condition}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Price Range */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Price Range</h4>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Min $"
+                          type="number"
+                          value={minPrice}
+                          onChange={(e) => setMinPrice(e.target.value)}
+                        />
+                        <Input
+                          placeholder="Max $"
+                          type="number"
+                          value={maxPrice}
+                          onChange={(e) => setMaxPrice(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <Button onClick={clearFilters} variant="outline" className="w-full">
+                      Clear All Filters
+                    </Button>
+                  </div>
+                  <SheetFooter>
+                    <SheetClose asChild>
+                      <Button type="submit" className="w-full">Show Results ({spareParts.length})</Button>
+                    </SheetClose>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             </div>
 
-            {/* Advanced Filters */}
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t">
-                <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+            {/* Desktop View: Existing Layout (Hidden on Mobile) */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search parts, part numbers, or descriptions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Brand" />
+                    <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {brands.map(brand => (
-                      <SelectItem key={brand} value={brand}>
-                        {brand}
+                    {categoriesWithIcons.map(category => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <div className="flex items-center gap-2">
+                          {category.icon}
+                          {category.label}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedCondition} onValueChange={setSelectedCondition}>
+                <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Condition" />
+                    <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
-                    {conditions.map(condition => (
-                      <SelectItem key={condition} value={condition}>
-                        <span className="capitalize">{condition === "All" ? "All" : condition}</span>
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="name">Name A-Z</SelectItem>
+                    <SelectItem value="price-low">Price: Low to High</SelectItem>
+                    <SelectItem value="price-high">Price: High to Low</SelectItem>
                   </SelectContent>
                 </Select>
-
-                <Input
-                  placeholder="Min Price ($)"
-                  type="number"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                />
-
-                <Input
-                  placeholder="Max Price ($)"
-                  type="number"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                />
               </div>
-            )}
+
+              {/* Advanced Filters Toggle */}
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Advanced Filters
+                </Button>
+
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Showing {spareParts.length} parts
+                  </span>
+                  {(searchTerm || selectedCategory !== "All" || selectedBrand !== "All" || selectedCondition !== "All" || minPrice || maxPrice) && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Advanced Filters */}
+              {showFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t">
+                  <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map(brand => (
+                        <SelectItem key={brand} value={brand}>
+                          {brand}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={selectedCondition} onValueChange={setSelectedCondition}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Condition" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {conditions.map(condition => (
+                        <SelectItem key={condition} value={condition}>
+                          <span className="capitalize">{condition === "All" ? "All" : condition}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    placeholder="Min Price ($)"
+                    type="number"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                  />
+
+                  <Input
+                    placeholder="Max Price ($)"
+                    type="number"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Category Quick Filter Pills */}
-        <div className="flex flex-wrap gap-2 mb-8">
+        {/* Category Quick Filter Pills - Hidden on mobile as they are in the drawer */}
+        <div className="hidden md:flex flex-wrap gap-2 mb-8">
           {categoriesWithIcons.map((category) => (
             <Button
               key={category.id}
