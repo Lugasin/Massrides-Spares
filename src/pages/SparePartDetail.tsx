@@ -193,7 +193,7 @@ const SparePartDetail = () => {
           .from('guest_cart_items')
           .upsert({
             guest_cart_id: guestCart!.id,
-            product_id: parseInt(sparePart.id),
+            spare_part_id: parseInt(sparePart.id),
             quantity: quantity
           });
 

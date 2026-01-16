@@ -139,19 +139,17 @@ export const Header = ({
 
             {/* Cart with badge */}
             {/* Notifications */}
-            {user && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative hidden lg:flex"
-                onClick={() => setIsNotificationsOpen(true)}
-              >
-                <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
-                <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
-                  {unreadCount > 0 ? unreadCount : 0}
-                </Badge>
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="relative hidden lg:flex"
+              onClick={() => setIsNotificationsOpen(true)}
+            >
+              <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">
+                {unreadCount > 0 ? unreadCount : 0}
+              </Badge>
+            </Button>
 
             {/* Messages - Desktop only */}
             {user && (
@@ -232,25 +230,7 @@ export const Header = ({
                 {localStorage.getItem('guest_session_id') && (
                   <Badge variant="secondary" className="text-xs hidden sm:inline-flex">Guest</Badge>
                 )}
-                <Link to="/login">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs lg:text-sm px-2 sm:px-3"
-                  >
-                    <LogIn className="h-4 w-4 sm:hidden" />
-                    <span className="hidden sm:inline">Login</span>
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button
-                    size="sm"
-                    className="text-xs lg:text-sm px-2 sm:px-3"
-                  >
-                    <UserPlus className="h-4 w-4 sm:hidden" />
-                    <span className="hidden sm:inline">Sign Up</span>
-                  </Button>
-                </Link>
+                {/* Auth buttons hidden as per request */}
               </div>
             )}
 
@@ -390,18 +370,7 @@ export const Header = ({
                     {cartItemsCount > 0 && <Badge className="bg-primary text-primary-foreground">{cartItemsCount}</Badge>}
                   </Link>
 
-                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="justify-start px-2 py-3 h-auto w-full">
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Button variant="outline" className="justify-start px-2 py-3 h-auto w-full text-secondary-foreground bg-secondary hover:bg-secondary-hover mt-1">
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Sign Up
-                    </Button>
-                  </Link>
+                  {/* Auth buttons hidden in mobile menu */}
                 </div>
               )}
             </div>

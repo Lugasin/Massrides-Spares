@@ -9,7 +9,7 @@ const corsHeaders = {
 interface EmailNotificationRequest {
   to: string;
   subject: string;
-  type: 'security_alert' | 'payment_notification' | 'system_health' | 'order_update' | 'cart_summary';
+  type: 'security_alert' | 'payment_notification' | 'system_health' | 'order_update' | 'cart_summary' | 'order_confirmation' | 'payment_failed_alert' | 'admin_new_order_alert';
   data: any;
   priority?: 'low' | 'medium' | 'high' | 'critical';
 }
@@ -177,6 +177,24 @@ function generateEmailContent(type: string, data: any): string {
              `\n\nTotal: $${Math.round(data.total || 0).toLocaleString()}\n\n` +
              `Return to checkout: ${data.checkout_url || 'https://massrides-agri.com/cart'}`
 
+    case 'order_confirmation':
+      return `Order Confirmation #${data.order_number}\n\n` +
+             `Thank you for your order!\n` +
+             `Total: $${data.total.toLocaleString()}\n` +
+             `Status: Paid\n\n` +
+             `We will notify you when your items ship.`
+
+    case 'payment_failed_alert':
+      return `ALERT: Payment Failed\n\n` +
+             `Transaction: ${data.transaction_id}\n` +
+             `Reason: ${data.reason}\n` +
+             `Customer: ${data.customer_email}`
+
+    case 'admin_new_order_alert':
+      return `New Order #${data.order_number}\n\n` +
+             `Customer: ${data.customer_name} (${data.customer_email})\n` +
+             `Total: $${data.total.toLocaleString()}`
+
     default:
       return `Notification: ${JSON.stringify(data, null, 2)}`
   }
@@ -329,6 +347,44 @@ ${JSON.stringify(data.metadata || {}, null, 2)}
             Return to Checkout
           </a>
         </div>
+      `
+
+    case 'order_confirmation':
+      return `
+        <h2>Order Confirmation #${data.order_number}</h2>
+        <p>Thank you for your purchase!</p>
+        <table class="data-table">
+          <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
+          <tbody>
+            ${(data.items || []).map((item: any) => `
+              <tr><td>${item.name}</td><td>${item.quantity}</td><td>$${item.price.toLocaleString()}</td></tr>
+            `).join('')}
+             <tr style="font-weight: bold;"><td colspan="2">Total</td><td>$${(data.total || 0).toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+        <p>Tracking info will be sent soon.</p>
+      `
+
+    case 'payment_failed_alert':
+      return `
+        <h2>🔴 Payment Failed Alert</h2>
+        <table class="data-table">
+          <tr><th>Transaction ID</th><td>${data.transaction_id}</td></tr>
+          <tr><th>Amount</th><td>$${data.amount}</td></tr>
+          <tr><th>Customer</th><td>${data.customer_email}</td></tr>
+          <tr><th>Reason</th><td>${data.reason || 'Unknown'}</td></tr>
+        </table>
+      `
+
+    case 'admin_new_order_alert':
+      return `
+        <h2>🟢 New Paid Order #${data.order_number}</h2>
+        <table class="data-table">
+          <tr><th>Customer</th><td>${data.customer_name}</td></tr>
+          <tr><th>Email</th><td>${data.customer_email}</td></tr>
+          <tr><th>Total</th><td>$${(data.total || 0).toLocaleString()}</td></tr>
+        </table>
+        <p>Please check the admin dashboard to fulfill this order.</p>
       `
 
     default:

@@ -208,7 +208,19 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
 
         <ScrollArea className="max-h-96">
           <div className="p-2">
-            {loading ? (
+            {!profile ? (
+              <div className="text-center py-8 text-muted-foreground space-y-3">
+                <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Login to view notifications</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.location.href = '/login'}
+                >
+                  Login / Sign Up
+                </Button>
+              </div>
+            ) : loading ? (
               <div className="text-center py-8 text-muted-foreground">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
                 Loading notifications...
@@ -224,8 +236,8 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
                   <Card
                     key={notification.id}
                     className={`cursor-pointer transition-colors ${notification.read_at
-                        ? 'bg-muted/30 opacity-80'
-                        : 'bg-background hover:bg-muted/20'
+                      ? 'bg-muted/30 opacity-80'
+                      : 'bg-background hover:bg-muted/20'
                       }`}
                     onClick={() => !notification.read_at && markAsRead(notification.id)}
                   >

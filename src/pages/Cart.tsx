@@ -20,7 +20,7 @@ import { useQuote } from "@/context/QuoteContext";
 import { Link, useNavigate } from "react-router-dom";
 
 const Cart = () => {
-  const { items, total, itemCount, updateQuantity, removeItem, loading } = useQuote();
+  const { items, total, itemCount, updateQuantity, removeItem, clearCart, loading } = useQuote();
   const navigate = useNavigate();
 
   const handleCheckout = () => {
@@ -53,8 +53,6 @@ const Cart = () => {
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => {
                   if (confirm("Are you sure you want to clear your cart?")) {
-                    // Assuming clearCart is exposed from useQuote
-                    const { clearCart } = useQuote();
                     clearCart();
                   }
                 }}
@@ -105,16 +103,16 @@ const Cart = () => {
                 {items.map((item) => (
                   <Card key={item.id} className="overflow-hidden">
                     <CardContent className="p-6">
-                      <div className="flex gap-4">
+                      <div className="flex flex-col sm:flex-row gap-4">
                         <img
                           src={item.image}
                           alt={item.name}
-                          className="w-24 h-24 object-cover rounded-md flex-shrink-0"
+                          className="w-full h-48 sm:w-24 sm:h-24 object-cover rounded-md flex-shrink-0"
                           loading="lazy"
                         />
 
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-card-foreground mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-card-foreground mb-2 truncate">
                             {item.name}
                           </h3>
 
@@ -126,7 +124,7 @@ const Cart = () => {
                             ))}
                           </div>
 
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div className="text-lg font-bold text-primary">
                               ${item.price.toLocaleString()}
                               <span className="text-sm text-muted-foreground font-normal ml-2">
@@ -134,23 +132,29 @@ const Cart = () => {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                               <div className="flex items-center gap-2">
                                 <Button
                                   size="icon"
                                   variant="outline"
-                                  className="h-8 w-8"
-                                  onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                                  className="h-8 w-8 shrink-0"
+                                  onClick={() => {
+                                    if (item.quantity <= 1) {
+                                      removeItem(item.id);
+                                    } else {
+                                      updateQuantity(item.id, item.quantity - 1);
+                                    }
+                                  }}
                                 >
                                   <Minus className="h-3 w-3" />
                                 </Button>
-                                <span className="w-12 text-center font-medium">
+                                <span className="w-8 text-center font-medium">
                                   {item.quantity}
                                 </span>
                                 <Button
                                   size="icon"
                                   variant="outline"
-                                  className="h-8 w-8"
+                                  className="h-8 w-8 shrink-0"
                                   onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                 >
                                   <Plus className="h-3 w-3" />
@@ -160,7 +164,7 @@ const Cart = () => {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
                                 onClick={() => removeItem(item.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -272,11 +276,11 @@ const Cart = () => {
             </div>
           )}
         </div>
-      </main>
+      </main >
 
       <Footer />
       <BackToTop />
-    </div>
+    </div >
   );
 };
 

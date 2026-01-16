@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const Checkout = () => {
-  const { items, total, itemCount, clearCart, updateQuantity } = useQuote();
+  const { items, total, itemCount, clearCart, updateQuantity, removeItem } = useQuote();
   const { user, profile } = useAuth();
   // ... (rest of imports)
 
@@ -74,44 +74,51 @@ const Checkout = () => {
     setPaymentProcessingMessage("Initializing secure payment...");
 
     try {
-      // 1. Create Generic Order
-      toast.info("Creating order record...");
+      // 1. Validate Checkout & Create Order (Server-Side)
+      toast.info("Validating order...");
 
-      const orderData = {
-        customer_info: customerInfo,
-        shipping_info: useShippingAddress ? shippingInfo : null,
-        guest_session_id: localStorage.getItem('guest_session_id'),
-        send_receipt: sendReceipt
-      };
+      const session_id = localStorage.getItem('guest_session_id');
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const response = await supabase.functions.invoke('create-order', {
-        body: orderData
+      const validationResponse = await supabase.functions.invoke('validate-checkout', {
+        body: {
+          user_id: user?.id,
+          guest_session_id: session_id
+        }
       });
 
-      if (response.error) throw new Error(response.error.message);
-      if (!response.data.success) throw new Error(response.data.error);
+      if (validationResponse.error) {
+        throw new Error(validationResponse.error.message || 'Validation failed');
+      }
 
-      const { order } = response.data;
+      const { order_id, total, order_reference } = validationResponse.data;
+
+      if (!order_id) {
+        throw new Error("Failed to create order record");
+      }
 
       // 2. Initialize Payment Session (Fintech-Grade)
       toast.info("Connecting to secure payment gateway...");
 
       const paymentResponse = await supabase.functions.invoke('create-payment-session', {
         body: {
-          order_id: order.id, // Passing the UUID is critical for the new flow
+          order_id: order_id, // Pass UUID from validate-checkout
           return_url: `${window.location.origin}/checkout/success`
         }
       });
 
-      if (paymentResponse.error) throw new Error(paymentResponse.error.message);
-      if (!paymentResponse.data.success) throw new Error(paymentResponse.data.error);
+      if (paymentResponse.error) {
+        throw new Error(paymentResponse.error.message || 'Payment session creation failed');
+      }
+
+      const { checkout_url, error } = paymentResponse.data;
+
+      if (error) throw new Error(error);
 
       // 3. Redirect to Payment
-      const { payment_url } = paymentResponse.data;
-
-      if (payment_url) {
+      if (checkout_url) {
         toast.success("Redirecting to payment...");
-        window.location.href = payment_url;
+        window.location.href = checkout_url;
       } else {
         throw new Error("No payment URL received via secure channel.");
       }
@@ -122,6 +129,9 @@ const Checkout = () => {
       setIsProcessing(false);
     }
   };
+
+  // ... inside the render ...
+
 
   if (items.length === 0 && step !== 3) {
     return (
@@ -164,21 +174,21 @@ const Checkout = () => {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   1
                 </div>
-                <span className="ml-2 font-medium">Customer Info</span>
+                <span className="hidden sm:inline ml-2 font-medium">Customer Info</span>
               </div>
               <div className="w-8 h-px bg-border"></div>
               <div className={`flex items-center ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   2
                 </div>
-                <span className="ml-2 font-medium">Payment</span>
+                <span className="hidden sm:inline ml-2 font-medium">Payment</span>
               </div>
               <div className="w-8 h-px bg-border"></div>
               <div className={`flex items-center ${step >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   {step >= 3 ? <CheckCircle className="h-4 w-4" /> : '3'}
                 </div>
-                <span className="ml-2 font-medium">Confirmation</span>
+                <span className="hidden sm:inline ml-2 font-medium">Confirmation</span>
               </div>
             </div>
           </div>
@@ -507,22 +517,32 @@ const Checkout = () => {
                         <div className="flex-1">
                           <h4 className="font-medium text-sm">{item.name}</h4>
                           <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
-                            <div className="flex items-center gap-2 border rounded-md px-1">
-                              <button
-                                className="px-1 hover:text-primary font-bold"
+                            <div className="flex items-center gap-1 border rounded-md p-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
                                 type="button"
-                                onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                                onClick={() => {
+                                  if (item.quantity <= 1) {
+                                    removeItem(item.id);
+                                  } else {
+                                    updateQuantity(item.id, item.quantity - 1);
+                                  }
+                                }}
                               >
-                                -
-                              </button>
-                              <span className="text-xs font-medium w-4 text-center">{item.quantity}</span>
-                              <button
-                                className="px-1 hover:text-primary font-bold"
+                                <span className="text-lg leading-none mb-1">-</span>
+                              </Button>
+                              <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
                                 type="button"
                                 onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               >
-                                +
-                              </button>
+                                <span className="text-lg leading-none mb-1">+</span>
+                              </Button>
                             </div>
                             <span>${(item.price * item.quantity).toLocaleString()}</span>
                           </div>

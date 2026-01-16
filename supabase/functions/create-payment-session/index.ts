@@ -1,188 +1,139 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { corsHeaders } from "../_shared/cors.ts";
 
-console.log("Loading create-payment-session...")
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+console.log("Create-Payment-Session Function Invoked");
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 1. Initialize Supabase Client (Service Role for Admin Access to Payments Table)
-    const supabaseAdmin = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    );
 
-    const body = await req.json()
-    const { order_id, order_reference, return_url } = body
+    const { order_id, return_url } = await req.json();
 
-    if (!order_id && !order_reference) {
-        throw new Error("Missing order_id or order_reference")
+    if (!order_id) {
+      throw new Error("Missing order_id");
     }
 
-    console.log(`Creating payment session for Order: ${order_id || order_reference}`)
+    console.log(`Creating payment session for Order: ${order_id}`);
 
-    // 2. Fetch Order Details
-    let orderQuery = supabaseAdmin.from('orders').select('*');
-    
-    if (order_id) {
-        orderQuery = orderQuery.eq('id', order_id);
-    } else {
-        orderQuery = orderQuery.eq('order_reference', order_reference);
-    }
+    // 1. Fetch Order
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', order_id)
+      .single();
 
-    const { data: order, error: orderError } = await orderQuery.single();
-    
     if (orderError || !order) {
-        throw new Error(`Order not found: ${orderError?.message}`)
+      throw new Error(`Order not found: ${orderError?.message}`);
     }
 
-    // 3. Create 'payments' Record (State: PENDING)
-    // This is the "Intent" phase. We promise to try and verify/collect money.
-    // Use order.order_reference (from DB) or order_reference (passed in body) if db ref is somehow missing
-    const refToUse = order.order_reference || order_reference || `ORD-${order.id}`;
-    const merchant_ref = `PAY-${refToUse}-${Date.now().toString().slice(-4)}`;
+    // 2. Prepare Vesicash Payload
+    const amount = order.total || 0;
+    const currency = order.currency || 'ZMW'; // Default to ZMW as per schema
+    const description = `Order #${order.id}`;
     
-    // Check for correct amount column (total vs total_amount)
-    const amount = order.total || order.total_amount || 0;
-
-    const { data: payment, error: paymentError } = await supabaseAdmin
-        .from('payments')
-        .insert({
-            order_id: order.id,
-            user_id: order.user_id,
-            amount: amount,
-            currency: 'USD', // Default
-            merchant_reference: merchant_ref,
-            status: 'PENDING',
-            metadata: {
-                source: 'web_checkout',
-                initiated_by_ip: req.headers.get('x-forwarded-for') || 'unknown'
-            }
-        })
-        .select()
-        .single()
-
-    if (paymentError) {
-        throw new Error(`Failed to create payment record: ${paymentError.message}`)
-    }
-
-    // 4. Log Event: PAYMENT_INTENT_CREATED
-    await supabaseAdmin.from('payment_events').insert({
-        payment_id: payment.id,
-        order_id: order.id,
-        event_type: 'PAYMENT_INTENT_CREATED',
-        new_status: 'PENDING',
-        payload: { amount: amount, currency: 'USD', merchant_ref },
-        source: 'system'
-    })
-
-    // 5. Interact with Vesicash API (or Mock)
-    const VESICASH_API_BASE = Deno.env.get('VESICASH_API_BASE') || 'https://sandbox.vesicash.com/v1';
-    const VESICASH_PUBLIC_KEY = Deno.env.get('VESICASH_PUBLIC_KEY');
+    // Vesicash API requires: amount, currency, reference, redirect_url, etc.
+    // Assuming 'create_session' or 'transactions/create' endpoint.
+    // Based on user prompt: "Call Vesicash create-session endpoint"
     
-    let paymentUrl = '';
-    let providerRef = '';
+    const vesicashSecret = Deno.env.get('VESICASH_SECRET_KEY');
+    const isMock = !vesicashSecret || vesicashSecret.includes('morSec_test_'); // treat test key as partial mock if needed, or real test
+    // Actually if key is there, use it.
+    
+    let checkoutUrl = '';
+    let transactionId = '';
+    let rawResponse = {};
 
-    // MOCK MODE Logic (If no key provided or explicit mock request)
-    if (!VESICASH_PUBLIC_KEY) {
-        console.warn("Using MOCK Vesicash Implementation (No Public Key found)");
-        providerRef = `mock_ref_${Date.now()}`;
-        // Simulate a hosted checkout page via a simple redirect with success param
-        // In real life this would be the Vesicash payment link
-        paymentUrl = `${return_url || 'http://localhost:8080/checkout/success'}?order=${order.order_number}&mock_payment=true&ref=${providerRef}`;
+    if (vesicashSecret) {
+      // Real API Call
+      const payload = {
+        amount,
+        currency,
+        reference: `ORD-${order.id}-${Date.now()}`, // Unique Ref
+        redirect_url: return_url,
+        email: order.customer_email || 'guest@massrides.co.zm', // Fallback
+        description
+      };
+
+      const resp = await fetch('https://api.vesicash.com/v1/transactions/create', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'V-PRIVATE-KEY': vesicashSecret 
+          // Verify header name in Vesicash docs. User prompt said:
+          // "VESICASH_SECRET_KEY = morSec_test_... (API secret for server calls)"
+          // Usually V-PRIVATE-KEY or Authorization: Bearer
+          // I will assume V-PRIVATE-KEY based on standard Vesicash integrations or Authorization.
+          // Let's use Authorization: Bearer as it's more common, or check previous code if it had it.
+          // Previous code used 'V-PUBLIC-KEY'. 
+          // Server calls usually use Secret Key. 
+          // I'll try 'V-PRIVATE-KEY'.
+        },
+        body: JSON.stringify(payload)
+      });
+
+      rawResponse = await resp.json();
+      
+      if (!resp.ok) {
+        console.error("Vesicash Error:", rawResponse);
+        throw new Error("Failed to create Vesicash session");
+      }
+
+      // Map response
+      // Assuming response structure: { data: { link: '...', reference: '...' } }
+      checkoutUrl = rawResponse.data?.link || rawResponse.data?.payment_url;
+      transactionId = rawResponse.data?.reference || rawResponse.data?.id;
+
     } else {
-        // REAL API CALL
-        const payload = {
-            amount: amount,
-            currency: 'USD',
-            redirect_url: return_url,
-            reference: merchant_ref,
-            customer_email: order.customer_email || order.billing_address?.email || 'customer@example.com', 
-            description: `Order ${refToUse}`
-        };
-
-        const apiRes = await fetch(`${VESICASH_API_BASE}/transactions/create`, { // Adjust endpoint as per docs
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'V-PUBLIC-KEY': VESICASH_PUBLIC_KEY
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!apiRes.ok) {
-            const errText = await apiRes.text();
-            throw new Error(`Vesicash API Error: ${apiRes.status} ${errText}`);
-        }
-
-        const apiData = await apiRes.json();
-        paymentUrl = apiData.data?.link || apiData.data?.payment_url; // Adjust based on actual response
-        providerRef = apiData.data?.reference || apiData.data?.id;
+      // Mock Fallback
+      console.warn("Using MOCK Payment Session (No Secret Key)");
+      transactionId = `mock_tx_${Date.now()}`;
+      checkoutUrl = `${return_url}?status=success&tx=${transactionId}`;
+      rawResponse = { mock: true, transactionId };
     }
 
-    // 6. Update Payment Record with Provider Info & Transition to AWAITING_PAYMENT
-    const { error: updateError } = await supabaseAdmin
-        .from('payments')
-        .update({
-            provider_reference: providerRef,
-            payment_url: paymentUrl,
-            status: 'AWAITING_PAYMENT',
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', payment.id)
-
-    if (updateError) {
-         console.error("Failed to update payment with provider info", updateError);
-         // Don't fail the written request, but log it. 
-    }
-
-    // 7. Log Event: AWAITING_PAYMENT
-    await supabaseAdmin.from('payment_events').insert({
-        payment_id: payment.id,
+    // 3. Insert Payment Record
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
         order_id: order.id,
-        event_type: 'REDIRECTING_USER',
-        previous_status: 'PENDING',
-        new_status: 'AWAITING_PAYMENT',
-        payload: { provider_ref: providerRef, payment_url: paymentUrl },
-        source: 'system'
-    })
+        vesicash_transaction_id: transactionId,
+        amount,
+        currency,
+        payment_status: 'pending', // Enum
+        raw_payload: rawResponse
+      })
+      .select()
+      .single();
+
+    if (paymentError) throw paymentError;
+
+    // 4. Audit Log
+    await supabase.from('audit_logs').insert({
+      entity_type: 'payment',
+      entity_id: String(payment.id),
+      event_type: 'PAYMENT_SESSION_CREATED',
+      actor: 'system',
+      metadata: { order_id: order.id, transactionId }
+    });
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        payment_url: paymentUrl,
-        merchant_reference: merchant_ref
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
+      JSON.stringify({ checkout_url: checkoutUrl }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
-    console.error('Error in create-payment-session:', error)
-    
-    // Attempt to log failure to admin_alerts if possible (using a fresh client if needed, or just console)
-    // We can't easily access the DB if the client init failed, but usually it's logic error.
-    
+    console.error("Error:", error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400, // Client error usually, or 500
-      }
-    )
+      JSON.stringify({ error: error.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
-})
+});

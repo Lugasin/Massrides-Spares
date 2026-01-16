@@ -147,7 +147,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
       .from('guest_cart_items')
       .select('id, quantity')
       .eq('guest_cart_id', guestCart.id)
-      .eq('product_id', sparePartId) // Updated col name
+      .eq('product_id', sparePartId)
       .single()
 
     if (existingItem) {
@@ -158,7 +158,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
     } else {
       return await supabase
         .from('guest_cart_items')
-        .insert({ guest_cart_id: guestCart.id, product_id: sparePartId, quantity }) // Updated col name
+        .insert({ guest_cart_id: guestCart.id, product_id: sparePartId, quantity })
     }
   }
 }
