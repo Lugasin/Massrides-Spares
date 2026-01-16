@@ -25,12 +25,28 @@ export default function Login() {
   const location = useLocation();
 
   useEffect(() => {
+    // Check for email in query params
+    const searchParams = new URLSearchParams(location.search);
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     // If user object becomes available, login was successful and the
     // user profile is loaded. It's now safe to navigate.
     if (user) {
-      navigate('/dashboard');
+      // Check for returnUrl
+      const searchParams = new URLSearchParams(location.search);
+      const returnUrl = searchParams.get('returnUrl');
+      if (returnUrl) {
+        navigate(returnUrl);
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, location.search]);
 
   // ... (keeping handleSocialSignIn and handleGuestLogin same but omitting for brevity in tool call if not modifying, but replace_file_content needs contiguity)
   // Converting to singular replacements might be better or I can replace the whole block if I'm careful.

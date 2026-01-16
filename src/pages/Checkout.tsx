@@ -77,10 +77,30 @@ const Checkout = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [resendTimer, setResendTimer] = useState(120);
+  const [verifyAttempts, setVerifyAttempts] = useState(0);
+
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAuthModalOpen && resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isAuthModalOpen, resendTimer]);
 
   // Intercept Step 1 -> Step 2
   const handleCustomerInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check for existing lockout
+    const lockoutUntil = localStorage.getItem('otp_lockout_until');
+    if (lockoutUntil && parseInt(lockoutUntil) > Date.now()) {
+      const minutesLeft = Math.ceil((parseInt(lockoutUntil) - Date.now()) / 60000);
+      toast.error(`Too many attempts. Please try again in ${minutesLeft} minutes or contact support.`);
+      return;
+    }
 
     // If user is ALREADY logged in, proceed normally
     if (user) {
@@ -91,15 +111,33 @@ const Checkout = () => {
     // Guest Authentication Flow
     try {
       setIsProcessing(true);
+
+      // 1. Check if user already exists
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-email', {
+        body: { email: customerInfo.email }
+      });
+
+      if (checkError) throw checkError;
+
+      if (checkData?.exists) {
+        toast.info("You already have an account! Please log in.");
+        // Redirect to login with email pre-filled and return URL
+        navigate(`/login?email=${encodeURIComponent(customerInfo.email)}&returnUrl=/checkout`);
+        return;
+      }
+
+      // 2. If new user, send OTP
       const { error } = await supabase.auth.signInWithOtp({
         email: customerInfo.email,
         options: {
-          shouldCreateUser: true, // Auto-signup
+          shouldCreateUser: true, // Only create if not exists (redundant check but safe)
         }
       });
 
       if (error) throw error;
 
+      setResendTimer(120); // Reset timer 2 mins
+      setVerifyAttempts(0);
       toast.success("OTP sent to your email!");
       setIsAuthModalOpen(true);
     } catch (error: any) {
@@ -127,11 +165,40 @@ const Checkout = () => {
 
       toast.success("Authenticated successfully!");
       setIsAuthModalOpen(false);
+      localStorage.removeItem('otp_lockout_until'); // Clear any lockout
       setStep(2); // Proceed to Payment Step
     } catch (error: any) {
-      toast.error(error.message || "Invalid OTP");
+      const newAttempts = verifyAttempts + 1;
+      setVerifyAttempts(newAttempts);
+
+      if (newAttempts >= 3) {
+        // SET PERMANENT LOCKOUT (1 HOUR)
+        const lockoutTime = Date.now() + (60 * 60 * 1000); // 1 hour from now
+        localStorage.setItem('otp_lockout_until', lockoutTime.toString());
+
+        toast.error("Too many failed attempts. You are blocked for 1 hour. Contact support for assistance.");
+        setIsAuthModalOpen(false);
+        setVerifyAttempts(0);
+      } else {
+        toast.error(`Invalid OTP. ${3 - newAttempts} attempts remaining.`);
+      }
     } finally {
       setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      setResendTimer(120);
+      setVerifyAttempts(0);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: customerInfo.email,
+        options: { shouldCreateUser: true }
+      });
+      if (error) throw error;
+      toast.success("New code sent!");
+    } catch (error: any) {
+      toast.error("Failed to resend code: " + error.message);
     }
   };
 
@@ -703,6 +770,23 @@ const Checkout = () => {
             <p className="text-xs text-muted-foreground text-center px-4">
               By verifying, you create a secure account to track your order and receive updates.
             </p>
+
+            <div className="text-center w-full mt-2">
+              {resendTimer > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Resend code in <span className="font-medium text-foreground">{resendTimer}s</span>
+                </p>
+              ) : (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-primary h-auto p-0"
+                  onClick={handleResendOtp}
+                >
+                  Resend Code
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

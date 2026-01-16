@@ -5,6 +5,11 @@ import irrigationAerial from "@/assets/irrigation-aerial.jpg";
 import farmerTractor from "@/assets/farmer-tractor.jpg";
 import tractorWheel from "@/assets/tractor-wheel.jpg";
 
+// New Realistic Product Images
+import engineOilFilter from "@/assets/products/engine_oil_filter.png";
+import hydraulicPump from "@/assets/products/hydraulic_pump.png";
+import tractorAlternator from "@/assets/products/tractor_alternator.png";
+
 export interface SparePart {
   id: number;
   name: string;
@@ -31,7 +36,7 @@ export const spareParts: SparePart[] = [
     id: 1,
     name: "John Deere Engine Oil Filter",
     price: 45,
-    image: tractorPlowing,
+    image: engineOilFilter,
     specs: ["OEM Quality", "High Filtration", "Long Life", "Easy Installation"],
     category: "Engine Parts",
     brand: "John Deere",
@@ -46,7 +51,7 @@ export const spareParts: SparePart[] = [
     id: 2,
     name: "Hydraulic Pump Assembly",
     price: 850,
-    image: planterSeeding,
+    image: hydraulicPump,
     specs: ["High Pressure", "Durable", "OEM Replacement", "2 Year Warranty"],
     category: "Hydraulic Parts",
     brand: "Parker",
@@ -61,7 +66,7 @@ export const spareParts: SparePart[] = [
     id: 3,
     name: "Alternator 12V 95A",
     price: 285,
-    image: heroCombine,
+    image: tractorAlternator,
     specs: ["12V Output", "95 Amp", "Heavy Duty", "Weather Resistant"],
     category: "Electrical Parts",
     brand: "Case IH",
