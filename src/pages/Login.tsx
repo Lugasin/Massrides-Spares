@@ -18,6 +18,7 @@ const backgroundImage = irrigationAerial;
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
@@ -30,6 +31,13 @@ export default function Login() {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  // ... (keeping handleSocialSignIn and handleGuestLogin same but omitting for brevity in tool call if not modifying, but replace_file_content needs contiguity)
+  // Converting to singular replacements might be better or I can replace the whole block if I'm careful.
+  // Actually, I can just replace the component body parts.
+
+  // Let's replace the top state definition first.
+
 
   const handleSocialSignIn = async (provider: 'google' | 'facebook') => {
     setIsLoading(true);
@@ -84,22 +92,21 @@ export default function Login() {
 
   const handleSignIn = async () => {
     setIsLoading(true);
+    setErrorMessage(null); // Clear previous errors
 
     try {
       const { error } = await signIn(email, password);
 
       if (error) {
-        // The error is already handled and toasted in the signIn function
-        // We just need to stop the loading indicator
+        // The error is handled in context but we also want to show it inline
+        setErrorMessage("Invalid email or password. Please try again.");
         setIsLoading(false);
         return;
       }
-      // Navigation is now handled by the useEffect hook when the user state updates,
-      // preventing a race condition.
+      // Navigation is now handled by the useEffect hook when the user state updates
     } catch (error) {
-      // This catch block is for unexpected errors in the signIn process itself
       console.error("Unexpected error during sign in:", error);
-      toast.error("An unexpected error occurred. Please try again.");
+      setErrorMessage("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -186,6 +193,13 @@ export default function Login() {
                   Forgot password?
                 </Link>
               </div>
+
+              {errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                  <CheckCircle2 className="h-4 w-4 rotate-45 text-red-600" />
+                  {errorMessage}
+                </div>
+              )}
 
               <Button
                 type="submit"
