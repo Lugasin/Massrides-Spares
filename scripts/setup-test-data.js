@@ -74,15 +74,50 @@ async function createTestData() {
 
     // 3. Call validate-checkout
     console.log("Invoking validate-checkout...");
-    const { data: orderData, error: orderError } = await supabase.functions.invoke('validate-checkout', {
-        body: {
-            guest_session_id: sessionId,
-            user_id: null
+
+    const payload = {
+        guest_session_id: sessionId,
+        user_id: null,
+        customer_info: {
+            email: "test_verification@massrides.com",
+            firstName: "System",
+            lastName: "Verifier",
+            address: "123 Ops Rd",
+            city: "Lusaka",
+            state: "Lusaka",
+            zipCode: "10101",
+            country: "Zambia"
+        },
+        shipping_info: {
+            firstName: "System",
+            lastName: "Verifier",
+            address: "123 Ops Rd",
+            city: "Lusaka",
+            state: "Lusaka",
+            zipCode: "10101",
+            country: "Zambia"
         }
+    };
+
+    // console.log("Payload:", JSON.stringify(payload, null, 2));
+
+    const { data: orderData, error: orderError } = await supabase.functions.invoke('validate-checkout', {
+        body: payload
     });
 
-    if (orderError || !orderData?.order_id) {
-        console.error("Error validating checkout:", orderError || orderData);
+    if (orderError) {
+        console.error("INVOKE ERROR:", orderError);
+        return;
+    }
+
+    if (orderData?.error) {
+        console.error("FUNCTION LOGIC ERROR:", orderData.error);
+        if (orderData.details) console.error("DETAILS:", orderData.details);
+        return;
+    }
+
+    if (!orderData?.order_id) {
+        console.error("UNKNOWN RESPONSE:", orderData);
         return;
     }
 

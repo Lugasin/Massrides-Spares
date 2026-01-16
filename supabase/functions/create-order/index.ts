@@ -13,11 +13,11 @@ interface CreateOrderRequest {
     firstName: string;
     lastName: string;
     company?: string;
-    address: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
   };
   shipping_info?: {
     firstName?: string;
@@ -171,22 +171,22 @@ serve(async (req) => {
         firstName: shipping_info?.firstName || customer_info.firstName,
         lastName: shipping_info?.lastName || customer_info.lastName,
         company: shipping_info?.company || customer_info.company,
-        address: shipping_info?.address || customer_info.address,
-        city: shipping_info?.city || customer_info.city,
-        state: shipping_info?.state || customer_info.state,
-        zipCode: shipping_info?.zipCode || customer_info.zipCode,
-        country: shipping_info?.country || customer_info.country
+        address: shipping_info?.address || customer_info.address || "",
+        city: shipping_info?.city || customer_info.city || "",
+        state: shipping_info?.state || customer_info.state || "",
+        zipCode: shipping_info?.zipCode || customer_info.zipCode || "",
+        country: shipping_info?.country || customer_info.country || "Zambia"
       },
       
       billing_address: {
         firstName: customer_info.firstName,
         lastName: customer_info.lastName,
         company: customer_info.company,
-        address: customer_info.address,
-        city: customer_info.city,
-        state: customer_info.state,
-        zipCode: customer_info.zipCode,
-        country: customer_info.country,
+        address: customer_info.address || "",
+        city: customer_info.city || "",
+        state: customer_info.state || "",
+        zipCode: customer_info.zipCode || "",
+        country: customer_info.country || "Zambia",
         email: customer_info.email,
         phone: customer_info.phone
       }

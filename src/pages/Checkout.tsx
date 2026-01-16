@@ -24,6 +24,19 @@ import { useAuth } from "@/context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { Loader2 } from "lucide-react";
 
 const Checkout = () => {
   const { items, total, itemCount, clearCart, updateQuantity, removeItem } = useQuote();
@@ -61,9 +74,65 @@ const Checkout = () => {
     country: "Zambia"
   });
 
-  const handleCustomerInfoSubmit = (e: React.FormEvent) => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+
+  // Intercept Step 1 -> Step 2
+  const handleCustomerInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStep(2);
+
+    // If user is ALREADY logged in, proceed normally
+    if (user) {
+      setStep(2);
+      return;
+    }
+
+    // Guest Authentication Flow
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: customerInfo.email,
+        options: {
+          shouldCreateUser: true, // Auto-signup
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success("OTP sent to your email!");
+      setIsAuthModalOpen(true);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send OTP");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      toast.error("Please enter a valid 6-digit code");
+      return;
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+      const { error } = await supabase.auth.verifyOtp({
+        email: customerInfo.email,
+        token: otpCode,
+        type: 'email',
+      });
+
+      if (error) throw error;
+
+      toast.success("Authenticated successfully!");
+      setIsAuthModalOpen(false);
+      setStep(2); // Proceed to Payment Step
+    } catch (error: any) {
+      toast.error(error.message || "Invalid OTP");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   };
 
   const [paymentProcessingMessage, setPaymentProcessingMessage] = useState<string | null>(null);
@@ -260,10 +329,9 @@ const Checkout = () => {
                       </div>
 
                       <div>
-                        <Label htmlFor="address">Address *</Label>
+                        <Label htmlFor="address">Address</Label>
                         <Input
                           id="address"
-                          required
                           value={customerInfo.address}
                           onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
                         />
@@ -271,28 +339,25 @@ const Checkout = () => {
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <Label htmlFor="city">City *</Label>
+                          <Label htmlFor="city">City</Label>
                           <Input
                             id="city"
-                            required
                             value={customerInfo.city}
                             onChange={(e) => setCustomerInfo({ ...customerInfo, city: e.target.value })}
                           />
                         </div>
                         <div>
-                          <Label htmlFor="state">State/Province *</Label>
+                          <Label htmlFor="state">State/Province</Label>
                           <Input
                             id="state"
-                            required
                             value={customerInfo.state}
                             onChange={(e) => setCustomerInfo({ ...customerInfo, state: e.target.value })}
                           />
                         </div>
                         <div>
-                          <Label htmlFor="zipCode">ZIP/Postal Code *</Label>
+                          <Label htmlFor="zipCode">ZIP/Postal Code</Label>
                           <Input
                             id="zipCode"
-                            required
                             value={customerInfo.zipCode}
                             onChange={(e) => setCustomerInfo({ ...customerInfo, zipCode: e.target.value })}
                           />
@@ -582,6 +647,65 @@ const Checkout = () => {
       </main>
 
       <Footer />
+
+      {/* Guest OTP Authentication Modal */}
+      <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify Email to Continue</DialogTitle>
+            <DialogDescription>
+              We sent a verification code to <strong>{customerInfo.email}</strong>.
+              Please enter it below to secure your order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center space-y-4 py-4">
+            <InputOTP
+              maxLength={6}
+              value={otpCode}
+              onChange={(value) => setOtpCode(value)}
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+              </InputOTPGroup>
+              <InputOTPGroup>
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
+
+            <div className="flex gap-2 w-full mt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsAuthModalOpen(false)}
+                disabled={isVerifyingOtp}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleVerifyOtp}
+                disabled={isVerifyingOtp || otpCode.length !== 6}
+              >
+                {isVerifyingOtp ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify & Continue"
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center px-4">
+              By verifying, you create a secure account to track your order and receive updates.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
