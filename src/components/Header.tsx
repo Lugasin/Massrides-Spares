@@ -54,7 +54,7 @@ export const Header = ({
 
   // Streamlined navigation options
   const navItems = [
-    { label: "Home", href: "/" },
+    ...(location.pathname !== '/' ? [{ label: "Home", href: "/" }] : []),
     { label: "About Us", href: "/about" },
     { label: "Catalog", href: "/catalog" },
     ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
