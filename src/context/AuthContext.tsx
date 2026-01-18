@@ -346,6 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase
         .from('user_profiles')
+        // @ts-ignore: user_profiles view might be typed as read-only
         .update({
           full_name: updates.full_name,
           phone: updates.phone,
