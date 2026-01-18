@@ -366,23 +366,125 @@ export const clearCart = async () => {
 
 
 // Merge guest cart with user cart on login
+// Client-side implementation of mergeGuestCart to avoid Edge Function deployment issues
 export const mergeGuestCart = async () => {
-  const guest_session_id = localStorage.getItem('guest_session_id')
-  if (!guest_session_id) return
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-
   try {
-    const { error } = await supabase.functions.invoke('merge-guest-cart', {
-      body: { guest_session_id }
-    });
-    if (error) throw error;
+    const guestSessionId = localStorage.getItem('guest_session_id');
+    if (!guestSessionId) return;
 
-    // Clear session on successful merge
-    localStorage.removeItem('guest_session_id');
+    console.log('MergeGuestCart: Starting merge for session', guestSessionId);
+
+    // 1. Get authenticated user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('MergeGuestCart: No authenticated user found.');
+      return;
+    }
+
+    // 2. Fetch Guest Cart & Items
+    const { data: guestCarts, error: guestCartError } = await supabase
+      .from('guest_carts')
+      .select('id, guest_cart_items(product_id, quantity)')
+      .eq('session_id', guestSessionId);
+
+    if (guestCartError) {
+      console.error('MergeGuestCart: Error fetching guest cart:', guestCartError);
+      return;
+    }
+
+    // Handle duplicate guest carts if any (take the first/recent)
+    const guestCart = guestCarts?.[0];
+
+    if (!guestCart || !guestCart.guest_cart_items || guestCart.guest_cart_items.length === 0) {
+      console.log('MergeGuestCart: No guest items to merge.');
+      // Cleanup empty guest cart if it exists
+      if (guestCart) {
+        await supabase.from('guest_carts').delete().eq('id', guestCart.id);
+        localStorage.removeItem('guest_session_id');
+      }
+      return;
+    }
+
+    const guestItems = guestCart.guest_cart_items;
+    console.log(`MergeGuestCart: Found ${guestItems.length} items to merge.`);
+
+    // 3. Get or Create User Cart
+    let userCartId = null;
+
+    // Try to find existing cart
+    const { data: userCarts, error: userCartError } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (userCartError) {
+      console.error('MergeGuestCart: Error fetching user cart:', userCartError);
+      throw userCartError;
+    }
+
+    if (userCarts && userCarts.length > 0) {
+      userCartId = userCarts[0].id; // Use first found cart
+    } else {
+      // Create new cart
+      const { data: newCart, error: createError } = await supabase
+        .from('carts')
+        .insert({ user_id: user.id })
+        .select('id')
+        .single();
+      
+      if (createError) {
+        console.error('MergeGuestCart: Error creating user cart:', createError);
+        throw createError;
+      }
+      userCartId = newCart.id;
+    }
+
+    // 4. Merge Items
+    for (const item of guestItems) {
+      // Check if item already exists in user cart
+      const { data: existingItems } = await supabase
+        .from('cart_items')
+        .select('id, quantity')
+        .eq('cart_id', userCartId)
+        .eq('product_id', item.product_id);
+
+      const existingItem = existingItems?.[0];
+
+      if (existingItem) {
+        // Update quantity
+        await supabase
+          .from('cart_items')
+          .update({ quantity: existingItem.quantity + item.quantity })
+          .eq('id', existingItem.id);
+      } else {
+        // Insert new item
+        await supabase
+          .from('cart_items')
+          .insert({
+            cart_id: userCartId,
+            product_id: item.product_id,
+            quantity: item.quantity
+          });
+      }
+    }
+
+    console.log('MergeGuestCart: Items merged successfully.');
+
+    // 5. Delete Guest Cart
+    const { error: deleteError } = await supabase
+      .from('guest_carts')
+      .delete()
+      .eq('id', guestCart.id);
+    
+    if (deleteError) {
+      console.warn('MergeGuestCart: Failed to delete guest cart after merge:', deleteError);
+    } else {
+      localStorage.removeItem('guest_session_id');
+    }
+
   } catch (error) {
-    console.error("Error merging guest cart:", error);
+    console.error('MergeGuestCart: Unexpected error:', error);
+    // Don't re-throw, just log, so we don't block the UI
   }
 }
 
