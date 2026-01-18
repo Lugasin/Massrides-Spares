@@ -19,10 +19,8 @@ const CustomerDashboard = () => {
 
       try {
         setLoading(true);
-        // In a real app, you would have an edge function to get all this data in one go.
-        // For now, we'll simulate it with separate calls.
 
-        // Fetch recent orders
+        // 1. Fetch recent orders
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
           .select('id, order_number, created_at, total_amount, status')
@@ -30,24 +28,50 @@ const CustomerDashboard = () => {
           .order('created_at', { ascending: false })
           .limit(3);
         if (ordersError) throw ordersError;
-        setRecentOrders(orders);
+        setRecentOrders(orders || []);
 
-        // Fetch wishlist (placeholder)
-        const { data: wishlistItems, error: wishlistError } = await supabase
-          .from('spare_parts')
-          .select('*')
-          .limit(3);
-        if (wishlistError) throw wishlistError;
-        setWishlist(wishlistItems);
+        // 2. Fetch Wishlist (Real Data)
+        const { data: wishlistData, error: wishlistError } = await supabase
+          .from('wishlists')
+          .select(`
+            id,
+            product_id,
+            product:products (
+              id,
+              title,
+              price,
+              main_image
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .limit(5);
 
-        // Fetch recommendations (placeholder)
+        if (wishlistError) {
+          console.error('Wishlist fetch error:', wishlistError);
+          // fallback to empty if table missing/error
+          setWishlist([]);
+        } else {
+          // Map to flat structure for UI
+          const formattedWishlist = wishlistData.map((item: any) => ({
+            id: item.id,
+            product_id: item.product.id,
+            name: item.product.title,
+            image: item.product.main_image,
+            price: item.product.price
+          }));
+          setWishlist(formattedWishlist);
+        }
+
+        // 3. Recommendations (Newest Products)
         const { data: recommendedItems, error: recommendedError } = await supabase
-          .from('spare_parts')
+          .from('products')
           .select('*')
+          .eq('active', true)
           .order('created_at', { ascending: false })
           .limit(4);
+
         if (recommendedError) throw recommendedError;
-        setRecommendations(recommendedItems);
+        setRecommendations(recommendedItems || []);
 
       } catch (error: any) {
         console.error('Error fetching customer dashboard data:', error);
@@ -119,16 +143,25 @@ const CustomerDashboard = () => {
           </CardHeader>
           <CardContent>
             {wishlist.length > 0 ? (
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 {wishlist.map(item => (
-                  <li key={item.id} className="flex items-center justify-between">
-                    <span className="truncate">{item.name}</span>
-                    <Button variant="ghost" size="sm"><ShoppingCart className="h-4 w-4" /></Button>
+                  <li key={item.id} className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <img
+                        src={item.image || '/placeholder.png'}
+                        alt={item.name}
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                      <span className="truncate text-sm font-medium">{item.name}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary">
+                      <ShoppingCart className="h-4 w-4" />
+                    </Button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p>Your wishlist is empty.</p>
+              <p className="text-sm text-muted-foreground">Your wishlist is empty.</p>
             )}
           </CardContent>
         </Card>
@@ -143,7 +176,7 @@ const CustomerDashboard = () => {
               <Link to="/catalog"><ShoppingCart className="mr-2 h-4 w-4" /> New Order</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link to="/quotes"><Heart className="mr-2 h-4 w-4" /> My Quotes</Link>
+              <Link to="/messages"><Heart className="mr-2 h-4 w-4" /> Messages</Link>
             </Button>
             <Button asChild variant="outline">
               <Link to="/orders"><RefreshCw className="mr-2 h-4 w-4" /> Track Orders</Link>
@@ -160,11 +193,16 @@ const CustomerDashboard = () => {
         <h2 className="text-2xl font-bold mb-4">Recommended for You</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {recommendations.map(part => (
-            <Card key={part.id} className="group overflow-hidden">
+            <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
               <Link to={`/parts/${part.id}`} className="block">
-                <img src={part.images?.[0] || '/api/placeholder/300/200'} alt={part.name} className="w-full h-40 object-cover" loading="lazy" />
+                <img
+                  src={part.main_image || part.images?.[0] || '/placeholder.png'}
+                  alt={part.title}
+                  className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
                 <CardContent className="p-4">
-                  <h3 className="font-semibold truncate">{part.name}</h3>
+                  <h3 className="font-semibold truncate mb-1 text-foreground group-hover:text-primary transition-colors">{part.title}</h3>
                   <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>
                 </CardContent>
               </Link>

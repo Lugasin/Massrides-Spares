@@ -155,11 +155,37 @@ const Checkout = () => {
 
     try {
       setIsVerifyingOtp(true);
-      const { error } = await supabase.auth.verifyOtp({
+
+      // Attempt 1: Try as 'signup' (most likely for this flow)
+      let { data, error } = await supabase.auth.verifyOtp({
         email: customerInfo.email,
         token: otpCode,
-        type: 'email',
+        type: 'signup',
       });
+
+      // Attempt 2: If failed, try as 'magiclink' (if user implicitly existed)
+      if (error) {
+        console.log('Signup verification failed, trying magiclink...');
+        const retry1 = await supabase.auth.verifyOtp({
+          email: customerInfo.email,
+          token: otpCode,
+          type: 'magiclink',
+        });
+        error = retry1.error;
+        data = retry1.data;
+      }
+
+      // Attempt 3: If failed, try as generic 'email'
+      if (error) {
+        console.log('Magiclink verification failed, trying generic email...');
+        const retry2 = await supabase.auth.verifyOtp({
+          email: customerInfo.email,
+          token: otpCode,
+          type: 'email',
+        });
+        error = retry2.error;
+        data = retry2.data;
+      }
 
       if (error) throw error;
 
@@ -168,6 +194,7 @@ const Checkout = () => {
       localStorage.removeItem('otp_lockout_until'); // Clear any lockout
       setStep(2); // Proceed to Payment Step
     } catch (error: any) {
+      console.error('OTP Verification Final Error:', error);
       const newAttempts = verifyAttempts + 1;
       setVerifyAttempts(newAttempts);
 
@@ -180,7 +207,7 @@ const Checkout = () => {
         setIsAuthModalOpen(false);
         setVerifyAttempts(0);
       } else {
-        toast.error(`Invalid OTP. ${3 - newAttempts} attempts remaining.`);
+        toast.error(`Invalid verification code. Please check and try again. (${3 - newAttempts} attempts left)`);
       }
     } finally {
       setIsVerifyingOtp(false);

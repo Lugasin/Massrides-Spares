@@ -48,10 +48,10 @@ const roleConfig = {
     description: "User and order management",
     color: "bg-blue-500",
     metrics: [
-      { label: "New Users", value: "143", icon: Users, change: "+15%" },
-      { label: "Orders Pending", value: "23", icon: ShoppingCart, change: "-5%" },
-      { label: "Revenue Today", value: "$45K", icon: DollarSign, change: "+22%" },
-      { label: "Support Tickets", value: "12", icon: Bell, change: "+3%" }
+      { label: "New Users", value: "0", icon: Users, change: "0%" },
+      { label: "Orders Pending", value: "0", icon: ShoppingCart, change: "0%" },
+      { label: "Revenue Today", value: "$0.00", icon: DollarSign, change: "0%" },
+      { label: "Support Tickets", value: "0", icon: Bell, change: "0%" }
     ]
   },
   vendor: {
@@ -59,10 +59,10 @@ const roleConfig = {
     description: "Manage your products and orders",
     color: "bg-green-500",
     metrics: [
-      { label: "Your Products", value: "24", icon: Package, change: "+5%" },
-      { label: "Orders Received", value: "18", icon: ShoppingCart, change: "+12%" },
-      { label: "Revenue This Month", value: "$12K", icon: DollarSign, change: "+8%" },
-      { label: "Pending Orders", value: "3", icon: Bell, change: "0%" }
+      { label: "Your Products", value: "0", icon: Package, change: "0%" },
+      { label: "Orders Received", value: "0", icon: ShoppingCart, change: "0%" },
+      { label: "Revenue This Month", value: "$0.00", icon: DollarSign, change: "0%" },
+      { label: "Pending Orders", value: "0", icon: Bell, change: "0%" }
     ]
   },
   customer: {
@@ -70,10 +70,10 @@ const roleConfig = {
     description: "Track your orders and quotes",
     color: "bg-blue-500",
     metrics: [
-      { label: "Active Orders", value: "5", icon: ShoppingCart, change: "+2%" },
-      { label: "Quote Requests", value: "3", icon: BarChart3, change: "+1%" },
-      { label: "Total Spent", value: "$3.2K", icon: DollarSign, change: "+15%" },
-      { label: "Saved Items", value: "12", icon: Package, change: "+4%" }
+      { label: "Active Orders", value: "0", icon: ShoppingCart, change: "0%" },
+      { label: "Quote Requests", value: "0", icon: BarChart3, change: "0%" },
+      { label: "Total Spent", value: "$0.00", icon: DollarSign, change: "0%" },
+      { label: "Saved Items", value: "0", icon: Package, change: "0%" }
     ]
   },
   guest: {
@@ -81,10 +81,10 @@ const roleConfig = {
     description: "Manage your products and sales",
     color: "bg-green-500",
     metrics: [
-      { label: "My Products", value: "28", icon: Package, change: "+2%" },
-      { label: "Orders Today", value: "8", icon: ShoppingCart, change: "+33%" },
-      { label: "Revenue", value: "$12K", icon: DollarSign, change: "+28%" },
-      { label: "Views", value: "1.2K", icon: TrendingUp, change: "+45%" }
+      { label: "My Products", value: "0", icon: Package, change: "0%" },
+      { label: "Orders Today", value: "0", icon: ShoppingCart, change: "0%" },
+      { label: "Revenue", value: "$0.00", icon: DollarSign, change: "0%" },
+      { label: "Views", value: "0", icon: TrendingUp, change: "0%" }
     ]
   },
   support: {
@@ -92,10 +92,10 @@ const roleConfig = {
     description: "Customer support and tickets",
     color: "bg-orange-500",
     metrics: [
-      { label: "Open Tickets", value: "34", icon: Bell, change: "-8%" },
-      { label: "Resolved Today", value: "17", icon: Users, change: "+12%" },
-      { label: "Avg Response", value: "2.4h", icon: TrendingUp, change: "-15%" },
-      { label: "Customer Rating", value: "4.8", icon: BarChart3, change: "+2%" }
+      { label: "Open Tickets", value: "0", icon: Bell, change: "0%" },
+      { label: "Resolved Today", value: "0", icon: Users, change: "0%" },
+      { label: "Avg Response", value: "--", icon: TrendingUp, change: "0%" },
+      { label: "Customer Rating", value: "--", icon: BarChart3, change: "0%" }
     ]
   }
 };
@@ -118,10 +118,11 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
   }
 
   const navigationItems = [
+    { label: "Browse Catalog", icon: ShoppingCart, href: "/catalog" },
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
-    { label: "Products", icon: Package, href: "/products-management" },
+    { label: "Products", icon: Package, href: "/products-management", roles: ["vendor", "admin", "super_admin"] },
     { label: "Orders", icon: ShoppingCart, href: "/orders" },
-    { label: "Analytics", icon: TrendingUp, href: "/analytics" },
+    { label: "Analytics", icon: TrendingUp, href: "/analytics", roles: ["vendor", "admin", "super_admin"] },
     { label: "User Management", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
     { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
     { label: "Activity Log", icon: BarChart3, href: "/activity-log", roles: ["super_admin", "admin"] },
@@ -167,12 +168,17 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
         <div className="flex h-full flex-col">
           {/* Header */}
           <div className="flex items-center gap-3 p-6 border-b border-border">
-            <div className="bg-primary text-primary-foreground p-2 rounded-lg font-bold text-lg">
-              AGRI
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-foreground">MASSRIDES</span>
-              <span className="text-xs text-muted-foreground">DASHBOARD</span>
+            <div
+              className="flex items-center gap-3 cursor-pointer"
+              onClick={() => navigate('/')}
+            >
+              <div className="bg-primary text-primary-foreground p-2 rounded-lg font-bold text-lg">
+                AGRI
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-foreground">MASSRIDES</span>
+                <span className="text-xs text-muted-foreground">DASHBOARD</span>
+              </div>
             </div>
           </div>
 
@@ -188,7 +194,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4">
+          <nav className="flex-1 p-4 overflow-y-auto">
             <ul className="space-y-2">
               {visibleNavItems.map((item) => (
                 <li key={item.label}>
@@ -245,7 +251,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
                 <Settings className="h-5 w-5" />
               </Button>
             </div>

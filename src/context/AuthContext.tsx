@@ -391,7 +391,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Auto Logout Logic
   const inactivityTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+  const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
   const checkInactivity = React.useCallback(() => {
     const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);

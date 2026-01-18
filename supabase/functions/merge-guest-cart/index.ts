@@ -1,3 +1,6 @@
+// merge-guest-cart/index.ts
+// Updated to work with RELATIONAL TABLES (cart_items, guest_cart_items)
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -12,97 +15,96 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user from Authorization header.
-    const authHeader = req.headers.get('Authorization')!
-    const userSupabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-    const { data: { user } } = await userSupabase.auth.getUser();
-
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401,
-        }
-      )
+    // Authenticate User
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) throw new Error('Missing Authorization header')
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
+    
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const { guest_session_id } = await req.json();
+    const { guest_session_id } = await req.json()
     if (!guest_session_id) {
-        return new Response(
-            JSON.stringify({ error: 'guest_session_id is required' }),
-            {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 400,
-            }
-        )
+       return new Response(JSON.stringify({ success: true, message: "No guest session provided" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
+    // 1. Fetch Guest Cart
+    const { data: guestCart } = await supabaseClient
+      .from('guest_carts')
+      .select('id')
+      .eq('session_id', guest_session_id)
+      .single()
 
-    if (!profile) return new Response(JSON.stringify({ success: true }));
+    if (!guestCart) {
+      return new Response(JSON.stringify({ success: true, message: "No guest cart found" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
-    // Get guest cart items
-    const { data: guestCart } = await supabase
-        .from('guest_carts')
-        .select('id')
-        .eq('session_id', guest_session_id)
-        .single()
+    // 2. Fetch Guest Items
+    const { data: guestItems } = await supabaseClient
+      .from('guest_cart_items')
+      .select('product_id, quantity')
+      .eq('guest_cart_id', guestCart.id)
 
-    if (!guestCart) return new Response(JSON.stringify({ success: true }));
+    if (!guestItems || guestItems.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "Empty guest cart" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
-    const { data: guestItems } = await supabase
-        .from('guest_cart_items')
-        .select('product_id, quantity')
-        .eq('guest_cart_id', guestCart.id)
-
-    if (!guestItems || guestItems.length === 0) return new Response(JSON.stringify({ success: true }));
-
-    // Get or create user cart
-    let { data: userCart } = await supabase
-        .from('user_carts')
-        .select('id')
-        .eq('user_id', profile.id)
-        .single();
+    // 3. Find/Create User Cart
+    // Note: We use 'user_profiles' view or just trust we have user.id. Tables use user_id directly usually.
+    // The carts table schema uses user_id.
+    let { data: userCart } = await supabaseClient
+      .from('carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
 
     if (!userCart) {
-        const { data: newCart } = await supabase
-            .from('user_carts')
-            .insert({ user_id: profile.id })
-            .select('id')
-            .single();
-        userCart = newCart;
+      const { data: newCart, error: insertError } = await supabaseClient
+        .from('carts')
+        .insert({ user_id: user.id })
+        .select('id')
+        .single()
+      if (insertError) throw insertError
+      userCart = newCart
     }
 
-    // Merge items
+    // 4. Merge Items into cart_items
     for (const item of guestItems) {
-        await supabase
+      // Check for existing item
+      const { data: existing } = await supabaseClient
         .from('cart_items')
-        .upsert({
-            cart_id: userCart!.id,
+        .select('id, quantity')
+        .eq('cart_id', userCart.id)
+        .eq('product_id', item.product_id)
+        .single()
+
+      if (existing) {
+        await supabaseClient
+          .from('cart_items')
+          .update({ quantity: existing.quantity + item.quantity })
+          .eq('id', existing.id)
+      } else {
+        await supabaseClient
+          .from('cart_items')
+          .insert({
+            cart_id: userCart.id,
             product_id: item.product_id,
             quantity: item.quantity
-        }, { onConflict: 'cart_id,product_id' });
+          })
+      }
     }
 
-    // Delete guest cart
-    await supabase
-        .from('guest_carts')
-        .delete()
-        .eq('id', guestCart.id)
+    // 5. Cleanup Guest Cart (Cascades delete to items)
+    await supabaseClient
+      .from('guest_carts')
+      .delete()
+      .eq('id', guestCart.id)
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -111,7 +113,9 @@ serve(async (req) => {
         status: 200,
       }
     )
-  } catch (error) {
+
+  } catch (error: any) {
+    console.error('Merge Cart Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       {
