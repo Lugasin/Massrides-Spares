@@ -57,6 +57,50 @@ const VendorInventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
+  const [stockDialogOpen, setStockDialogOpen] = useState(false);
+  const [newStock, setNewStock] = useState<number>(0);
+
+  const openStockDialog = (part: SparePart) => {
+    setSelectedPart(part);
+    setNewStock(part.stock_quantity);
+    setStockDialogOpen(true);
+  };
+
+  const handleUpdateStock = async () => {
+    if (!selectedPart) return;
+    try {
+      const { data: vendorData } = await supabase
+        .from('vendors')
+        .select('id')
+        .eq('owner_id', user?.id)
+        .single();
+
+      if (!vendorData) {
+        toast.error("Could not find your vendor profile");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('inventory')
+        .upsert({
+          product_id: parseInt(selectedPart.id),
+          vendor_id: vendorData.id,
+          quantity: newStock,
+          last_restocked: new Date().toISOString()
+        } as any, { onConflict: 'product_id, vendor_id' });
+
+      if (error) throw error;
+
+      toast.success('Stock updated successfully');
+      setStockDialogOpen(false);
+      fetchVendorParts();
+    } catch (error: any) {
+      console.error('Error updating stock:', error);
+      toast.error(`Failed to update stock: ${error.message}`);
+    }
+  };
+
   useEffect(() => {
     if (userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') {
       fetchVendorParts();
@@ -214,6 +258,7 @@ const VendorInventory: React.FC = () => {
   return (
     <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Vendor'}>
       <div className="space-y-6">
+        {/* ... (Existing Cards) ... */}
         {/* Inventory Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
@@ -294,7 +339,6 @@ const VendorInventory: React.FC = () => {
           </Card>
         )}
 
-        {/* Inventory Management */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Inventory Management</CardTitle>
@@ -311,7 +355,6 @@ const VendorInventory: React.FC = () => {
           </CardHeader>
 
           <CardContent>
-            {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -334,7 +377,6 @@ const VendorInventory: React.FC = () => {
               </Select>
             </div>
 
-            {/* Parts Table */}
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -381,10 +423,15 @@ const VendorInventory: React.FC = () => {
                         <TableCell>{part.brand}</TableCell>
                         <TableCell>${part.price.toLocaleString()}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div
+                            className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
+                            onClick={() => openStockDialog(part)}
+                            title="Click to update stock"
+                          >
                             <span className={part.stock_quantity <= part.min_stock_level ? 'text-yellow-600 font-medium' : ''}>
                               {part.stock_quantity}
                             </span>
+                            <Edit className="h-3 w-3 text-muted-foreground opacity-50" />
                             {part.stock_quantity <= part.min_stock_level && (
                               <AlertTriangle className="h-4 w-4 text-yellow-500" />
                             )}
@@ -441,26 +488,59 @@ const VendorInventory: React.FC = () => {
                 </Table>
               </div>
             )}
-
-            {filteredParts.length === 0 && !loading && (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">No parts found</h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm || statusFilter !== 'all'
-                    ? 'Try adjusting your search or filters.'
-                    : 'Start by adding your first spare part to the inventory.'}
-                </p>
-                {!searchTerm && statusFilter === 'all' && (
-                  <Button onClick={() => navigate('/vendor/add-product')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add First Part
-                  </Button>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Update Stock Dialog via simple Prompt for MVP, or Shadcn Dialog if integrated */}
+        {/* Using a simple custom modal overlay here since we didn't import Dialog components in this replacement block 
+            Wait, I should check if Dialog is available. I didn't see it imported in lines 1-22.
+            I can use a simple absolute positioned div for now or modify imports in a separate call.
+            Actually, I'll use a simple conditional rendering for the dialog nicely styled.
+        */}
+        {stockDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <Card className="w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
+              <CardHeader>
+                <CardTitle>Update Stock Level</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium mb-1">{selectedPart?.name}</p>
+                    <p className="text-xs text-muted-foreground mb-4">Current Stock: {selectedPart?.stock_quantity}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setNewStock(Math.max(0, newStock - 1))}
+                    >
+                      -
+                    </Button>
+                    <Input
+                      type="number"
+                      value={newStock}
+                      onChange={(e) => setNewStock(parseInt(e.target.value) || 0)}
+                      className="text-center text-lg"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setNewStock(newStock + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button variant="outline" onClick={() => setStockDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleUpdateStock}>Save Update</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

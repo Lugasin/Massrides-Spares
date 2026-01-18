@@ -290,10 +290,14 @@ const SparePartDetail = () => {
           <div className="space-y-4">
             <div className="relative overflow-hidden rounded-lg bg-muted">
               <img
-                src={sparePart.images[selectedImage] || sparePart.images[0]}
+                src={sparePart.images[selectedImage] || sparePart.images[0] || '/placeholder.png'}
                 alt={sparePart.name}
                 className="w-full h-96 object-cover"
                 loading="lazy"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/placeholder.png';
+                }}
               />
               {sparePart.featured && (
                 <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">

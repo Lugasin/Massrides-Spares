@@ -128,6 +128,7 @@ const AppContent = () => {
             <Route path="/vendor/inventory" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<VendorInventory />} />} />
             <Route path="/vendor/add-product" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<AddProduct />} />} />
             <Route path="/vendor/edit-product/:productId" element={<ProtectedRoute allowedRoles={['vendor']} element={<AddProduct />} />} />
+            <Route path="/parts/:productId/edit" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<AddProduct />} />} />
 
             {/* Dashboard and management routes */}
             <Route path="/orders" element={<ProtectedRoute element={<Orders />} />} />
@@ -138,7 +139,6 @@ const AppContent = () => {
             <Route path="/payment-monitoring" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<PaymentMonitoring />} />} />
             <Route path="/security-dashboard" element={<ProtectedRoute allowedRoles={['super_admin']} element={<SecurityDashboard />} />} />
             <Route path="/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
-            <Route path="/profile/payment-methods" element={<ProtectedRoute element={<PaymentMethods />} />} />
             <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
             <Route path="/new-quote" element={<ProtectedRoute element={<NewQuoteRequest />} />} /> {/* Add route for NewQuoteRequest */}
             <Route path="/system-health" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} element={<SystemHealthMonitor />} />} />
@@ -151,8 +151,6 @@ const AppContent = () => {
             <Route path="/profile/vendor" element={<ProtectedRoute allowedRoles={['vendor', 'super_admin', 'admin']} element={<VendorDashboard />} />} />
             <Route path="/profile/customer" element={<ProtectedRoute allowedRoles={['customer']} element={<CustomerProfile />} />} />
             <Route path="/profile/support" element={<ProtectedRoute allowedRoles={['support']} element={<SupportProfile />} />} />
-            <Route path="/dashboard/products/add" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<AddProduct />} />} /> {/* Protected Add Product Route */}
-            <Route path="/dashboard/products" element={<ProtectedRoute allowedRoles={['vendor', 'admin', 'super_admin']} element={<Products />} />} /> {/* Protected Products Management Route */}
             <Route path="/user-management" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'vendor']} element={<UserManagement />} />} />
             <Route path="/role-manager" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'vendor']} element={<RoleManager />} />} />
 

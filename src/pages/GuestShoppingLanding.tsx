@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,23 +14,69 @@ import {
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { Link } from 'react-router-dom';
-import { spareParts as sparePartsData, SparePart } from '@/data/products';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+// Define interface matching DB structure
+interface FeaturedPart {
+  id: string; // items from DB have numeric ID but we typically handle as string in frontend routing
+  sku: string;
+  title: string;
+  price: number;
+  main_image: string | null;
+  category: { name: string } | null; // Joined
+  attributes: any;
+  in_stock: boolean;
+}
 
 const GuestShoppingLanding = () => {
   const { itemCount, addItem } = useQuote();
+  const [featuredParts, setFeaturedParts] = useState<FeaturedPart[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Get featured parts for guest users
-  const featuredParts = sparePartsData.filter(part => part.featured).slice(0, 6) as SparePart[];
+  useEffect(() => {
+    fetchFeaturedParts();
+  }, []);
 
-  const handleAddToCart = (part: SparePart) => {
+  const fetchFeaturedParts = async () => {
+    try {
+      // Fetch products that are active. 
+      // We can interpret "Featured" as either a specific flag or just the latest items for now.
+      // Based on previous files, 'featured' is in attributes jsonb.
+      // Let's fetch active products and filter or we can use a JSON containment query.
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          category:categories(name)
+        `)
+        .eq('active', true)
+        // .contains('attributes', { featured: true }) // Optional: if we want strict featured
+        .limit(6);
+
+      if (error) throw error;
+
+      if (data) {
+        setFeaturedParts(data as any);
+      }
+    } catch (error) {
+      console.error('Error fetching featured parts:', error);
+      toast.error('Failed to load featured products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToCart = (part: FeaturedPart) => {
     addItem({
       id: String(part.id),
-      name: part.name,
-      price: part.price,
-      image: part.image || '',
-      specs: part.specs,
-      category: part.category
+      name: part.title,
+      price: Number(part.price),
+      image: part.main_image || '/placeholder.png', // Fallback image
+      specs: part.attributes?.tags || [],
+      category: part.category?.name || 'General'
     });
+    toast.success(`${part.title} added to cart`);
   };
 
   return (
@@ -111,63 +157,80 @@ const GuestShoppingLanding = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {featuredParts.map((part) => (
-              <Card key={part.id} className="group hover:shadow-lg transition-all duration-300">
-                <Link to={`/parts/${part.id}`} className="block">
-                  <div className="relative overflow-hidden">
-                    <img
-                      src={part.image || '/api/placeholder/300/200'}
-                      alt={part.name}
-                      className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
-                      Featured
-                    </Badge>
-                  </div>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="flex items-center text-yellow-500">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${i < 4 ? 'fill-current' : 'text-gray-300'}`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-sm text-muted-foreground">4.8</span>
-                    </div>
-                    <h3 className="font-semibold mb-2 line-clamp-2">{part.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Part #: {part.partNumber}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-primary">
-                        ${part.price.toLocaleString()}
-                      </span>
-                      <Badge variant="outline">
-                        {part.brand}
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {featuredParts.map((part) => (
+                <Card key={part.id} className="group hover:shadow-lg transition-all duration-300">
+                  <Link to={`/parts/${part.id}`} className="block">
+                    <div className="relative overflow-hidden bg-muted">
+                      <img
+                        src={part.main_image || '/placeholder.png'} // Fallback here
+                        alt={part.title}
+                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder.png'; // Runtime fallback
+                        }}
+                      />
+                      <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
+                        Featured
                       </Badge>
+                      {part.in_stock ? (
+                        <Badge className="absolute top-2 right-2 bg-success text-success-foreground">In Stock</Badge>
+                      ) : (
+                        <Badge className="absolute top-2 right-2 bg-destructive text-destructive-foreground">Out of Stock</Badge>
+                      )}
                     </div>
-                  </CardContent>
-                </Link>
-                <div className="p-4 pt-0">
-                  <Button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleAddToCart(part);
-                    }}
-                    className="w-full bg-primary hover:bg-primary-hover"
-                    disabled={!part.inStock}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Add to Cart
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center text-yellow-500">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${i < 4 ? 'fill-current' : 'text-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-muted-foreground">4.8</span>
+                      </div>
+                      <h3 className="font-semibold mb-2 line-clamp-2">{part.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Part #: {part.sku}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-primary">
+                          ${Number(part.price).toLocaleString()}
+                        </span>
+                        {part.attributes?.brand && (
+                          <Badge variant="outline">
+                            {part.attributes.brand}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Link>
+                  <div className="p-4 pt-0">
+                    <Button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(part);
+                      }}
+                      className="w-full bg-primary hover:bg-primary-hover"
+                      disabled={!part.in_stock}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Add to Cart
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
 
           <div className="text-center">
             <Button asChild size="lg">

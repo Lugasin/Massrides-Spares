@@ -379,7 +379,7 @@ const ProductsManagement = () => {
                             <Badge variant="outline">{product.category?.name || 'No Category'}</Badge>
                             <Badge variant={getStatusColor(product.availability_status)} className="flex items-center gap-1">
                               {getStatusIcon(product.availability_status)}
-                              {(product.availability_status || '').replace('_', ' ')}
+                              {(product.availability_status || 'unknown').replace('_', ' ')}
                             </Badge>
                             <Badge variant={product.is_active ? 'default' : 'secondary'}>
                               {product.is_active ? 'Active' : 'Inactive'}
@@ -493,7 +493,7 @@ const ProductsManagement = () => {
                     <div className="flex items-center gap-2">
                       {getStatusIcon(selectedProduct.availability_status)}
                       <Badge variant={getStatusColor(selectedProduct.availability_status)} className="capitalize">
-                        {selectedProduct.availability_status.replace('_', ' ')}
+                        {(selectedProduct.availability_status || 'unknown').replace('_', ' ')}
                       </Badge>
                     </div>
                   </div>

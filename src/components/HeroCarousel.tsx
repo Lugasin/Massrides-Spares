@@ -15,6 +15,15 @@ import newTractor11Img from '@/assets/Newtractor11.png';
 import tractorWheelImg from '@/assets/tractor-wheel.jpg';
 import combineImg from '@/assets/Combine.jpg';
 
+// Import specific product images
+import engineOilFilterImg from '@/assets/products/engine_oil_filter.png';
+import hydraulicPumpImg from '@/assets/products/hydraulic_pump.png';
+import alternatorImg from '@/assets/products/tractor_alternator.png';
+import transmissionImg from '@/assets/products/transmission_assembly.png';
+import radiatorImg from '@/assets/products/radiator_assembly.png';
+import fuelPumpImg from '@/assets/products/fuel_injection_pump.png';
+import brakePadImg from '@/assets/products/brake_pad_set.png';
+
 interface CarouselSlide {
   id: number;
   image: string;
@@ -28,7 +37,7 @@ interface CarouselSlide {
 const slides: CarouselSlide[] = [
   {
     id: 1,
-    image: newTractorImg,
+    image: engineOilFilterImg,
     title: 'Engine Parts & Components',
     description: 'Premium engine parts including filters, gaskets, pistons, and turbochargers for all major tractor brands.',
     cta: 'Shop Engine Parts',
@@ -37,7 +46,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 2,
-    image: hydraulicHarrowImg,
+    image: hydraulicPumpImg,
     title: 'Hydraulic System Parts',
     description: 'Complete hydraulic solutions including pumps, cylinders, hoses, and valves for reliable equipment operation.',
     cta: 'Shop Hydraulic Parts',
@@ -46,7 +55,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 3,
-    image: newTractor5Img,
+    image: alternatorImg,
     title: 'Electrical Components',
     description: 'Alternators, starters, switches, and wiring harnesses for modern agricultural equipment electrical systems.',
     cta: 'Shop Electrical Parts',
@@ -64,7 +73,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 5,
-    image: newTractor8Img,
+    image: transmissionImg,
     title: 'Transmission & Drivetrain',
     description: 'Clutch components, transmission filters, and drivetrain parts to keep your equipment moving smoothly.',
     cta: 'Shop Transmission',
@@ -73,7 +82,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 6,
-    image: pivotImg,
+    image: radiatorImg,
     title: 'Cooling System Parts',
     description: 'Radiators, thermostats, water pumps, and cooling system components for optimal engine temperature.',
     cta: 'Shop Cooling Parts',
@@ -82,7 +91,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 7,
-    image: sprinklersImg,
+    image: fuelPumpImg,
     title: 'Fuel System Components',
     description: 'Fuel pumps, injection systems, and filtration components for efficient fuel delivery and engine performance.',
     cta: 'Shop Fuel Parts',
@@ -91,7 +100,7 @@ const slides: CarouselSlide[] = [
   },
   {
     id: 8,
-    image: newTractor11Img,
+    image: brakePadImg,
     title: 'Brake & Safety Parts',
     description: 'Brake pads, hydraulic brake components, and safety systems to ensure reliable equipment operation.',
     cta: 'Shop Brake Parts',
@@ -162,8 +171,8 @@ export const HeroCarousel: React.FC = () => {
           <div
             key={slide.id}
             className={`absolute inset-0 transition-all duration-1000 ease-in-out ${index === currentSlide
-                ? 'opacity-100 scale-100'
-                : 'opacity-0 scale-105'
+              ? 'opacity-100 scale-100'
+              : 'opacity-0 scale-105'
               }`}
           >
             {/* Background Image with Parallax Effect */}
@@ -185,15 +194,15 @@ export const HeroCarousel: React.FC = () => {
               <div className="container mx-auto px-4 lg:px-8">
                 <div className="max-w-2xl">
                   <h1 className={`text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 lg:mb-6 transition-all duration-1000 delay-300 ${index === currentSlide
-                      ? 'opacity-100 translate-y-0'
-                      : 'opacity-0 translate-y-8'
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 translate-y-8'
                     }`}>
                     {slide.title}
                   </h1>
 
                   <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-white/90 mb-6 lg:mb-8 leading-relaxed transition-all duration-1000 delay-500 ${index === currentSlide
-                      ? 'opacity-100 translate-y-0'
-                      : 'opacity-0 translate-y-8'
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 translate-y-8'
                     }`}>
                     {slide.description}
                   </p>
@@ -201,8 +210,8 @@ export const HeroCarousel: React.FC = () => {
                   <Button
                     onClick={() => handleCTAClick(slide.link)}
                     className={`bg-primary hover:bg-primary-hover text-white px-6 lg:px-8 py-3 lg:py-4 text-base lg:text-lg font-semibold rounded-lg transition-all duration-1000 delay-700 hover-scale ${index === currentSlide
-                        ? 'opacity-100 translate-y-0'
-                        : 'opacity-0 translate-y-8'
+                      ? 'opacity-100 translate-y-0'
+                      : 'opacity-0 translate-y-8'
                       }`}
                   >
                     {slide.cta}
@@ -247,8 +256,8 @@ export const HeroCarousel: React.FC = () => {
             key={index}
             onClick={() => goToSlide(index)}
             className={`w-2 h-2 lg:w-3 lg:h-3 rounded-full transition-all duration-300 ${index === currentSlide
-                ? 'bg-white scale-125'
-                : 'bg-white/50 hover:bg-white/75'
+              ? 'bg-white scale-125'
+              : 'bg-white/50 hover:bg-white/75'
               }`}
             aria-label={`Go to slide ${index + 1}`}
           />

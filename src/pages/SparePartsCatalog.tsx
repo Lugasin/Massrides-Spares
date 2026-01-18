@@ -18,6 +18,15 @@ import {
   SheetFooter,
   SheetClose
 } from "@/components/ui/sheet";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis
+} from "@/components/ui/pagination";
 import { sparePartsData, sparePartCategories, SparePart } from "@/data/sparePartsData";
 import SparePartsGrid from "@/components/SparePartsGrid";
 import { useQuote } from "@/context/QuoteContext";
@@ -38,7 +47,10 @@ const categoryIcons: Record<string, React.ReactNode> = {
   'Implements': <Tool className="h-4 w-4" />
 };
 
+const ITEMS_PER_PAGE = 12;
+
 const SparePartsCatalog = () => {
+  // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedBrand, setSelectedBrand] = useState("All");
@@ -47,15 +59,20 @@ const SparePartsCatalog = () => {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Data & Pagination State
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   const { itemCount } = useQuote();
 
-  // Extract unique brands and conditions
+  // Extract unique brands and conditions (Keep using local data for filter options to avoid heavy DISTINCT queries)
   const brands = ["All", ...Array.from(new Set(sparePartsData.map(part => part.brand))).sort()];
   const conditions = ["All", "new", "used", "refurbished", "oem", "aftermarket"];
 
-  // Enhanced categories with icons
+  // Enhanced categories
   const categoriesWithIcons = [
     { id: "All", label: "All Parts", icon: categoryIcons['All'] },
     ...sparePartCategories.map(cat => ({
@@ -65,56 +82,111 @@ const SparePartsCatalog = () => {
     }))
   ];
 
-  useEffect(() => {
-    loadSparePartsFromDatabase();
-  }, []);
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
+  // Debounce Search Term
   useEffect(() => {
-    filterAndSortParts();
-  }, [searchTerm, selectedCategory, selectedBrand, selectedCondition, sortBy, minPrice, maxPrice]);
+    const timer = setTimeout(() => {
+      setPage(1); // Reset to page 1 on search
+      fetchParts();
+    }, 500);
 
-  const loadSparePartsFromDatabase = async () => {
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch when filters change (immediate)
+  useEffect(() => {
+    setPage(1); // Reset to page 1 on filter change
+    fetchParts();
+  }, [selectedCategory, selectedBrand, selectedCondition, minPrice, maxPrice, sortBy]);
+
+  // Fetch when page changes
+  useEffect(() => {
+    fetchParts();
+  }, [page]);
+
+  const fetchParts = async () => {
     try {
       setLoading(true);
 
-      // First, try to load from database
-      // Query 'products' and join 'inventory'
-      const { data: dbParts, error } = await supabase
+      // Construct Query
+      let query = supabase
         .from('products')
         .select(`
           *,
-          category:categories!category_id(name),
+          category:categories!inner(name),
           inventory(quantity)
-        `)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
+        `, { count: 'exact' })
+        .eq('active', true);
+
+      // 1. Text Search (Title or SKU)
+      if (searchTerm) {
+        query = query.or(`title.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
+      }
+
+      // 2. Category Filter (Filter locally on the joined table)
+      // Note: 'categories!inner(name)' in select ensures we can filter by 'categories.name'
+      if (selectedCategory && selectedCategory !== 'All') {
+        query = query.eq('categories.name', selectedCategory);
+      }
+
+      // 3. Brand Filter (JSONB Containment)
+      if (selectedBrand && selectedBrand !== 'All') {
+        query = query.contains('attributes', { brand: selectedBrand });
+      }
+
+      // 4. Condition Filter (JSONB Containment)
+      if (selectedCondition && selectedCondition !== 'All') {
+        query = query.contains('attributes', { condition: selectedCondition });
+      }
+
+      // 5. Price Range
+      if (minPrice) query = query.gte('price', minPrice);
+      if (maxPrice) query = query.lte('price', maxPrice);
+
+      // 6. Sorting
+      if (sortBy === 'price-low') {
+        query = query.order('price', { ascending: true });
+      } else if (sortBy === 'price-high') {
+        query = query.order('price', { ascending: false });
+      } else {
+        // Default: Name (title)
+        query = query.order('title', { ascending: true });
+      }
+
+      // 7. Pagination
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+      query = query.range(from, to);
+
+      // Execute
+      const { data: dbParts, count, error } = await query;
 
       if (error) {
-        console.error('Error loading from database:', error);
-        // Fallback to local data
-        setSpareParts(sparePartsData);
-        toast.info('Using local catalog data');
-      } else if (dbParts && dbParts.length > 0) {
-        // Transform database data to match our interface
-        const transformedParts: SparePart[] = dbParts.map(part => {
+        console.error('Error fetching parts:', error);
+        toast.error('Failed to load catalog');
+        // Fallback to local data if DB fails completely
+        setSpareParts(sparePartsData.slice(0, ITEMS_PER_PAGE));
+        setTotalItems(sparePartsData.length);
+      } else {
+        // Transform Data
+        const transformedParts: SparePart[] = (dbParts || []).map(part => {
           const attrs = part.attributes || {};
-          // Calculate total stock from inventory records
           const totalStock = part.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
 
           return {
-            id: part.id.toString(), // Convert BigInt/number to string
+            id: part.id.toString(),
             partNumber: part.sku || '',
             name: part.title,
             description: part.description || '',
             category: (part.category as any)?.name || 'General',
             brand: attrs.brand || 'Generic',
-            oemPartNumber: part.sku, // using SKU as fallback
-            aftermarketPartNumber: undefined,
+            oemPartNumber: part.sku,
             price: parseFloat(part.price.toString()),
             condition: (attrs.condition as any) || 'new',
-            availabilityStatus: totalStock > 0 ? 'in_stock' : 'out_of_stock',
+            availabilityStatus: (totalStock > 0 || part.in_stock) ? 'in_stock' : 'out_of_stock',
             stockQuantity: totalStock,
-            images: part.main_image ? [part.main_image] : [], // Use main_image
+            images: part.main_image ? [part.main_image] : [],
             technicalSpecs: attrs.technicalSpecs || {},
             compatibility: attrs.compatibility || [],
             warranty: attrs.warranty || '12 months',
@@ -126,53 +198,14 @@ const SparePartsCatalog = () => {
         });
 
         setSpareParts(transformedParts);
-        toast.success(`Loaded ${transformedParts.length} parts from database`);
-      } else {
-        // Use local data if database is empty
-        setSpareParts(sparePartsData);
-        toast.info('Database empty, using sample data');
+        setTotalItems(count || 0);
       }
     } catch (error) {
-      console.error('Error loading spare parts:', error);
-      setSpareParts(sparePartsData);
-      toast.error('Failed to load from database, using local data');
+      console.error('Error in fetchParts:', error);
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterAndSortParts = () => {
-    let filtered = spareParts.filter(part => {
-      const matchesSearch = !searchTerm ||
-        part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        part.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        part.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        part.brand.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesCategory = selectedCategory === "All" || part.category === selectedCategory;
-      const matchesBrand = selectedBrand === "All" || part.brand === selectedBrand;
-      const matchesCondition = selectedCondition === "All" || part.condition === selectedCondition;
-
-      const matchesPrice = (!minPrice || part.price >= parseFloat(minPrice)) &&
-        (!maxPrice || part.price <= parseFloat(maxPrice));
-
-      return matchesSearch && matchesCategory && matchesBrand && matchesCondition && matchesPrice;
-    });
-
-    // Sort parts
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "price-low":
-          return a.price - b.price;
-        case "price-high":
-          return b.price - a.price;
-        case "name":
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-
-    setSpareParts(filtered);
   };
 
   const clearFilters = () => {
@@ -183,6 +216,15 @@ const SparePartsCatalog = () => {
     setMinPrice("");
     setMaxPrice("");
     setSortBy("name");
+    setPage(1);
+  };
+
+  // Pagination Handlers
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   return (
@@ -326,7 +368,7 @@ const SparePartsCatalog = () => {
                   </div>
                   <SheetFooter>
                     <SheetClose asChild>
-                      <Button type="submit" className="w-full">Show Results ({spareParts.length})</Button>
+                      <Button type="submit" className="w-full">Show Results ({totalItems})</Button>
                     </SheetClose>
                   </SheetFooter>
                 </SheetContent>
@@ -387,7 +429,7 @@ const SparePartsCatalog = () => {
 
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-muted-foreground">
-                    Showing {spareParts.length} parts
+                    Showing {spareParts.length} of {totalItems} parts
                   </span>
                   {(searchTerm || selectedCategory !== "All" || selectedBrand !== "All" || selectedCondition !== "All" || minPrice || maxPrice) && (
                     <Button variant="ghost" size="sm" onClick={clearFilters}>
@@ -481,12 +523,43 @@ const SparePartsCatalog = () => {
             </Button>
           </div>
         ) : (
-          <SparePartsGrid spareParts={spareParts.map(part => ({
-            ...part,
-            image: part.images[0] || '/placeholder.png',
-            specs: Object.values(part.technicalSpecs || {}),
-            inStock: part.availabilityStatus === 'in_stock'
-          }))} />
+          <>
+            <SparePartsGrid spareParts={spareParts.map(part => ({
+              ...part,
+              image: part.images[0] || '/placeholder.png',
+              specs: Object.values(part.technicalSpecs || {}),
+              inStock: part.availabilityStatus === 'in_stock'
+            }))} />
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-8">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => handlePageChange(page - 1)}
+                        className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+
+                    <PaginationItem>
+                      <span className="px-4 text-sm text-muted-foreground">
+                        Page {page} of {totalPages}
+                      </span>
+                    </PaginationItem>
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => handlePageChange(page + 1)}
+                        className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
         )}
       </main>
 

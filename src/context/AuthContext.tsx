@@ -78,13 +78,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Get initial session
+    // Get initial session
     const getInitialSession = async () => {
+      // First get from local storage for speed
       const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
 
+      let currentUser = session?.user ?? null;
+      let currentSession = session;
+
+      // If we have a session, verify it's actually valid with the server
       if (session?.user) {
-        await loadUserProfile(session.user.id)
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error || !user) {
+          logger.warn('AuthContext: Session found but token invalid or expired. Clearing session.');
+          await supabase.auth.signOut();
+          currentUser = null;
+          currentSession = null;
+        } else {
+          // Token is valid, use the user data from server
+          currentUser = user;
+        }
+      }
+
+      setSession(currentSession)
+      setUser(currentUser)
+
+      if (currentUser) {
+        await loadUserProfile(currentUser.id)
       } else {
         setReady(true)
       }
@@ -154,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!rawData) return
 
-      const userData = rawData;
+      const userData = rawData as any;
 
       const profileData: UserProfile = {
         id: userData.id,
@@ -338,7 +359,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatar_url: updates.avatar_url,
           bio: updates.bio,
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .eq('user_id', user.id)
 
       if (error) {

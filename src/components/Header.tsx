@@ -320,14 +320,14 @@ export const Header = ({
 
                   {/* Role-based links */}
                   {(userRole === 'vendor' || userRole === 'admin') && (
-                    <Link to="/dashboard/products" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                    <Link to="/products-management" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
                       <Package className="mr-2 h-4 w-4" />
                       Product Management
                     </Link>
                   )}
 
                   {(userRole === 'admin' || userRole === 'super_admin') && (
-                    <Link to="/dashboard/users" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
+                    <Link to="/user-management" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
                       <Users className="mr-2 h-4 w-4" />
                       User Management
                     </Link>

@@ -119,16 +119,13 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
 
   const navigationItems = [
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
-    { label: "Analytics", icon: TrendingUp, href: "/analytics" },
-    { label: "Super Admin", icon: Shield, href: "/profile/super-admin", roles: ["super_admin"] },
-    { label: "Admin Panel", icon: Shield, href: "/profile/admin", roles: ["admin"] },
-    { label: "Vendor Panel", icon: Package, href: "/profile/vendor", roles: ["vendor"] },
-    { label: "Payment Monitor", icon: DollarSign, href: "/payment-monitoring", roles: ["admin", "super_admin"] },
-    { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
-    { label: "User Management", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
     { label: "Products", icon: Package, href: "/products-management" },
     { label: "Orders", icon: ShoppingCart, href: "/orders" },
+    { label: "Analytics", icon: TrendingUp, href: "/analytics" },
+    { label: "User Management", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
+    { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
     { label: "Activity Log", icon: BarChart3, href: "/activity-log", roles: ["super_admin", "admin"] },
+    { label: "Payment Monitor", icon: DollarSign, href: "/payment-monitoring", roles: ["admin", "super_admin"] },
     { label: "System Health", icon: Activity, href: "/system-health", roles: ["admin", "super_admin"] },
     { label: "Settings", icon: Settings, href: "/settings" }
   ];

@@ -148,8 +148,8 @@ const Checkout = () => {
   };
 
   const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) {
-      toast.error("Please enter a valid 6-digit code");
+    if (otpCode.length < 6 || otpCode.length > 8) {
+      toast.error("Please enter a valid verification code (6-8 digits)");
       return;
     }
 
@@ -727,7 +727,7 @@ const Checkout = () => {
           </DialogHeader>
           <div className="flex flex-col items-center justify-center space-y-4 py-4">
             <InputOTP
-              maxLength={6}
+              maxLength={8}
               value={otpCode}
               onChange={(value) => setOtpCode(value)}
             >
@@ -735,11 +735,13 @@ const Checkout = () => {
                 <InputOTPSlot index={0} />
                 <InputOTPSlot index={1} />
                 <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
               </InputOTPGroup>
               <InputOTPGroup>
-                <InputOTPSlot index={3} />
                 <InputOTPSlot index={4} />
                 <InputOTPSlot index={5} />
+                <InputOTPSlot index={6} />
+                <InputOTPSlot index={7} />
               </InputOTPGroup>
             </InputOTP>
 
@@ -755,7 +757,7 @@ const Checkout = () => {
               <Button
                 className="flex-1"
                 onClick={handleVerifyOtp}
-                disabled={isVerifyingOtp || otpCode.length !== 6}
+                disabled={isVerifyingOtp || otpCode.length < 6}
               >
                 {isVerifyingOtp ? (
                   <>

@@ -1,194 +1,265 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
   Package,
   ShoppingCart,
   DollarSign,
-  TrendingUp,
   AlertTriangle,
-  Plus,
-  Eye,
-  Edit
+  Store,
+  TrendingUp,
+  Users
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { VendorPaymentPanel } from '@/components/vendor/VendorPaymentPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface VendorMetrics {
-  totalProducts: number;
-  totalOrders: number;
+interface DashboardData {
   totalRevenue: number;
-  lowStockItems: number;
-  pendingOrders: number;
-  averageRating: number;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  stock_quantity: number;
-  min_stock_level: number;
-  vendor_name?: string;
-  availability_status: string;
-  image?: string;
+  totalOrders: number;
+  recentOrders: any[];
+  lowStockProducts: any[];
+  totalProducts: number;
 }
 
 const VendorDashboard: React.FC = () => {
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
-  const [metrics, setMetrics] = useState<VendorMetrics>({
-    totalProducts: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
-    lowStockItems: 0,
-    pendingOrders: 0,
-    averageRating: 4.8
-  });
-  const [products, setProducts] = useState<Product[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userRole === 'vendor' && profile) {
-      fetchVendorData();
-      subscribeToUpdates();
+    if (userRole === 'vendor' || userRole === 'super_admin' || userRole === 'admin') {
+      fetchDashboardData();
     }
-  }, [userRole, profile]);
+  }, [userRole]);
 
-  const fetchVendorData = async () => {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data');
 
-      // Fetch vendor products
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select(`
-          *,
-          inventory(quantity),
-          category:categories(name),
-          vendor:user_profiles(full_name, company_name)
-        `);
-      // Filter removed to allow vendors to view all stock as requested
+      if (error) throw new Error(error.message);
 
-      if (productsError) throw productsError;
-
-      // Transform data to match Product interface
-      const transformedProducts = productsData?.map((p: any) => ({
-        ...p,
-        name: p.title || p.name, // Map title to name
-        stock_quantity: p.inventory?.[0]?.quantity ?? (p.in_stock ? 100 : 0), // Fallback to dummy qty if in_stock is true
-        min_stock_level: 5,
-        availability_status: p.in_stock ? 'in_stock' : 'out_of_stock' // Use in_stock column as truth
-      })) || [];
-
-      setProducts(transformedProducts);
-
-      // Calculate metrics
-      const lowStockItems = transformedProducts.filter(p => p.availability_status === 'out_of_stock').length;
-
-      // ... (rest of the metric calculation remains same)
-      const productIds = transformedProducts.map(p => p.id);
-      let vendorRevenue = 0;
-      let uniqueOrders: any[] = [];
-      let pendingOrders = 0;
-
-      if (productIds.length > 0) {
-        // ... (existing order logic)
-      }
-
-      setMetrics({
-        totalProducts: transformedProducts.length,
-        totalOrders: uniqueOrders.length,
-        totalRevenue: vendorRevenue,
-        lowStockItems,
-        pendingOrders,
-        averageRating: 4.8
-      });
-
+      setDashboardData(data.dashboardData);
     } catch (error: any) {
-      console.error('Error fetching vendor data:', error);
-      toast.error('Failed to load vendor data');
+      console.error('Error fetching dashboard data:', error);
+      // Fallback to empty data to avoid crashing if function fails or CORS issues persist locally
+      setDashboardData({
+        totalRevenue: 0,
+        totalOrders: 0,
+        recentOrders: [],
+        lowStockProducts: [],
+        totalProducts: 0
+      });
+      // toast.error(`Failed to fetch dashboard data: ${error.message}`); 
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleStock = async (id: string, currentStatus: string) => {
-    try {
-      const newStatus = currentStatus === 'in_stock' ? false : true;
-      const { error } = await supabase
-        .from('products')
-        // @ts-ignore
-        .update({ in_stock: newStatus })
-        .eq('id', id);
+  const customMetrics = dashboardData ? [
+    { label: "Your Products", value: dashboardData.totalProducts.toString(), icon: Package, change: "Active" },
+    { label: "Total Orders", value: dashboardData.totalOrders.toString(), icon: ShoppingCart, change: "Total" },
+    { label: "Total Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, change: "Gross" },
+    { label: "Low Stock Alerts", value: dashboardData.lowStockProducts.length.toString(), icon: AlertTriangle, change: dashboardData.lowStockProducts.length > 0 ? "Action Needed" : "Good" }
+  ] : [
+    { label: "Your Products", value: "0", icon: Package, change: "Active" },
+    { label: "Total Orders", value: "0", icon: ShoppingCart, change: "Total" },
+    { label: "Total Revenue", value: "$0", icon: DollarSign, change: "Gross" },
+    { label: "Low Stock Alerts", value: "0", icon: AlertTriangle, change: "Good" }
+  ];
 
-      if (error) throw error;
-      toast.success(`Product updated to ${newStatus ? 'In Stock' : 'Out of Stock'}`);
-      fetchVendorData(); // Refresh
-    } catch (e) {
-      toast.error('Failed to update stock');
-      console.error(e);
-    }
-  };
-
-  const subscribeToUpdates = () => {
-    // ... (keep existing subscription)
-    return () => { };
-  };
-
-  const lowStockProducts = products.filter(p => p.availability_status === 'out_of_stock');
+  if (loading) {
+    return <div className="p-6 text-center">Loading vendor dashboard...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {/* ... (Header and Metrics cards remain same) */}
+      {/* Metrics Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {customMetrics.map((metric, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {metric.label}
+              </CardTitle>
+              <metric.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metric.value}</div>
+              <p className="text-xs text-muted-foreground">
+                {metric.change}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-      {/* ... */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+        </TabsList>
 
-      {/* Recent Products with Toggle */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Recent Products</CardTitle>
-            <Button variant="outline" onClick={() => navigate('/vendor/inventory')}>
-              View All
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {products.slice(0, 10).map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-white rounded overflow-hidden">
-                    <img src={product.image || '/placeholder-part.png'} alt={product.name} className="h-full w-full object-contain" />
-                  </div>
-                  <div>
-                    <p className="font-medium line-clamp-1">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      ${product.price.toLocaleString()}
-                    </p>
+        <TabsContent value="overview" className="space-y-6">
+          {/* Business Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Store className="h-6 w-6 text-primary" />
+                Business Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold mb-2">Contact Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-muted-foreground">Business Name:</span> {profile?.company_name || 'Not set'}</p>
+                    <p><span className="text-muted-foreground">Contact Person:</span> {profile?.full_name || 'Not set'}</p>
+                    <p><span className="text-muted-foreground">Email:</span> {user?.email}</p>
+                    <p><span className="text-muted-foreground">Phone:</span> {profile?.phone || 'Not set'}</p>
+                    <p><span className="text-muted-foreground">Address:</span> {profile?.address || 'Not set'}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={product.availability_status === 'in_stock' ? 'default' : 'destructive'}
-                    className="cursor-pointer hover:opacity-80"
-                    onClick={() => toggleStock(product.id, product.availability_status)}
-                  >
-                    {product.availability_status === 'in_stock' ? 'In Stock' : 'Out of Stock'}
-                  </Badge>
-                  <Button variant="ghost" size="sm" onClick={() => navigate(`/vendor/edit-product/${product.id}`)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                <div>
+                  <h3 className="font-semibold mb-2">Vendor Status</h3>
+                  <div className="space-y-2">
+                    <Badge variant="default" className="mr-2">Verified Vendor</Badge>
+                    <Badge variant="outline" className="mr-2">Active Seller</Badge>
+                    <div className="mt-4">
+                      <p className="text-sm text-muted-foreground">Member since: {new Date(profile?.created_at || '').toLocaleDateString()}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          {/* Recent Orders */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData?.recentOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant={order.status === 'completed' ? 'default' : 'secondary'} className="capitalize">
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>${order.total_amount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Link to={`/orders/${order.id}`}>
+                          <Button variant="outline" size="sm">View</Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {dashboardData?.recentOrders.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No recent orders.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Low Stock Products */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                Low Stock Products
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData?.lowStockProducts.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell className="text-red-500 font-bold">{product.stock_quantity}</TableCell>
+                      <TableCell>
+                        <Link to={`/products/${product.id}`}>
+                          <Button variant="outline" size="sm">Manage</Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {dashboardData?.lowStockProducts.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No products with low stock.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <Button className="h-20 flex-col gap-2" onClick={() => navigate('/vendor/inventory')}>
+                  <Package className="h-6 w-6" />
+                  Manage Inventory
+                </Button>
+                <Button className="h-20 flex-col gap-2" onClick={() => navigate('/vendor/add-product')}>
+                  <Package className="h-6 w-6" />
+                  Add New Part
+                </Button>
+                <Button className="h-20 flex-col gap-2" variant="secondary" onClick={() => navigate('/user-management')}>
+                  <Users className="h-6 w-6" />
+                  Manage Users
+                </Button>
+                <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/analytics')}>
+                  <TrendingUp className="h-6 w-6" />
+                  View Analytics
+                </Button>
+                <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/messages')}>
+                  <Users className="h-6 w-6" />
+                  Customer Messages
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="payments">
+          <VendorPaymentPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

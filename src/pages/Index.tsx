@@ -45,14 +45,19 @@ const Index = () => {
 
   useEffect(() => {
     const fetchFeatured = async () => {
+      // Fetch products and filter client-side to avoid 400 if column missing
       const { data, error } = await supabase
         .from('products')
-        .select('*')
-        .eq('featured', true)
-        .limit(8);
+        .select(`
+          *,
+          inventory(quantity)
+        `)
+        .limit(20);
 
       if (data) {
-        setFeaturedProducts(data);
+        // Filter for featured items manually if needed, or take first 8
+        const featured = data.filter((p: any) => p.featured === true || p.attributes?.featured === true).slice(0, 8);
+        setFeaturedProducts(featured.length > 0 ? featured : data.slice(0, 8));
       }
     };
     fetchFeatured();
