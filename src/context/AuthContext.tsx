@@ -80,384 +80,389 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Get initial session
     // Get initial session
     const getInitialSession = async () => {
-      // First get from local storage for speed
-      const { data: { session } } = await supabase.auth.getSession()
+      try {
+        // First get from local storage for speed
+        const { data: { session } } = await supabase.auth.getSession()
 
-      let currentUser = session?.user ?? null;
-      let currentSession = session;
+        let currentUser = session?.user ?? null;
+        let currentSession = session;
 
-      // If we have a session, verify it's actually valid with the server
-      if (session?.user) {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        // If we have a session, verify it's actually valid with the server
+        if (session?.user) {
+          const { data: { user }, error } = await supabase.auth.getUser();
 
-        if (error || !user) {
-          logger.warn('AuthContext: Session found but token invalid or expired. Clearing session.');
-          await supabase.auth.signOut();
-          currentUser = null;
-          currentSession = null;
-        } else {
-          // Token is valid, use the user data from server
-          currentUser = user;
+          if (error || !user) {
+            logger.warn('AuthContext: Session found but token invalid or expired. Clearing session.');
+            await supabase.auth.signOut();
+            currentUser = null;
+            currentSession = null;
+          } else {
+            // Token is valid, use the user data from server
+            currentUser = user;
+          }
         }
+
+        setSession(currentSession)
+        setUser(currentUser)
+
+        if (currentUser) {
+          await loadUserProfile(currentUser.id)
+        } else {
+          setReady(true)
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setLoading(false)
       }
-
-      setSession(currentSession)
-      setUser(currentUser)
-
-      if (currentUser) {
-        await loadUserProfile(currentUser.id)
-      } else {
-        setReady(true)
-      }
-
-      setLoading(false)
     }
+  }
 
     getInitialSession()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
+    async (event, session) => {
+      setSession(session)
+      setUser(session?.user ?? null)
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            logger.log('AuthContext: SIGNED_IN event triggered');
-            // Merge guest cart if exists
-            logger.log('AuthContext: Merging guest cart...');
-            await mergeGuestCart()
-            logger.log('AuthContext: Guest cart merged.');
-            logger.log('AuthContext: Loading user profile...');
-            await loadUserProfile(session.user.id)
-            logger.log('AuthContext: User profile loaded.');
-          } catch (error) {
-            logger.error('Error during sign in processing:', error)
-          }
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          logger.log('AuthContext: TOKEN_REFRESHED event triggered');
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          logger.log('AuthContext: SIGNED_IN event triggered');
+          // Merge guest cart if exists
+          logger.log('AuthContext: Merging guest cart...');
+          await mergeGuestCart()
+          logger.log('AuthContext: Guest cart merged.');
+          logger.log('AuthContext: Loading user profile...');
           await loadUserProfile(session.user.id)
-        } else if (event === 'SIGNED_OUT') {
-          setProfile(null)
-          setUserPermissions([])
-          setUserRole('guest')
-          setReady(false)
-          // Clear any stored session data
-          localStorage.removeItem('user_role')
-          localStorage.removeItem('guest_session_id')
+          logger.log('AuthContext: User profile loaded.');
+        } catch (error) {
+          logger.error('Error during sign in processing:', error)
         }
-
-        setLoading(false)
-        setReady(true)
-      }
-    )
-
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadUserProfile = async (userId: string) => {
-    try {
-      const { data: rawData, error: userError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-
-      if (userError) {
-        logger.error('Error loading user profile:', userError)
-        // Don't show error toast for missing profile - it might be creating
-        if (userError.code !== 'PGRST116') {
-          toast.error(`Failed to load user profile: ${userError.message}`);
-        }
-        return
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        logger.log('AuthContext: TOKEN_REFRESHED event triggered');
+        await loadUserProfile(session.user.id)
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null)
+        setUserPermissions([])
+        setUserRole('guest')
+        setReady(false)
+        // Clear any stored session data
+        localStorage.removeItem('user_role')
+        localStorage.removeItem('guest_session_id')
       }
 
-      if (!rawData) return
-
-      const userData = rawData as any;
-
-      const profileData: UserProfile = {
-        id: userData.id,
-        user_id: userData.user_id,
-        email: userData.email,
-        full_name: userData.full_name,
-        phone: userData.phone,
-        company_name: userData.company_name || '',
-        address: userData.address || '',
-        city: userData.city || '',
-        state: userData.state || '',
-        zip_code: userData.zip_code || '',
-        country: userData.country || 'Zambia',
-        website_url: userData.website_url || '',
-        avatar_url: userData.avatar_url || '',
-        bio: userData.bio || '',
-        role: userData.role as UserProfile['role'],
-        is_verified: userData.is_verified || false,
-        created_at: userData.created_at,
-        updated_at: userData.updated_at || userData.created_at
-      }
-
-      setProfile(profileData)
-      setUserRole(userData.role || 'customer')
-      localStorage.setItem('user_role', userData.role || 'customer')
-
-      // Set basic permissions based on role
-      const rolePermissions: Record<string, string[]> = {
-        'super_admin': ['all'],
-        'admin': ['view_dashboard', 'manage_products', 'manage_orders', 'manage_users'],
-        'vendor': ['manage_own_products', 'view_own_orders', 'manage_inventory'],
-        'customer': ['place_orders', 'view_own_orders', 'request_quotes'],
-        'support': ['view_dashboard', 'manage_tickets', 'view_users'],
-        'guest': ['browse_catalog', 'guest_checkout']
-      }
-
-      setUserPermissions(rolePermissions[userData.role] || [])
+      setLoading(false)
       setReady(true)
-      logger.log('loadUserProfile: Auth context is ready.');
-    } catch (error) {
-      logger.error('Error in loadUserProfile:', error)
-      toast.error('An unexpected error occurred while loading your profile.');
     }
-  }
+  )
 
-  const refreshProfile = async () => {
-    if (user) {
-      await loadUserProfile(user.id)
+
+  return () => subscription.unsubscribe()
+}, [])
+
+const loadUserProfile = async (userId: string) => {
+  try {
+    const { data: rawData, error: userError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (userError) {
+      logger.error('Error loading user profile:', userError)
+      // Don't show error toast for missing profile - it might be creating
+      if (userError.code !== 'PGRST116') {
+        toast.error(`Failed to load user profile: ${userError.message}`);
+      }
+      return
     }
+
+    if (!rawData) return
+
+    const userData = rawData as any;
+
+    const profileData: UserProfile = {
+      id: userData.id,
+      user_id: userData.user_id,
+      email: userData.email,
+      full_name: userData.full_name,
+      phone: userData.phone,
+      company_name: userData.company_name || '',
+      address: userData.address || '',
+      city: userData.city || '',
+      state: userData.state || '',
+      zip_code: userData.zip_code || '',
+      country: userData.country || 'Zambia',
+      website_url: userData.website_url || '',
+      avatar_url: userData.avatar_url || '',
+      bio: userData.bio || '',
+      role: userData.role as UserProfile['role'],
+      is_verified: userData.is_verified || false,
+      created_at: userData.created_at,
+      updated_at: userData.updated_at || userData.created_at
+    }
+
+    setProfile(profileData)
+    setUserRole(userData.role || 'customer')
+    localStorage.setItem('user_role', userData.role || 'customer')
+
+    // Set basic permissions based on role
+    const rolePermissions: Record<string, string[]> = {
+      'super_admin': ['all'],
+      'admin': ['view_dashboard', 'manage_products', 'manage_orders', 'manage_users'],
+      'vendor': ['manage_own_products', 'view_own_orders', 'manage_inventory'],
+      'customer': ['place_orders', 'view_own_orders', 'request_quotes'],
+      'support': ['view_dashboard', 'manage_tickets', 'view_users'],
+      'guest': ['browse_catalog', 'guest_checkout']
+    }
+
+    setUserPermissions(rolePermissions[userData.role] || [])
+    setReady(true)
+    logger.log('loadUserProfile: Auth context is ready.');
+  } catch (error) {
+    logger.error('Error in loadUserProfile:', error)
+    toast.error('An unexpected error occurred while loading your profile.');
   }
+}
 
-  const signUp = async (email: string, password: string, userData: Partial<UserProfile>) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: userData.full_name,
-            phone: userData.phone,
-            company_name: userData.company_name
-          },
-          emailRedirectTo: `${window.location.origin}/verify-email`
-        }
-      })
+const refreshProfile = async () => {
+  if (user) {
+    await loadUserProfile(user.id)
+  }
+}
 
-      if (error) {
-        toast.error(`Registration failed: ${error.message}`)
-        return { error }
+const signUp = async (email: string, password: string, userData: Partial<UserProfile>) => {
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: userData.full_name,
+          phone: userData.phone,
+          company_name: userData.company_name
+        },
+        emailRedirectTo: `${window.location.origin}/verify-email`
       }
+    })
 
-      if (data.user && !data.user.email_confirmed_at) {
-        toast.success('Registration successful! Please check your email to verify your account.')
-      } else if (data.user) {
-        toast.success('Registration successful! You can now sign in.')
-      }
-
-      return { error: null }
-    } catch (error: any) {
+    if (error) {
       toast.error(`Registration failed: ${error.message}`)
       return { error }
     }
+
+    if (data.user && !data.user.email_confirmed_at) {
+      toast.success('Registration successful! Please check your email to verify your account.')
+    } else if (data.user) {
+      toast.success('Registration successful! You can now sign in.')
+    }
+
+    return { error: null }
+  } catch (error: any) {
+    toast.error(`Registration failed: ${error.message}`)
+    return { error }
   }
+}
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+const signIn = async (email: string, password: string) => {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
 
-      if (error) {
-        toast.error(`Sign in failed: ${error.message}`)
-        return { error }
-      }
-
-      if (data.user) {
-        toast.success('Welcome back!')
-
-        // Wait for profile to load before merging cart
-        try {
-          await loadUserProfile(data.user.id)
-          // Merge guest cart after profile is loaded
-          await mergeGuestCart()
-        } catch (profileError) {
-          logger.error('Error loading profile after sign in:', profileError)
-          // Don't fail the sign in if profile loading fails
-        }
-
-        // Log successful login
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', data.user.id)
-          .single();
-
-        if (userProfile) {
-          // @ts-ignore: Suppress type error due to missing Generated Types
-          logAuthEvent('login', userProfile.id, { email: data.user.email });
-        }
-      }
-
-      return { error: null }
-    } catch (error: any) {
+    if (error) {
       toast.error(`Sign in failed: ${error.message}`)
       return { error }
     }
+
+    if (data.user) {
+      toast.success('Welcome back!')
+
+      // Wait for profile to load before merging cart
+      try {
+        await loadUserProfile(data.user.id)
+        // Merge guest cart after profile is loaded
+        await mergeGuestCart()
+      } catch (profileError) {
+        logger.error('Error loading profile after sign in:', profileError)
+        // Don't fail the sign in if profile loading fails
+      }
+
+      // Log successful login
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (userProfile) {
+        // @ts-ignore: Suppress type error due to missing Generated Types
+        logAuthEvent('login', userProfile.id, { email: data.user.email });
+      }
+    }
+
+    return { error: null }
+  } catch (error: any) {
+    toast.error(`Sign in failed: ${error.message}`)
+    return { error }
   }
+}
 
-  const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
+const signOut = async () => {
+  try {
+    const { error } = await supabase.auth.signOut()
 
-      if (error) {
-        toast.error(`Sign out failed: ${error.message}`)
-        return { error }
-      }
-
-      // Log successful logout
-      if (profile) {
-        logAuthEvent('logout', profile.id);
-      }
-
-      // Clear local storage
-      localStorage.removeItem('user_role')
-      localStorage.removeItem('guest_session_id')
-
-      // Clear state
-      setUser(null)
-      setProfile(null)
-      setSession(null)
-      setUserPermissions([])
-      setUserRole('guest')
-      setReady(false)
-
-      toast.success('Signed out successfully')
-
-      return { error: null }
-    } catch (error: any) {
+    if (error) {
       toast.error(`Sign out failed: ${error.message}`)
       return { error }
     }
+
+    // Log successful logout
+    if (profile) {
+      logAuthEvent('logout', profile.id);
+    }
+
+    // Clear local storage
+    localStorage.removeItem('user_role')
+    localStorage.removeItem('guest_session_id')
+
+    // Clear state
+    setUser(null)
+    setProfile(null)
+    setSession(null)
+    setUserPermissions([])
+    setUserRole('guest')
+    setReady(false)
+
+    toast.success('Signed out successfully')
+
+    return { error: null }
+  } catch (error: any) {
+    toast.error(`Sign out failed: ${error.message}`)
+    return { error }
   }
+}
 
-  const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return { error: new Error('No user logged in') }
+const updateProfile = async (updates: Partial<UserProfile>) => {
+  if (!user) return { error: new Error('No user logged in') }
 
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        // @ts-ignore: user_profiles view might be typed as read-only
-        .update({
-          full_name: updates.full_name,
-          phone: updates.phone,
-          company_name: updates.company_name,
-          address: updates.address,
-          city: updates.city,
-          state: updates.state,
-          zip_code: updates.zip_code,
-          country: updates.country,
-          website_url: updates.website_url,
-          avatar_url: updates.avatar_url,
-          bio: updates.bio,
-          updated_at: new Date().toISOString()
-        } as any)
-        .eq('user_id', user.id)
+  try {
+    const { error } = await supabase
+      .from('user_profiles')
+      // @ts-ignore: user_profiles view might be typed as read-only
+      .update({
+        full_name: updates.full_name,
+        phone: updates.phone,
+        company_name: updates.company_name,
+        address: updates.address,
+        city: updates.city,
+        state: updates.state,
+        zip_code: updates.zip_code,
+        country: updates.country,
+        website_url: updates.website_url,
+        avatar_url: updates.avatar_url,
+        bio: updates.bio,
+        updated_at: new Date().toISOString()
+      } as any)
+      .eq('user_id', user.id)
 
-      if (error) {
-        toast.error(`Failed to update profile: ${error.message}`)
-        return { error }
-      }
-
-      // Refresh profile data
-      await refreshProfile()
-      toast.success('Profile updated successfully!')
-
-      // Log profile update
-      if (profile) {
-        logProfileEvent('profile_updated', profile.id, updates);
-      }
-
-      return { error: null }
-    } catch (error: any) {
+    if (error) {
       toast.error(`Failed to update profile: ${error.message}`)
       return { error }
     }
-  }
 
-  const hasPermission = (permission: string): boolean => {
-    return userPermissions.includes(permission) || userPermissions.includes('all')
-  }
+    // Refresh profile data
+    await refreshProfile()
+    toast.success('Profile updated successfully!')
 
-  const isAdmin = hasPermission('view_dashboard') || userRole === 'admin' || userRole === 'super_admin'
-
-  // Auto Logout Logic
-  const inactivityTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
-
-  const checkInactivity = React.useCallback(() => {
-    const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastActivity;
-
-    if (timeSinceLastActivity >= INACTIVITY_TIMEOUT) {
-      logger.log('AuthContext: Auto-logout triggered');
-      signOut().then(() => {
-        toast.info("Session expired due to inactivity.");
-        window.location.href = '/login';
-      });
-    } else {
-      const remainingTime = Math.max(1000, INACTIVITY_TIMEOUT - timeSinceLastActivity);
-      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-      inactivityTimer.current = setTimeout(checkInactivity, remainingTime);
+    // Log profile update
+    if (profile) {
+      logProfileEvent('profile_updated', profile.id, updates);
     }
-  }, [user]);
 
-  const resetInactivityTimer = React.useCallback(() => {
-    localStorage.setItem('lastActivity', Date.now().toString());
+    return { error: null }
+  } catch (error: any) {
+    toast.error(`Failed to update profile: ${error.message}`)
+    return { error }
+  }
+}
+
+const hasPermission = (permission: string): boolean => {
+  return userPermissions.includes(permission) || userPermissions.includes('all')
+}
+
+const isAdmin = hasPermission('view_dashboard') || userRole === 'admin' || userRole === 'super_admin'
+
+// Auto Logout Logic
+const inactivityTimer = React.useRef<NodeJS.Timeout | null>(null);
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+
+const checkInactivity = React.useCallback(() => {
+  const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);
+  const now = Date.now();
+  const timeSinceLastActivity = now - lastActivity;
+
+  if (timeSinceLastActivity >= INACTIVITY_TIMEOUT) {
+    logger.log('AuthContext: Auto-logout triggered');
+    signOut().then(() => {
+      toast.info("Session expired due to inactivity.");
+      window.location.href = '/login';
+    });
+  } else {
+    const remainingTime = Math.max(1000, INACTIVITY_TIMEOUT - timeSinceLastActivity);
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    if (user) {
-      inactivityTimer.current = setTimeout(checkInactivity, INACTIVITY_TIMEOUT);
-    }
-  }, [user, checkInactivity]);
+    inactivityTimer.current = setTimeout(checkInactivity, remainingTime);
+  }
+}, [user]);
 
-  useEffect(() => {
-    if (!user) return;
+const resetInactivityTimer = React.useCallback(() => {
+  localStorage.setItem('lastActivity', Date.now().toString());
+  if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+  if (user) {
+    inactivityTimer.current = setTimeout(checkInactivity, INACTIVITY_TIMEOUT);
+  }
+}, [user, checkInactivity]);
 
-    if (!localStorage.getItem('lastActivity')) {
-      localStorage.setItem('lastActivity', Date.now().toString());
-    }
+useEffect(() => {
+  if (!user) return;
 
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    const handleActivity = () => resetInactivityTimer();
-
-    resetInactivityTimer();
-    events.forEach(event => window.addEventListener(event, handleActivity));
-
-    return () => {
-      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-      events.forEach(event => window.removeEventListener(event, handleActivity));
-    };
-  }, [user, resetInactivityTimer]);
-
-  const value = {
-    user,
-    profile,
-    session,
-    loading,
-    ready,
-    signUp,
-    signIn,
-    signOut,
-    updateProfile,
-    hasPermission,
-    isAdmin,
-    userRole,
-    refreshProfile
+  if (!localStorage.getItem('lastActivity')) {
+    localStorage.setItem('lastActivity', Date.now().toString());
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+  const handleActivity = () => resetInactivityTimer();
+
+  resetInactivityTimer();
+  events.forEach(event => window.addEventListener(event, handleActivity));
+
+  return () => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    events.forEach(event => window.removeEventListener(event, handleActivity));
+  };
+}, [user, resetInactivityTimer]);
+
+const value = {
+  user,
+  profile,
+  session,
+  loading,
+  ready,
+  signUp,
+  signIn,
+  signOut,
+  updateProfile,
+  hasPermission,
+  isAdmin,
+  userRole,
+  refreshProfile
+}
+
+return (
+  <AuthContext.Provider value={value}>
+    {children}
+  </AuthContext.Provider>
+)
 }
