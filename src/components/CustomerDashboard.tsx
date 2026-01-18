@@ -196,7 +196,7 @@ const CustomerDashboard = () => {
             <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
               <Link to={`/parts/${part.id}`} className="block">
                 <img
-                  src={part.main_image || part.images?.[0] || '/placeholder.png'}
+                  src={part.main_image || part.media?.[0] || '/placeholder.png'}
                   alt={part.title}
                   className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
