@@ -19,7 +19,7 @@ const testimonials: Testimonial[] = [
     id: 1,
     name: "John Kasongo",
     company: "Kasongo Tractor Services",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
+    avatar: "https://ui-avatars.com/api/?name=John+Kasongo&background=0D8ABC&color=fff",
     content: "The genuine John Deere parts we ordered arrived quickly and fit perfectly. Our tractor is running like new again. The technical support team helped us identify exactly what we needed.",
     rating: 5,
     location: "Lusaka, Zambia"
@@ -28,7 +28,7 @@ const testimonials: Testimonial[] = [
     id: 2,
     name: "Mary Mbewe",
     company: "Mbewe Equipment Repair",
-    avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face",
+    avatar: "https://ui-avatars.com/api/?name=Mary+Mbewe&background=random",
     content: "The hydraulic parts we needed were in stock and delivered the same day. This saved us days of downtime during harvest season. Their parts quality is excellent!",
     rating: 5,
     location: "Ndola, Zambia"
@@ -37,7 +37,7 @@ const testimonials: Testimonial[] = [
     id: 3,
     name: "Peter Banda",
     company: "Banda Agricultural Repairs",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
+    avatar: "https://ui-avatars.com/api/?name=Peter+Banda&background=random",
     content: "As a mechanic, I rely on Massrides for quality spare parts. Their compatibility database is accurate and their technical support helps me serve my customers better.",
     rating: 5,
     location: "Kitwe, Zambia"
@@ -46,7 +46,7 @@ const testimonials: Testimonial[] = [
     id: 4,
     name: "Grace Phiri",
     company: "Phiri Farm Services",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
+    avatar: "https://ui-avatars.com/api/?name=Grace+Phiri&background=random",
     content: "When our combine broke down during harvest, Massrides had the electrical parts we needed in stock. Fast delivery and expert guidance got us back to work quickly!",
     rating: 5,
     location: "Chipata, Zambia"
@@ -100,7 +100,7 @@ export const TestimonialSlider = () => {
         <div className="relative max-w-4xl mx-auto">
           {/* Main Testimonial */}
           <div className="relative overflow-hidden">
-            <div 
+            <div
               className="flex transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
@@ -174,8 +174,8 @@ export const TestimonialSlider = () => {
                   onClick={() => goToTestimonial(index)}
                   className={cn(
                     "w-3 h-3 rounded-full transition-all duration-300",
-                    index === currentIndex 
-                      ? "bg-primary scale-125" 
+                    index === currentIndex
+                      ? "bg-primary scale-125"
                       : "bg-border hover:bg-primary/30"
                   )}
                   aria-label={`Go to testimonial ${index + 1}`}

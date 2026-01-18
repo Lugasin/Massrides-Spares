@@ -25,8 +25,11 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import CustomerDashboard from "@/components/CustomerDashboard";
 // Import the new dashboards (assuming they will be created)
-// import VendorDashboard from "@/components/VendorDashboard"; 
+// In local dev we want to test dashboard
+import VendorDashboard from "@/components/VendorDashboard";
 // import SuperAdminDashboard from "@/components/SuperAdminDashboard";
+
+import { supabase } from "@/lib/supabase";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -37,6 +40,24 @@ const Index = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const { itemCount, addItem } = useQuote();
 
+  // State for DB-fetched featured products
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('featured', true)
+        .limit(8);
+
+      if (data) {
+        setFeaturedProducts(data);
+      }
+    };
+    fetchFeatured();
+  }, []);
+
   const handleAuthClick = () => {
     navigate('/login');
   };
@@ -44,32 +65,13 @@ const Index = () => {
   // Role-based redirection on login
   if (user) {
     if (userRole === 'super-admin') {
-      // return <SuperAdminDashboard />; // Future implementation
-      navigate('/admin'); // Redirect to a unified admin area
-      return null; // Return null while redirecting
+      navigate('/admin');
+      return null;
     }
     if (userRole === 'admin') {
-      // return <VendorDashboard />; // Future implementation
-      navigate('/vendor'); // Redirect to vendor dashboard
-      return null; // Return null while redirecting
+      navigate('/vendor');
+      return null;
     }
-  }
-  if (user && userRole === 'customer') { // Keep customer on the index page but show dashboard
-    return (
-      <div className="min-h-screen bg-background">
-        <Header
-          cartItemsCount={itemCount}
-          onAuthClick={handleAuthClick}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-        />
-        <main>
-          <CustomerDashboard />
-        </main>
-        <Footer />
-        <BackToTop />
-      </div>
-    );
   }
 
   // Enhanced categories with icons
@@ -82,39 +84,12 @@ const Index = () => {
   ];
 
   // Sample partner data
-  // TODO: This data should be fetched from the 'company_partners' table in your Supabase database
-  // as mentioned in the README.md. This would make it dynamic and manageable without code changes.
   const partners = [
-    {
-      id: '1',
-      name: 'John Deere',
-      logo_url: '/company logos/John_Deere-Logo-PNG3.png',
-      website_url: 'https://www.deere.com'
-    },
-    {
-      id: '2',
-      name: 'Case IH',
-      logo_url: '/company logos/IH_logo_PNG_(3).png',
-      website_url: 'https://www.caseih.com'
-    },
-    {
-      id: '3',
-      name: 'New Holland',
-      logo_url: '/company logos/New_Holland_logo_PNG_(7).png',
-      website_url: 'https://www.newholland.com'
-    },
-    {
-      id: '4',
-      name: 'Kubota',
-      logo_url: '/company logos/Kubota_(1).png',
-      website_url: 'https://www.kubota.com'
-    },
-    {
-      id: '5',
-      name: 'Massey Ferguson',
-      logo_url: '/company logos/Massey-Ferguson-Logo.png',
-      website_url: 'https://www.masseyferguson.com'
-    }
+    { id: '1', name: 'John Deere', logo_url: '/company logos/John_Deere-Logo-PNG3.png', website_url: 'https://www.deere.com' },
+    { id: '2', name: 'Case IH', logo_url: '/company logos/IH_logo_PNG_(3).png', website_url: 'https://www.caseih.com' },
+    { id: '3', name: 'New Holland', logo_url: '/company logos/New_Holland_logo_PNG_(7).png', website_url: 'https://www.newholland.com' },
+    { id: '4', name: 'Kubota', logo_url: '/company logos/Kubota_(1).png', website_url: 'https://www.kubota.com' },
+    { id: '5', name: 'Massey Ferguson', logo_url: '/company logos/Massey-Ferguson-Logo.png', website_url: 'https://www.masseyferguson.com' }
   ];
 
   // Debounce for search input and filter products for suggestions
@@ -138,13 +113,18 @@ const Index = () => {
     };
   }, [searchTerm]);
 
-  // Filter products based on active category
-  const featuredProducts = sparePartsData.filter(part => part.featured);
-  const filteredProducts = featuredProducts.filter(
-    part => activeCategory === "All" || part.category === activeCategory
-  );
+  const handleAddToCart = (part: any) => {
+    addItem({
+      id: String(part.id),
+      name: part.title || part.name, // Handle DB 'title' vs local 'name'
+      price: part.price,
+      image: part.image || '',
+      specs: part.specs || [],
+      category: part.category
+    });
+    toast.success(`${part.title || part.name} added to cart!`);
+  };
 
-  // Handle adding item to cart from suggestion card
   const handleAddToCartFromSuggestion = (part: SparePart) => {
     addItem({
       id: String(part.id),
@@ -156,6 +136,24 @@ const Index = () => {
     });
     toast.success(`${part.name} added to cart!`);
   };
+
+  if (user && userRole === 'customer') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header
+          cartItemsCount={itemCount}
+          onAuthClick={handleAuthClick}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
+        <main>
+          <CustomerDashboard />
+        </main>
+        <Footer />
+        <BackToTop />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -169,78 +167,95 @@ const Index = () => {
       <main>
         {!showSuggestions ? (
           <>
-            {/* Enhanced Hero Section with Parallax */}
             <HeroCarousel />
-
-            {/* Parallax Hero Section */}
             <ParallaxHero />
-
-            {/* Company Partners with Auto-Scroll */}
             <AutoScrollPartners partners={partners} />
-
-            {/* About Us Teaser */}
             <AboutUsTeaser />
-
-            {/* Features Section */}
             <FeaturesSection />
-
-            {/* Sticky Category Navigation */}
             <StickyNavBar
               categories={categories}
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}
             />
 
-            {/* Featured Spare Parts with Masonry Grid */}
             <section id="featured-parts" className="py-20 bg-background">
               <div className="container mx-auto px-4">
                 <div className="text-center mb-16 animate-fade-in">
                   <span className="inline-block bg-secondary/10 text-secondary px-4 py-2 rounded-full text-sm font-medium mb-4">
-                    Featured Spare Parts
+                    Featured Spare Parts <span className="text-muted-foreground ml-1">(Massrides Spares)</span>
                   </span>
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight">
                     <span className="text-white block">Massrides Spares</span>
-                    <span className="text-primary block mt-2">Premium Agricultural Parts</span>
+                    <span className="text-primary block mt-2 text-2xl md:text-3xl font-light">
+                      Premium Agricultural Parts <br />
+                      <span className="text-muted-foreground text-sm block mt-1">(Discover our curated selection of genuine and aftermarket spare parts for all your agricultural equipment.)</span>
+                    </span>
                   </h1>
-                  <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl mx-auto font-light">
-                    Discover our curated selection of genuine and aftermarket spare parts for all your agricultural equipment.
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredProducts.slice(0, 8).map((part) => (
-                    <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300">
-                      <Link to={`/parts/${part.id}`} className="block">
-                        <div className="relative overflow-hidden">
-                          <img
-                            src={part.image || '/api/placeholder/300/200'}
-                            alt={part.name}
-                            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                            loading="lazy"
-                          />
-                          {part.featured && (
+                  {featuredProducts.length > 0 ? (
+                    featuredProducts.map((part) => (
+                      <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+                        <Link to={`/parts/${part.id}`} className="block h-full">
+                          <div className="relative overflow-hidden aspect-[3/4] bg-white">
+                            <img
+                              src={part.image || '/placeholder-part.png'}
+                              alt={part.title || part.name}
+                              className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-110"
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder-part.png';
+                              }}
+                            />
+                            {part.featured && (
+                              <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
+                                Featured
+                              </Badge>
+                            )}
+                            {part.in_stock === false && (
+                              <Badge className="absolute top-2 right-2 bg-destructive text-destructive-foreground">
+                                Out of Stock
+                              </Badge>
+                            )}
+                          </div>
+                          <CardContent className="p-4">
+                            <h3 className="font-semibold mb-2 line-clamp-2">{part.title || part.name}</h3>
+                            <p className="text-sm text-muted-foreground mb-2">Part #: {part.part_number || part.partNumber}</p>
+                            <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>
+                          </CardContent>
+                        </Link>
+                      </Card>
+                    ))
+                  ) : (
+                    // Fallback to local data if DB fetch issues, but filtered by manual check if needed
+                    sparePartsData.filter(p => p.featured).slice(0, 4).map((part) => (
+                      <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+                        <Link to={`/parts/${part.id}`} className="block h-full">
+                          <div className="relative overflow-hidden aspect-[3/4] bg-white">
+                            <img
+                              src={part.image || '/placeholder-part.png'}
+                              alt={part.name}
+                              className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-110"
+                              loading="lazy"
+                            />
                             <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
                               Featured
                             </Badge>
-                          )}
-                        </div>
-                        <CardContent className="p-4">
-                          <h3 className="font-semibold mb-2 line-clamp-2">{part.name}</h3>
-                          <p className="text-sm text-muted-foreground mb-2">Part #: {part.partNumber}</p>
-                          <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>
-                        </CardContent>
-                      </Link>
-                    </Card>
-                  ))}
+                          </div>
+                          <CardContent className="p-4">
+                            <h3 className="font-semibold mb-2 line-clamp-2">{part.name}</h3>
+                            <p className="text-sm text-muted-foreground mb-2">Part #: {part.partNumber}</p>
+                            <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>
+                          </CardContent>
+                        </Link>
+                      </Card>
+                    ))
+                  )}
                 </div>
 
-                {/* View All CTA */}
                 <div className="text-center mt-12">
-                  <Button
-                    asChild
-                    size="lg"
-                    className="bg-primary hover:bg-primary-hover group"
-                  >
+                  <Button asChild size="lg" className="bg-primary hover:bg-primary-hover group">
                     <Link to="/catalog">
                       View All Parts
                       <ShoppingCart className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -250,10 +265,7 @@ const Index = () => {
               </div>
             </section>
 
-            {/* Testimonials Section */}
             <TestimonialSlider />
-
-            {/* Contact Section */}
             <ContactSection />
           </>
         ) : (
@@ -271,53 +283,15 @@ const Index = () => {
                           loading="lazy"
                         />
                         <div className="absolute top-3 left-3 flex gap-2">
-                          {part.featured && ( // Assuming 'featured' property exists
-                            <Badge className="bg-primary text-primary-foreground">
-                              Featured
-                            </Badge>
-                          )}
-                          {part.inStock && ( // Using 'inStock' from products.ts
-                            <Badge className="bg-success text-success-foreground">
-                              In Stock
-                            </Badge>
-                          )}
+                          {part.featured && <Badge className="bg-primary text-primary-foreground">Featured</Badge>}
+                          {part.inStock && <Badge className="bg-success text-success-foreground">In Stock</Badge>}
                         </div>
                       </div>
-
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex items-center text-yellow-500">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={cn("h-4 w-4", i < 4 ? "fill-current" : "text-gray-300 fill-transparent")}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            4.8 (125 reviews)
-                          </span>
-                        </div>
-
-                        <h3 className="text-lg font-semibold mb-1 text-card-foreground">
-                          {part.name}
-                        </h3>
-                        {part.partNumber && (
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Part #: {part.partNumber}
-                          </p>
-                        )}
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                          {part.description}
-                        </p>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl font-bold text-primary">
-                            ${part.price.toLocaleString()}
-                          </span>
-                        </div>
+                        <h3 className="text-lg font-semibold mb-1 text-card-foreground">{part.name}</h3>
+                        <p className="text-sm text-muted-foreground mb-2">Part #: {part.partNumber}</p>
+                        <p className="text-lg font-bold text-primary">${part.price.toLocaleString()}</p>
                       </CardContent>
-
                       <CardFooter className="p-4 pt-0">
                         <Button
                           onClick={(e) => { e.stopPropagation(); handleAddToCartFromSuggestion(part); }}
@@ -334,12 +308,8 @@ const Index = () => {
               </div>
             ) : (searchTerm && (
               <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  No spare parts found for "{searchTerm}"
-                </h3>
-                <p className="text-muted-foreground">
-                  Try a different search term.
-                </p>
+                <h3 className="text-lg font-medium text-foreground mb-2">No spare parts found for "{searchTerm}"</h3>
+                <p className="text-muted-foreground">Try a different search term.</p>
               </div>
             ))}
           </section>
@@ -347,7 +317,6 @@ const Index = () => {
       </main>
 
       <Footer />
-
       <BackToTop />
     </div>
   );

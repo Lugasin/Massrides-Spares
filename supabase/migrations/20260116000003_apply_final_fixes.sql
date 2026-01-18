@@ -7,10 +7,11 @@ ALTER TABLE guest_sessions
 ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid(),
 ADD COLUMN IF NOT EXISTS session_id text;
 
--- Populate session_id safely
+-- Populate session_id correctly for legacy compatibility
+-- Populate session_id with distinct UUIDs (User Requirement)
 UPDATE guest_sessions 
 SET session_id = gen_random_uuid()::text 
-WHERE session_id IS NULL;
+WHERE session_id IS NULL OR session_id = token;
 
 -- Ensure Unique Index on session_id
 DROP INDEX IF EXISTS guest_sessions_session_id_idx;
@@ -19,6 +20,20 @@ CREATE UNIQUE INDEX guest_sessions_session_id_idx ON guest_sessions (session_id)
 -- Ensure Constraint relies on Index
 ALTER TABLE guest_sessions DROP CONSTRAINT IF EXISTS guest_sessions_session_id_key;
 ALTER TABLE guest_sessions ADD CONSTRAINT guest_sessions_session_id_key UNIQUE USING INDEX guest_sessions_session_id_idx;
+
+-- Fix Orphans: Create missing sessions with new UUIDs
+INSERT INTO guest_sessions (token, session_id)
+SELECT DISTINCT guest_token, gen_random_uuid()::text
+FROM orders o
+WHERE o.guest_token IS NOT NULL 
+  AND NOT EXISTS (SELECT 1 FROM guest_sessions gs WHERE gs.token = o.guest_token);
+
+-- CRITICAL: Migrate Orders to use the new UUID session_id
+-- We match on the legacy 'token' to find the right session, then swap to the new UUID.
+UPDATE orders o
+SET guest_token = gs.session_id
+FROM guest_sessions gs
+WHERE o.guest_token = gs.token;
 
 -- Fix Foreign Keys (Repoint to session_id)
 -- Orders FK

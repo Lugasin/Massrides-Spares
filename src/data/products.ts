@@ -9,6 +9,16 @@ import tractorWheel from "@/assets/tractor-wheel.jpg";
 import engineOilFilter from "@/assets/products/engine_oil_filter.png";
 import hydraulicPump from "@/assets/products/hydraulic_pump.png";
 import tractorAlternator from "@/assets/products/tractor_alternator.png";
+import radiatorAssembly from "@/assets/products/radiator_assembly.png";
+import fuelInjectionPump from "@/assets/products/fuel_injection_pump.png";
+import brakePadSet from "@/assets/products/brake_pad_set.png";
+import tractorHeadlight from "@/assets/products/tractor_headlight.png";
+import ptoShaft from "@/assets/products/pto_shaft.png";
+import airFilterCombine from "@/assets/products/air_filter_combine.png";
+import tractorSeat from "@/assets/products/tractor_seat.png";
+import clutchKit from "@/assets/products/clutch_kit.png";
+import transmissionAssembly from "@/assets/products/transmission_assembly.png";
+import hydraulicCylinder from "@/assets/products/hydraulic_cylinder.png";
 
 export interface SparePart {
   id: number;
@@ -81,7 +91,7 @@ export const spareParts: SparePart[] = [
     id: 4,
     name: "Radiator Assembly",
     price: 420,
-    image: irrigationAerial,
+    image: radiatorAssembly,
     specs: ["Aluminum Core", "Plastic Tank", "OEM Fit", "Pressure Tested"],
     category: "Cooling System",
     brand: "Kubota",
@@ -96,7 +106,7 @@ export const spareParts: SparePart[] = [
     id: 5,
     name: "Fuel Injection Pump",
     price: 1250,
-    image: farmerTractor,
+    image: fuelInjectionPump,
     specs: ["High Precision", "Rebuilt", "Tested", "Core Exchange"],
     category: "Fuel System",
     brand: "Massey Ferguson",
@@ -111,7 +121,7 @@ export const spareParts: SparePart[] = [
     id: 6,
     name: "Brake Pad Set",
     price: 95,
-    image: tractorWheel,
+    image: brakePadSet,
     specs: ["Ceramic Compound", "Low Dust", "Quiet Operation", "Long Lasting"],
     category: "Brake Parts",
     brand: "Fendt",
@@ -122,6 +132,81 @@ export const spareParts: SparePart[] = [
     inStock: true,
     featured: false,
   },
+  {
+    id: 7,
+    name: "LED Work Light",
+    price: 45,
+    image: tractorHeadlight,
+    specs: ["48W LED", "Flood Beam", "IP67 Waterproof", "Universal Mount"],
+    category: "Electrical Parts",
+    brand: "Massrides",
+    partNumber: "LED-WL48S",
+    compatibility: ["Universal Tractor Fit", "Combine Harvesters"],
+    warranty: "12 months",
+    description: "High-intensity LED work light for night operations. Durable and weather-resistant.",
+    inStock: true,
+    featured: false,
+  },
+  {
+    id: 8,
+    name: "PTO Shaft Guard",
+    price: 65,
+    image: ptoShaft,
+    specs: ["Safety Yellow", "Durable Plastic", "Universal Fit", "Easy Install"],
+    category: "Drivetrain Parts",
+    brand: "Weasler",
+    partNumber: "PTO-G100",
+    compatibility: ["Series 1-4 PTO Shafts"],
+    warranty: "6 months",
+    description: "Essential safety guard for agricultural PTO shafts. Protects operators from entanglement.",
+    inStock: true,
+    featured: false,
+  },
+  {
+    id: 9,
+    name: "Combine Air Filter",
+    price: 78,
+    image: airFilterCombine,
+    specs: ["Heavy Duty", "High Capacity", "Dual Seal", "Extended Life"],
+    category: "Engine Parts",
+    brand: "Donaldson",
+    partNumber: "P181052",
+    compatibility: ["John Deere S Series", "Case IH Axial-Flow"],
+    warranty: "N/A",
+    description: "Primary engine air filter for large combine harvesters. Ensures clean air for maximum power.",
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: 10,
+    name: "Suspension Seat",
+    price: 350,
+    image: tractorSeat,
+    specs: ["Adjustable Suspension", "Armrests", "Fabric Cover", "Ergonomic"],
+    category: "Cab & Body",
+    brand: "Grammer",
+    partNumber: "MSG85/721",
+    compatibility: ["Universal Flat Mount", "Massey Ferguson", "New Holland"],
+    warranty: "12 months",
+    description: "Comfortable mechanical suspension seat to reduce operator fatigue during long days.",
+    inStock: true,
+    featured: false,
+  },
+  {
+    id: 11,
+    name: "Tractor Clutch Kit",
+    price: 480,
+    image: clutchKit,
+    specs: ["Pressure Plate", "Clutch Disc", "Release Bearing", "Alignment Tool"],
+    category: "Transmission Parts",
+    brand: "LuK",
+    partNumber: "628302009",
+    compatibility: ["Ford New Holland", "Fiat Agri"],
+    warranty: "12 months",
+    description: "Complete clutch replacement kit for reliable power transmission.",
+    inStock: true,
+    featured: false,
+  }
 ];
 
 // Keep products as alias for backward compatibility
@@ -135,7 +220,10 @@ export const categories = [
   "Electrical Parts",
   "Cooling System",
   "Fuel System",
-  "Brake Parts"
+  "Brake Parts",
+  "Transmission Parts",
+  "Cab & Body",
+  "Drivetrain Parts"
 ];
 
 export const usedSparePartsData: UsedSparePart[] = [
@@ -143,7 +231,7 @@ export const usedSparePartsData: UsedSparePart[] = [
     id: 101,
     name: "Used Transmission Assembly",
     price: 2500,
-    image: tractorPlowing,
+    image: transmissionAssembly,
     specs: ["Rebuilt", "Tested", "6 Month Warranty", "Core Required"],
     category: "Transmission Parts",
     brand: "John Deere",
@@ -160,7 +248,7 @@ export const usedSparePartsData: UsedSparePart[] = [
     id: 102,
     name: "Used Hydraulic Cylinder",
     price: 450,
-    image: heroCombine,
+    image: hydraulicCylinder,
     specs: ["Resealed", "Pressure Tested", "90 Day Warranty"],
     category: "Hydraulic Parts",
     brand: "Case IH",

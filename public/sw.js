@@ -75,6 +75,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip Supabase API requests - let the browser handle them directly
+  if (url.hostname.includes('supabase.co')) {
+    return;
+  }
+
   event.respondWith(
     (async () => {
       try {
