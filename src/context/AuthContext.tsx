@@ -106,7 +106,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentUser)
 
         if (currentUser) {
-          await loadUserProfile(currentUser.id)
+          const success = await loadUserProfile(currentUser.id)
+          if (!success) {
+            logger.warn('AuthContext: User found but profile load failed. Signing out to clean state.');
+            await supabase.auth.signOut();
+            setUser(null);
+            setSession(null);
+            setProfile(null);
+            localStorage.removeItem('user_role');
+            setReady(true);
+          }
         } else {
           setReady(true)
         }
@@ -160,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe()
   }, [])
 
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string): Promise<boolean> => {
     try {
       const { data: rawData, error: userError } = await supabase
         .from('user_profiles')
@@ -170,14 +179,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (userError) {
         logger.error('Error loading user profile:', userError)
-        // Don't show error toast for missing profile - it might be creating
+        // If profile is missing (PGRST116), we should treat this as a specialized case
+        // For now, return false so the caller knows it failed.
         if (userError.code !== 'PGRST116') {
           toast.error(`Failed to load user profile: ${userError.message}`);
         }
-        return
+        return false
       }
 
-      if (!rawData) return
+      if (!rawData) return false
 
       const userData = rawData as any;
 
@@ -219,9 +229,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserPermissions(rolePermissions[userData.role] || [])
       setReady(true)
       logger.log('loadUserProfile: Auth context is ready.');
+      return true
     } catch (error) {
       logger.error('Error in loadUserProfile:', error)
       toast.error('An unexpected error occurred while loading your profile.');
+      return false
     }
   }
 
