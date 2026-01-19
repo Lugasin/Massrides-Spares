@@ -76,7 +76,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // Try to get from DB directly first for speed, failover to function if needed?
             // Function 'get-user-settings' is robust (creates if missing).
             // We'll use the function to ensure creation.
-            const { data, error } = await supabase.functions.invoke('get-user-settings');
+            // Explicitly pass auth header to ensure Edge Function receives it
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+
+            const { data, error } = await supabase.functions.invoke('get-user-settings', {
+                headers
+            });
             if (!error && data.settings) {
                 setSettings(data.settings);
             }
@@ -92,8 +98,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSettings(prev => prev ? { ...prev, [key]: value } : null);
 
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+
             await supabase.functions.invoke('update-user-settings', {
-                body: { [key]: value }
+                body: { [key]: value },
+                headers
             });
         } catch (error) {
             console.error("Failed to update setting", error);
