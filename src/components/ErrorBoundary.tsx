@@ -27,14 +27,25 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Error caught by boundary:', error, errorInfo);
-    
+
     // Log error to our activity logging system
     logError(error, 'ErrorBoundary', undefined);
-    
+
     this.setState({
       error,
       errorInfo
     });
+
+    // GLOBAL FAILSAFE: Clear all state and recover to clean login
+    // This prevents infinite error loops and UI deadlocks
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      // Note: supabase.auth.signOut() is async, but we don't await to avoid blocking
+      // The redirect will happen regardless
+    } catch (cleanupError) {
+      console.error('ErrorBoundary: Cleanup failed:', cleanupError);
+    }
   }
 
   handleReload = () => {
@@ -64,7 +75,7 @@ class ErrorBoundary extends Component<Props, State> {
               <p className="text-muted-foreground text-center">
                 We're sorry, but something unexpected happened. Our team has been notified.
               </p>
-              
+
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="bg-muted p-4 rounded-lg">
                   <summary className="cursor-pointer font-medium mb-2">Error Details</summary>
@@ -74,7 +85,7 @@ class ErrorBoundary extends Component<Props, State> {
                   </pre>
                 </details>
               )}
-              
+
               <div className="flex gap-2">
                 <Button onClick={this.handleReload} className="flex-1">
                   <RefreshCw className="h-4 w-4 mr-2" />

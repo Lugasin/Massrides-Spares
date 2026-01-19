@@ -131,8 +131,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // HARD FAIL-SAFE: Handle token refresh failures and forced logout
+        if (
+          event === 'TOKEN_REFRESH_FAILED' ||
+          event === 'SIGNED_OUT' ||
+          !session
+        ) {
+          logger.warn(`AuthContext: ${event} - Forcing clean state.`);
+          await supabase.auth.signOut();
+          localStorage.clear();
+          sessionStorage.clear();
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setUserPermissions([]);
+          setUserRole('guest');
+          setLoading(false);
+          setReady(false);
+          // Redirect only on TOKEN_REFRESH_FAILED (not on intentional SIGNED_OUT)
+          if (event === 'TOKEN_REFRESH_FAILED') {
+            window.location.href = '/login';
+          }
+          return;
+        }
+
         setSession(session)
         setUser(session?.user ?? null)
+
+        // Ensure user_profiles row exists (upsert on every auth change)
+        if (session?.user) {
+          try {
+            await supabase.from('user_profiles').upsert({
+              id: session.user.id,
+              user_id: session.user.id,
+              email: session.user.email,
+              role: 'customer',
+              created_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+          } catch (upsertError) {
+            logger.error('AuthContext: Failed to upsert user_profiles:', upsertError);
+            // Non-blocking, continue with auth flow
+          }
+        }
 
         if (event === 'SIGNED_IN' && session?.user) {
           try {
@@ -150,14 +190,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           logger.log('AuthContext: TOKEN_REFRESHED event triggered');
           await loadUserProfile(session.user.id)
-        } else if (event === 'SIGNED_OUT') {
-          setProfile(null)
-          setUserPermissions([])
-          setUserRole('guest')
-          setReady(false)
-          // Clear any stored session data
-          localStorage.removeItem('user_role')
-          localStorage.removeItem('guest_session_id')
         }
 
         setLoading(false)
