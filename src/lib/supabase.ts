@@ -369,19 +369,25 @@ export const clearCart = async () => {
 // Client-side implementation of mergeGuestCart to avoid Edge Function deployment issues
 export const mergeGuestCart = async () => {
   try {
+    // 1. Merge Guard: Prevent infinite loops if already merged
+    if (localStorage.getItem('cart_merge_done') === 'true') {
+      console.log('MergeGuestCart: Skipped (already merged).');
+      return;
+    }
+
     const guestSessionId = localStorage.getItem('guest_session_id');
     if (!guestSessionId) return;
 
     console.log('MergeGuestCart: Starting merge for session', guestSessionId);
 
-    // 1. Get authenticated user
+    // 2. Get authenticated user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       console.log('MergeGuestCart: No authenticated user found.');
       return;
     }
 
-    // 2. Fetch Guest Cart & Items
+    // 3. Fetch Guest Cart & Items
     const { data: guestCarts, error: guestCartError } = await supabase
       .from('guest_carts')
       .select('id, guest_cart_items(product_id, quantity)')
@@ -408,24 +414,25 @@ export const mergeGuestCart = async () => {
     const guestItems = guestCart.guest_cart_items;
     console.log(`MergeGuestCart: Found ${guestItems.length} items to merge.`);
 
-    // 3. Get or Create User Cart
+    // 4. Get or Create User Cart (Safe check)
     let userCartId = null;
 
-    // Try to find existing cart
-    const { data: userCarts, error: userCartError } = await supabase
+    // Use maybeSingle to avoid 406 error if cart missing
+    const { data: existingCart, error: fetchError } = await supabase
       .from('carts')
       .select('id')
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (userCartError) {
-      console.error('MergeGuestCart: Error fetching user cart:', userCartError);
-      throw userCartError;
+    if (fetchError) {
+      console.error('MergeGuestCart: Error checking user cart:', fetchError);
+      throw fetchError;
     }
 
-    if (userCarts && userCarts.length > 0) {
-      userCartId = userCarts[0].id; // Use first found cart
+    if (existingCart) {
+      userCartId = existingCart.id;
     } else {
-      // Create new cart
+      // Create new cart safely
       const { data: newCart, error: createError } = await supabase
         .from('carts')
         .insert({ user_id: user.id })
@@ -433,13 +440,29 @@ export const mergeGuestCart = async () => {
         .single();
       
       if (createError) {
-        console.error('MergeGuestCart: Error creating user cart:', createError);
-        throw createError;
+        // If race condition occurred and cart was created in meantime, try fetch again
+        if (createError.code === '23505') { // Unique violation
+           const { data: retryCart } = await supabase
+             .from('carts')
+             .select('id')
+             .eq('user_id', user.id)
+             .maybeSingle();
+           if (retryCart) userCartId = retryCart.id;
+        } else {
+           console.error('MergeGuestCart: Error creating user cart:', createError);
+           throw createError;
+        }
+      } else {
+        userCartId = newCart.id;
       }
-      userCartId = newCart.id;
     }
 
-    // 4. Merge Items
+    if (!userCartId) { 
+        console.error('MergeGuestCart: Failed to resolve user cart ID');
+        return;
+    }
+
+    // 5. Merge Items
     for (const item of guestItems) {
       // Check if item already exists in user cart
       const { data: existingItems } = await supabase
@@ -470,7 +493,7 @@ export const mergeGuestCart = async () => {
 
     console.log('MergeGuestCart: Items merged successfully.');
 
-    // 5. Delete Guest Cart
+    // 6. Delete Guest Cart & Set Guard
     const { error: deleteError } = await supabase
       .from('guest_carts')
       .delete()
@@ -480,11 +503,12 @@ export const mergeGuestCart = async () => {
       console.warn('MergeGuestCart: Failed to delete guest cart after merge:', deleteError);
     } else {
       localStorage.removeItem('guest_session_id');
+      // Set guard to prevent re-running
+      localStorage.setItem('cart_merge_done', 'true');
     }
 
   } catch (error) {
     console.error('MergeGuestCart: Unexpected error:', error);
-    // Don't re-throw, just log, so we don't block the UI
   }
 }
 

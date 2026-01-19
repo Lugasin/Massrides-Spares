@@ -179,7 +179,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ element, allowedRoles }
 
   // While loading auth status, render nothing or a loading indicator
   if (loading) {
-    return <div>Loading...</div>; // Or a more sophisticated loader
+    return <PageLoader />; // Use the styled loader
   }
 
   // If user is not authenticated, redirect to login
