@@ -237,27 +237,49 @@ const Checkout = () => {
     setPaymentProcessingMessage("Initializing secure payment...");
 
     try {
+      // 0. Auth Guard
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Session expired. Please log in again.");
+        await supabase.auth.signOut();
+        navigate('/login');
+        return;
+      }
+
       // 1. Validate Checkout & Create Order (Server-Side)
       toast.info("Validating order...");
 
       const session_id = localStorage.getItem('guest_session_id');
-      const { data: { user } } = await supabase.auth.getUser();
+
+      // Explicit Payload
+      const payload = {
+        user_id: user.id,
+        guest_session_id: session_id,
+        delivery_address: useShippingAddress ? shippingInfo : customerInfo, // Send address even if optional
+        notes: null,
+        payment_method: 'vesicash' // Explicit intent
+      };
+
+      console.log('Sending Checkout Payload:', payload);
 
       const validationResponse = await supabase.functions.invoke('validate-checkout', {
-        body: {
-          user_id: user?.id,
-          guest_session_id: session_id
-        }
+        body: payload
       });
 
       if (validationResponse.error) {
-        throw new Error(validationResponse.error.message || 'Validation failed');
+        console.error('Checkout Validation Failed:', validationResponse.error);
+        const errorBody = await validationResponse.error.context?.json?.().catch(() => validationResponse.error.context?.body) || validationResponse.error;
+        console.error('Error Details:', errorBody);
+
+        // Extract Reason
+        const reason = (errorBody as any)?.reason || (errorBody as any)?.error || validationResponse.error.message;
+        throw new Error(`Checkout Failed: ${reason}`);
       }
 
       const { order_id, total, order_reference } = validationResponse.data;
 
       if (!order_id) {
-        throw new Error("Failed to create order record");
+        throw new Error("Failed to create order record (No ID returned)");
       }
 
       // 2. Initialize Payment Session (Fintech-Grade)
@@ -271,6 +293,7 @@ const Checkout = () => {
       });
 
       if (paymentResponse.error) {
+        console.error('Payment Session Failed:', paymentResponse.error);
         throw new Error(paymentResponse.error.message || 'Payment session creation failed');
       }
 
@@ -287,7 +310,7 @@ const Checkout = () => {
       }
 
     } catch (error: any) {
-      console.error('Checkout error:', error);
+      console.error('Checkout Process Error:', error);
       toast.error(error.message || 'Failed to process checkout');
       setIsProcessing(false);
     }
