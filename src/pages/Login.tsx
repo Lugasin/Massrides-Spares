@@ -20,7 +20,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,12 +47,6 @@ export default function Login() {
       }
     }
   }, [user, navigate, location.search]);
-
-  // ... (keeping handleSocialSignIn and handleGuestLogin same but omitting for brevity in tool call if not modifying, but replace_file_content needs contiguity)
-  // Converting to singular replacements might be better or I can replace the whole block if I'm careful.
-  // Actually, I can just replace the component body parts.
-
-  // Let's replace the top state definition first.
 
 
   const handleSocialSignIn = async (provider: 'google' | 'facebook') => {
@@ -111,15 +105,21 @@ export default function Login() {
     setErrorMessage(null); // Clear previous errors
 
     try {
-      const { error } = await signIn(email, password);
+      // ✅ FIX: Use direct Supabase client instead of context function
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error) {
-        // The error is handled in context but we also want to show it inline
+        console.error("Login Error:", error);
         setErrorMessage("Invalid email or password. Please try again.");
         setIsLoading(false);
         return;
       }
-      // Navigation is now handled by the useEffect hook when the user state updates
+
+      // Success! unique AuthContext will detect session change and redirect.
+
     } catch (error) {
       console.error("Unexpected error during sign in:", error);
       setErrorMessage("An unexpected error occurred. Please try again.");
