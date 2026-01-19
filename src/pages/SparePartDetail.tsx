@@ -154,7 +154,7 @@ const SparePartDetail = () => {
               .from('user_carts')
               .insert({ user_id: profile.id })
               .select('id')
-              .single();
+              .maybeSingle();
             cart = newCart;
           }
 
@@ -178,14 +178,14 @@ const SparePartDetail = () => {
           .from('guest_carts')
           .select('id')
           .eq('session_id', sessionId)
-          .single();
+          .maybeSingle();
 
         if (!guestCart) {
           const { data: newGuestCart } = await supabase
             .from('guest_carts')
             .insert({ session_id: sessionId })
             .select('id')
-            .single();
+            .maybeSingle();
           guestCart = newGuestCart;
         }
 

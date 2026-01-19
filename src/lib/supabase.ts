@@ -89,7 +89,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
         .from('carts')
         .insert({ user_id: profile.id })
         .select('id')
-        .single();
+        .maybeSingle();
       if (error) return { error };
       cart = newCart;
     }
@@ -100,7 +100,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
       .select('id, quantity')
       .eq('cart_id', cart.id)
       .eq('product_id', sparePartId) // Updated col name
-      .single();
+      .maybeSingle();
 
     if (existingItem) {
       return await (supabase as any)
@@ -133,7 +133,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
         .from('guest_carts')
         .insert({ session_id: sessionId })
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error creating guest cart:', error);
@@ -440,7 +440,7 @@ export const mergeGuestCart = async () => {
         .from('carts')
         .insert({ user_id: user.id } as any)
         .select('id')
-        .single();
+        .maybeSingle();
       
       if (createError) {
         // If race condition occurred and cart was created in meantime, try fetch again

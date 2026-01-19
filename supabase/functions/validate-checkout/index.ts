@@ -12,8 +12,6 @@ serve(async (req) => {
   try {
     // 1. Auth & Client Setup
     const authHeader = req.headers.get('Authorization');
-    console.log(`Auth Header provided: ${authHeader ? 'YES' : 'NO'} (${authHeader?.substring(0, 15)}...)`);
-    
     if (!authHeader) {
        throw { reason: 'MISSING_AUTH_HEADER', message: "Authorization header missing" };
     }
@@ -28,17 +26,15 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
+         console.error("Auth Error:", authError);
          throw { reason: 'UNAUTHORIZED', message: "User not authenticated" };
     }
 
-    const { guest_session_id } = await req.json();
+    const { guest_session_id, delivery_address, payment_method } = await req.json();
 
     console.log(`Validating checkout for User: ${user.id}`);
 
-    // 3. Fetch Cart (Strict: Auth User Only for now as per "AUTH-SAFE" rule, but assuming hybrid handling if guest_session_id passed fallback?)
-    // User requested: "validate-checkout MUST be AUTH-SAFE... Use supabase.auth.getUser()... Fetch cart using user_id"
-    // I will prioritize Authenticated User Cart logic. 
-
+    // 3. Fetch Cart (Strict: Auth User Only)
     const { data: cart } = await supabase
       .from('carts')
       .select('id')
@@ -50,7 +46,6 @@ serve(async (req) => {
     }
 
     // 4. Fetch Cart Items from TABLE (Strict: cart_items)
-    // Absolute no read from carts.items
     const { data: items } = await supabase
       .from('cart_items')
       .select(`
@@ -66,7 +61,6 @@ serve(async (req) => {
     }
 
     // 5. Map & Calculate
-    // Ensure we only process valid items
     const validItems = items.filter((i: any) => i.product && i.quantity > 0);
 
     if (validItems.length === 0) {
@@ -87,23 +81,24 @@ serve(async (req) => {
         subtotal += Number(item.price) * item.quantity;
     });
 
-    // TODO: Add Fees/Shipping Logic
     const shipping = 0; 
     const fees = 0;
     const total = subtotal + shipping + fees;
 
     console.log(`Calculated Total: ${total}`);
 
-    // 6. Create Order
+    // 6. Create Order (Pending Payment)
     const orderPayload = {
       user_id: user.id,
-      guest_token: null, // Auth user flow
+      guest_token: null, 
       subtotal,
       total, 
       fees,
       order_status: 'awaiting_payment',
       payment_status: 'pending',
-      currency: 'ZMW' 
+      currency: 'ZMW',
+      shipping_address: delivery_address || {},
+      payment_method: payment_method || 'vesicash'
     };
 
     const { data: order, error: orderError } = await supabase
@@ -136,13 +131,61 @@ serve(async (req) => {
         throw { reason: 'ORDER_ITEMS_FAILED', message: itemsError.message };
     }
 
-    // 8. Audit Log
+    // 8. Initiate Vesicash Payment
+    let paymentLink = null;
+    let paymentReference = `ORD-${order.id}-${Date.now()}`;
+
+    if (payment_method === 'vesicash') {
+        const vesicashSecret = Deno.env.get('VESICASH_PRIVATE_KEY');
+        const vesicashPublic = Deno.env.get('VESICASH_PUBLIC_KEY');
+
+        if (!vesicashSecret) {
+            console.warn("VESICASH_PRIVATE_KEY not set. Using Mock Link.");
+            paymentLink = `${req.headers.get('origin') || 'http://localhost:5173'}/checkout/success?mock_ref=${paymentReference}`;
+        } else {
+            // Real Vesicash Call
+            const vesicashPayload = {
+                amount: total,
+                currency: 'USD',
+                email: user.email,
+                phone_number: user.phone || '0977172930',
+                reference: paymentReference,
+                callback_url: `${req.headers.get('origin') || 'https://massridesspares.co.zm'}/checkout/success`,
+                metadata: { 
+                    order_id: order.id,
+                    cart_id: cart.id
+                }
+            };
+
+            const vesicashRes = await fetch('https://sandbox.api.vesicash.com/v1/payment/pay', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'v-private-key': vesicashSecret,
+                    'v-public-key':     vesicashPublic || ''
+                },
+                body: JSON.stringify(vesicashPayload)
+            });
+
+            const vesicashData = await vesicashRes.json();
+            
+            if (!vesicashRes.ok) {
+                 console.error("Vesicash Error:", vesicashData);
+                 // Don't fail the whole order, but return error
+                 throw { reason: 'PAYMENT_GATEWAY_ERROR', message: vesicashData.message || "Failed to init payment" };
+            }
+
+            paymentLink = vesicashData.link || vesicashData.payment_url;
+        }
+    }
+
+    // 9. Audit Log
     await supabase.from('audit_logs').insert({
       entity_type: 'order',
       entity_id: String(order.id),
       event_type: 'ORDER_CREATED',
       actor: `user:${user.id}`,
-      metadata: { total, itemCount: cartItems.length }
+      metadata: { total, itemCount: cartItems.length, paymentRef: paymentReference }
     });
 
     return new Response(
@@ -150,6 +193,7 @@ serve(async (req) => {
         order_id: order.id, 
         total, 
         order_reference: order.order_reference,
+        payment_link: paymentLink,
         message: 'Order created successfully' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -158,7 +202,6 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Validation Error:", error);
     
-    // Structured Error Response
     const errorBody = {
         error: "CHECKOUT_VALIDATION_FAILED",
         reason: error.reason || "UNKNOWN_ERROR",

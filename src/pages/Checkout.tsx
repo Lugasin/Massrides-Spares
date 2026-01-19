@@ -263,13 +263,8 @@ const Checkout = () => {
 
       console.log('Sending Checkout Payload:', payload);
 
-      const { data: { session } } = await supabase.auth.getSession();
-
       const validationResponse = await supabase.functions.invoke('validate-checkout', {
-        body: payload,
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        }
+        body: payload
       });
 
       if (validationResponse.error) {
