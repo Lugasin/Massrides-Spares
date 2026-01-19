@@ -149,10 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserRole('guest');
           setLoading(false);
           setReady(false);
-          // Redirect only on TOKEN_REFRESH_FAILED (not on intentional SIGNED_OUT)
-          if (authEvent === 'TOKEN_REFRESH_FAILED') {
-            window.location.href = '/login';
-          }
+          // Redirect only logic handled by protected routes or UI state
+          // if (authEvent === 'TOKEN_REFRESH_FAILED') {
+          //   // window.location.href = '/login'; // CAUSES INFINITE LOOP
+          // }
           return;
         }
 
