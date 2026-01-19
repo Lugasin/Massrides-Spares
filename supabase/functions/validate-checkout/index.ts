@@ -150,7 +150,7 @@ serve(async (req) => {
                 email: user.email,
                 phone_number: user.phone || '0977172930',
                 reference: paymentReference,
-                callback_url: `${req.headers.get('origin') || 'https://massridesspares.co.zm'}/checkout/success`,
+                callback_url: `${req.headers.get('origin') || 'https://massridesspares.netlify.app'}/checkout/success`,
                 metadata: { 
                     order_id: order.id,
                     cart_id: cart.id
