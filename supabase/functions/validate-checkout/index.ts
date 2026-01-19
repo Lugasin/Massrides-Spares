@@ -12,13 +12,15 @@ serve(async (req) => {
   try {
     // 1. Auth & Client Setup
     const authHeader = req.headers.get('Authorization');
+    console.log(`Auth Header provided: ${authHeader ? 'YES' : 'NO'} (${authHeader?.substring(0, 15)}...)`);
+    
     if (!authHeader) {
        throw { reason: 'MISSING_AUTH_HEADER', message: "Authorization header missing" };
     }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
 
