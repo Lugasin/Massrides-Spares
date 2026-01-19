@@ -73,21 +73,47 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            // Try to get from DB directly first for speed, failover to function if needed?
-            // Function 'get-user-settings' is robust (creates if missing).
-            // We'll use the function to ensure creation.
-            // Explicitly pass auth header to ensure Edge Function receives it
+
             const { data: { session } } = await supabase.auth.getSession();
             const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
 
             const { data, error } = await supabase.functions.invoke('get-user-settings', {
                 headers
             });
-            if (!error && data.settings) {
-                setSettings(data.settings);
+
+            if (error || !data) {
+                // Warning, but NOT fatal
+                console.warn("Using default settings (fetch failed):", error);
+                setSettings({
+                    id: 'temp',
+                    user_id: user?.id || 'temp',
+                    theme: 'light',
+                    currency: 'ZMW',
+                    email_notifications: true,
+                    push_notifications: true,
+                    marketing_emails: false,
+                    order_updates: true,
+                    language: 'en',
+                    timezone: 'Africa/Lusaka'
+                } as UserSettings);
+            } else {
+                setSettings(data);
             }
         } catch (error) {
-            console.error("Failed to load settings", error);
+            console.error("Critical settings load error - Fallback to defaults", error);
+            // FAIL SAFE
+            setSettings({
+                id: 'temp',
+                user_id: user?.id || 'temp',
+                theme: 'light',
+                currency: 'ZMW',
+                email_notifications: true,
+                push_notifications: true,
+                marketing_emails: false,
+                order_updates: true,
+                language: 'en',
+                timezone: 'Africa/Lusaka'
+            } as UserSettings);
         } finally {
             setLoading(false);
         }
