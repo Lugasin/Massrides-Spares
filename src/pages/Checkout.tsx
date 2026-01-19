@@ -238,8 +238,9 @@ const Checkout = () => {
 
     try {
       // 0. Auth Guard
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error("Auth Guard Failed:", authError);
         toast.error("Session expired. Please log in again.");
         await supabase.auth.signOut();
         navigate('/login');
