@@ -10,118 +10,98 @@ serve(async (req) => {
   }
 
   try {
+    // 1. Auth & Client Setup
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+       throw { reason: 'MISSING_AUTH_HEADER', message: "Authorization header missing" };
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { user_id, guest_session_id } = await req.json();
-
-    if (!user_id && !guest_session_id) {
-      throw new Error("Missing user identification");
+    // 2. Validate User
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+         throw { reason: 'UNAUTHORIZED', message: "User not authenticated" };
     }
 
-    let cartItems: any[] = [];
-    let guestToken = guest_session_id;
+    const { guest_session_id } = await req.json();
 
-    console.log(`Validating checkout for User: ${user_id}, Guest: ${guest_session_id}`);
+    console.log(`Validating checkout for User: ${user.id}`);
 
-    // Fetch Cart Items
-    if (user_id) {
-      // Authenticated User Cart
-      const { data: cart } = await supabase
-        .from('carts')
-        .select('items')
-        .eq('user_id', user_id)
-        .single();
-      
-      // Items are stored as JSONB in 'carts' table for auth users (based on schema view)
-      // Or maybe 'cart_items' table?
-      // consolidated_init.sql says carts has 'items jsonb'.
-      // But verify if there is a 'cart_items' table for auth users?
-      // Let's assume 'carts.items' JSONB for now based on init sql.
-      // But guest items are in 'guest_cart_items'.
-      // If we want consistency, we should check if 'cart_items' exists.
-      // For this implementation, I will assume `carts` table logic.
-      if (cart && cart.items) {
-        cartItems = Array.isArray(cart.items) ? cart.items : [];
-      }
-    } else if (guest_session_id) {
-      // Guest Cart
-      // Use guest_cart_items table (restored earlier)
-      // First get cart id
-      const { data: guestCart } = await supabase
-        .from('guest_carts')
-        .select('id')
-        .eq('session_id', guest_session_id)
-        .single();
+    // 3. Fetch Cart (Strict: Auth User Only for now as per "AUTH-SAFE" rule, but assuming hybrid handling if guest_session_id passed fallback?)
+    // User requested: "validate-checkout MUST be AUTH-SAFE... Use supabase.auth.getUser()... Fetch cart using user_id"
+    // I will prioritize Authenticated User Cart logic. 
 
-      if (guestCart) {
-        const { data: items } = await supabase
-          .from('guest_cart_items')
-          .select(`
-            *,
-            spare_parts (
-              id, name, price
-            )
-          `)
-          .eq('guest_cart_id', guestCart.id);
-        
-        // Map to standard format
-        if (items) {
-          cartItems = items.map((i: any) => ({
-             id: i.product_id, // consistent ID
-             name: i.spare_parts?.name,
-             price: i.spare_parts?.price,
-             quantity: i.quantity,
-             image: i.spare_parts?.images?.[0] || '' 
-          }));
-        }
-      }
+    const { data: cart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!cart) {
+         throw { reason: 'CART_NOT_FOUND', message: "No active cart found for user" };
     }
 
-    if (!cartItems || cartItems.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Cart is empty" }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // 4. Fetch Cart Items from TABLE (Strict: cart_items)
+    // Absolute no read from carts.items
+    const { data: items } = await supabase
+      .from('cart_items')
+      .select(`
+        quantity,
+        product:products (
+          id, title, price, main_image
+        )
+      `)
+      .eq('cart_id', cart.id);
+
+    if (!items || items.length === 0) {
+         throw { reason: 'CART_ITEMS_EMPTY', message: "Cart has no items" };
     }
+
+    // 5. Map & Calculate
+    // Ensure we only process valid items
+    const validItems = items.filter((i: any) => i.product && i.quantity > 0);
+
+    if (validItems.length === 0) {
+        throw { reason: 'CART_ITEMS_INVALID', message: "Items found but products data missing or quantity 0" };
+    }
+
+    const cartItems = validItems.map((i: any) => ({
+        id: i.product.id,
+        name: i.product.title,
+        price: i.product.price,
+        quantity: i.quantity,
+        image: i.product.main_image || ''
+    }));
 
     // Server-side Total Calculation
-    // We should ideally fetch fresh prices from 'products' table to avoid tampering
-    // Extract IDs
-    const partIds = cartItems.map((i: any) => i.id || i.product_id); // handle both formats
-    const { data: parts } = await supabase
-      .from('products') // or 'spare_parts' if they are same table
-      .select('id, price, title')
-      .in('id', partIds);
-    
     let subtotal = 0;
-    const validatedItems = cartItems.map((item: any) => {
-        const part = parts?.find((p: any) => p.id === item.id);
-        const price = part ? Number(part.price) : Number(item.price);
-        const qty = item.quantity;
-        subtotal += price * qty;
-        return { ...item, price, name: part?.title || item.name };
+    cartItems.forEach((item: any) => {
+        subtotal += Number(item.price) * item.quantity;
     });
 
     // TODO: Add Fees/Shipping Logic
-    const shipping = 0; // standard placeholder
+    const shipping = 0; 
     const fees = 0;
     const total = subtotal + shipping + fees;
 
     console.log(`Calculated Total: ${total}`);
 
-    // Create Order
+    // 6. Create Order
     const orderPayload = {
-      user_id: user_id || null,
-      guest_token: guestToken || null, // storing guest_token
+      user_id: user.id,
+      guest_token: null, // Auth user flow
       subtotal,
-      total, // storing total
+      total, 
       fees,
       order_status: 'awaiting_payment',
       payment_status: 'pending',
-      currency: 'ZMW' // Default
+      currency: 'ZMW' 
     };
 
     const { data: order, error: orderError } = await supabase
@@ -130,10 +110,13 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (orderError) throw orderError;
+    if (orderError) {
+         console.error("Order Creation Error:", orderError);
+         throw { reason: 'ORDER_CREATION_FAILED', message: orderError.message };
+    }
 
-    // Create Order Items
-    const orderItemsPayload = validatedItems.map((item: any) => ({
+    // 7. Create Order Items
+    const orderItemsPayload = cartItems.map((item: any) => ({
       order_id: order.id,
       product_id: item.id,
       title: item.name,
@@ -146,15 +129,18 @@ serve(async (req) => {
       .from('order_items')
       .insert(orderItemsPayload);
 
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+        console.error("Order Items Error:", itemsError);
+        throw { reason: 'ORDER_ITEMS_FAILED', message: itemsError.message };
+    }
 
-    // Audit Log
+    // 8. Audit Log
     await supabase.from('audit_logs').insert({
       entity_type: 'order',
       entity_id: String(order.id),
       event_type: 'ORDER_CREATED',
-      actor: user_id ? `user:${user_id}` : 'guest',
-      metadata: { total, itemCount: validatedItems.length }
+      actor: `user:${user.id}`,
+      metadata: { total, itemCount: cartItems.length }
     });
 
     return new Response(
@@ -167,10 +153,18 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error("Error:", error);
+  } catch (error: any) {
+    console.error("Validation Error:", error);
+    
+    // Structured Error Response
+    const errorBody = {
+        error: "CHECKOUT_VALIDATION_FAILED",
+        reason: error.reason || "UNKNOWN_ERROR",
+        message: error.message || String(error)
+    };
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify(errorBody),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -132,8 +132,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         // HARD FAIL-SAFE: Handle token refresh failures and forced logout
+        const authEvent = event as string; // Fix TS error: AuthChangeEvent has no overlap with TOKEN_REFRESH_FAILED
         if (
-          event === 'TOKEN_REFRESH_FAILED' ||
+          authEvent === 'TOKEN_REFRESH_FAILED' ||
           event === 'SIGNED_OUT' ||
           !session
         ) {
@@ -149,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
           setReady(false);
           // Redirect only on TOKEN_REFRESH_FAILED (not on intentional SIGNED_OUT)
-          if (event === 'TOKEN_REFRESH_FAILED') {
+          if (authEvent === 'TOKEN_REFRESH_FAILED') {
             window.location.href = '/login';
           }
           return;
@@ -167,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: session.user.email,
               role: 'customer',
               created_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
+            } as any, { onConflict: 'user_id' });
           } catch (upsertError) {
             logger.error('AuthContext: Failed to upsert user_profiles:', upsertError);
             // Non-blocking, continue with auth flow
