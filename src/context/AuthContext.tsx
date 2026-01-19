@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: session.user.email,
             role: 'customer',
             updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' }).then(({ error }) => {
+          } as any, { onConflict: 'user_id' }).then(({ error }) => {
             if (error) console.error("Profile Upsert Error:", error);
             // If success, load profile
             if (!error) loadUserProfile(session.user.id);
@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (rawData) {
         logger.log('AuthContext: User profile loaded.');
         setProfile(rawData)
-        setUserRole(rawData.role || 'customer')
+        setUserRole((rawData as any).role || 'customer')
         return true
       }
     } catch (error) {
