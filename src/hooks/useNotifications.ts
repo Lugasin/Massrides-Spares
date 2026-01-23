@@ -8,7 +8,7 @@ interface Notification {
   title: string;
   message: string;
   type: string;
-  read_at: string | null;
+  read: boolean;
   action_url?: string;
   created_at: string;
 }
@@ -40,7 +40,7 @@ export const useNotifications = () => {
       if (error) throw error;
       
       setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.read_at).length || 0);
+      setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -91,7 +91,7 @@ export const useNotifications = () => {
           );
           
           // Update unread count if notification was marked as read
-          if (updatedNotification.read_at && !payload.old.read_at) {
+          if (updatedNotification.read && !payload.old.read) {
             setUnreadCount(prev => Math.max(0, prev - 1));
           }
         }
@@ -107,7 +107,7 @@ export const useNotifications = () => {
     try {
       await supabase
         .from('notifications')
-        .update({ read_at: new Date().toISOString() })
+        .update({ read: true })
         .eq('id', notificationId);
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -118,9 +118,9 @@ export const useNotifications = () => {
     try {
       await supabase
         .from('notifications')
-        .update({ read_at: new Date().toISOString() })
+        .update({ read: true })
         .eq('user_id', profile?.id)
-        .is('read_at', null);
+        .is('read', false);
 
       setUnreadCount(0);
       toast.success('All notifications marked as read');

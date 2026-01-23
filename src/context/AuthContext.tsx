@@ -96,13 +96,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (session.user) {
           // Upsert profile in background
-          supabase.from('user_profiles').upsert({
+          supabase.from('profiles').upsert({
             id: session.user.id,
-            user_id: session.user.id,
             email: session.user.email,
             role: 'customer',
-            updated_at: new Date().toISOString()
-          } as any, { onConflict: 'user_id' }).then(({ error }) => {
+          }, { onConflict: 'id' }).then(({ error }) => {
             if (error) console.error("Profile Upsert Error:", error);
             // If success, load profile
             if (!error) loadUserProfile(session.user.id);
@@ -124,9 +122,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loadUserProfile = async (userId: string): Promise<boolean> => {
     try {
       const { data: rawData, error: userError } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single()
 
       if (userError) {
