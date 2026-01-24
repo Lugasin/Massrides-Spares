@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // Inline CORS to prevent import errors during deploy
 const corsHeaders = {
@@ -40,25 +40,20 @@ serve(async (req) => {
 
     console.log(`Validating checkout for User: ${user.id}`);
 
-    // 3. Fetch Cart (Using .maybeSingle() to prevent 406 Error)
-    const { data: cart } = await supabase
-      .from('carts')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!cart) {
-         throw { reason: 'CART_NOT_FOUND', message: "No active cart found for user" };
-    }
-
-    // 4. Fetch Cart Items
-    const { data: items } = await supabase
+    // 3. Fetch Cart Items Directly (Flat Schema)
+    // NOTE: 'carts' table is deprecated. We keys off user_id directly in cart_items.
+    const { data: items, error: itemsError } = await supabase
       .from('cart_items')
       .select(`
         quantity,
-        product:products (id, title, price, main_image)
+        product:products (id, name, price, main_image)
       `)
-      .eq('cart_id', cart.id);
+      .eq('user_id', user.id);
+
+    if (itemsError) {
+        console.error("Cart Fetch Error:", itemsError);
+        throw { reason: 'CART_FETCH_FAILED', message: itemsError.message };
+    }
 
     if (!items || items.length === 0) {
          throw { reason: 'CART_ITEMS_EMPTY', message: "Cart has no items" };
@@ -68,7 +63,7 @@ serve(async (req) => {
     const validItems = items.filter((i: any) => i.product && i.quantity > 0);
     const cartItems = validItems.map((i: any) => ({
         id: i.product.id,
-        name: i.product.title,
+        name: i.product.name,
         price: i.product.price,
         quantity: i.quantity,
         image: i.product.main_image || ''
@@ -159,7 +154,7 @@ serve(async (req) => {
                     callback_url: callbackUrl, 
                     metadata: { 
                         order_id: order.id,
-                        cart_id: cart.id,
+                        cart_type: 'flat', // Deprecated cart_id column
                         original_amount_usd: totalUSD
                     }
                 })

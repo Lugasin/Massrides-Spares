@@ -72,10 +72,7 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
     // Check for existence to determine update (increment) or insert
     const { data: existing } = await (supabase as any)
       .from('cart_items')
-      .select('row_id:id, quantity') // Use alias if needed, or just select 'id' if PK is composite but we have a surrogate
-      // Wait, schema has composite PK (user_id, product_id). No surrogate 'id' in new schema?
-      // Check create table cart_items: PRIMARY KEY (user_id, product_id)
-      // So no 'id' column exists. We cannot select 'id'.
+      .select('quantity')
       .eq('user_id', user.id)
       .eq('product_id', sparePartId)
       .maybeSingle();

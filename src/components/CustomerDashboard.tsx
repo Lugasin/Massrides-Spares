@@ -38,7 +38,7 @@ const CustomerDashboard = () => {
             product_id,
             product:products (
               id,
-              title,
+              name,
               price,
               main_image
             )
@@ -66,7 +66,7 @@ const CustomerDashboard = () => {
         const { data: recommendedItems, error: recommendedError } = await supabase
           .from('products')
           .select('*')
-          .eq('active', true)
+          .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(4);
 
