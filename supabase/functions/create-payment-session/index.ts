@@ -58,23 +58,16 @@ serve(async (req) => {
         currency,
         reference: `ORD-${order.id}-${Date.now()}`, // Unique Ref
         redirect_url: return_url,
+        return_url: return_url, // Some versions use this
         email: order.customer_email || 'guest@massrides.co.zm', // Fallback
         description
       };
 
-      const resp = await fetch('https://api.vesicash.com/v1/transactions/create', { 
+      const resp = await fetch('https://api.mor.vesicash.com/v1/transactions/create', { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'V-PRIVATE-KEY': vesicashSecret 
-          // Verify header name in Vesicash docs. User prompt said:
-          // "VESICASH_SECRET_KEY = morSec_test_... (API secret for server calls)"
-          // Usually V-PRIVATE-KEY or Authorization: Bearer
-          // I will assume V-PRIVATE-KEY based on standard Vesicash integrations or Authorization.
-          // Let's use Authorization: Bearer as it's more common, or check previous code if it had it.
-          // Previous code used 'V-PUBLIC-KEY'. 
-          // Server calls usually use Secret Key. 
-          // I'll try 'V-PRIVATE-KEY'.
         },
         body: JSON.stringify(payload)
       });

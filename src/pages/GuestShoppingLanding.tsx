@@ -50,7 +50,7 @@ const GuestShoppingLanding = () => {
           *,
           category:categories(name)
         `)
-        .eq('active', true)
+        .eq('is_active', true)
         // .contains('attributes', { featured: true }) // Optional: if we want strict featured
         .limit(6);
 

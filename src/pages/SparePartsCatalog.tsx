@@ -117,11 +117,11 @@ const SparePartsCatalog = () => {
           category:categories!inner(name),
           inventory(quantity)
         `, { count: 'exact' })
-        .eq('active', true);
+        .eq('is_active', true);
 
       // 1. Text Search (Title or SKU)
       if (searchTerm) {
-        query = query.or(`title.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
+        query = query.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
       }
 
       // 2. Category Filter (Filter locally on the joined table)
@@ -150,8 +150,8 @@ const SparePartsCatalog = () => {
       } else if (sortBy === 'price-high') {
         query = query.order('price', { ascending: false });
       } else {
-        // Default: Name (title)
-        query = query.order('title', { ascending: true });
+        // Default: Name (name)
+        query = query.order('name', { ascending: true });
       }
 
       // 7. Pagination
@@ -177,7 +177,7 @@ const SparePartsCatalog = () => {
           return {
             id: part.id.toString(),
             partNumber: part.sku || '',
-            name: part.title,
+            name: part.name,
             description: part.description || '',
             category: (part.category as any)?.name || 'General',
             brand: attrs.brand || 'Generic',
