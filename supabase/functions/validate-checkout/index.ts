@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-// Inline CORS to prevent import errors during deploy
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -10,13 +9,12 @@ const corsHeaders = {
 console.log("Validate-Checkout Function Invoked");
 
 serve(async (req) => {
-  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 1. Auth & Client Setup
+    // 1. Strict Auth Extraction
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
        throw { reason: 'MISSING_AUTH_HEADER', message: "Authorization header missing" };
@@ -28,7 +26,7 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // 2. Validate User
+    // 2. Validate User (Strict)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -40,8 +38,7 @@ serve(async (req) => {
 
     console.log(`Validating checkout for User: ${user.id}`);
 
-    // 3. Fetch Cart Items Directly (Flat Schema)
-    // NOTE: 'carts' table is deprecated. We keys off user_id directly in cart_items.
+    // 3. Fetch Cart Items (User Only)
     const { data: items, error: itemsError } = await supabase
       .from('cart_items')
       .select(`
@@ -59,7 +56,7 @@ serve(async (req) => {
          throw { reason: 'CART_ITEMS_EMPTY', message: "Cart has no items" };
     }
 
-    // 5. Map & Calculate
+    // 4. Map & Calculate
     const validItems = items.filter((i: any) => i.product && i.quantity > 0);
     const cartItems = validItems.map((i: any) => ({
         id: i.product.id,
@@ -69,25 +66,22 @@ serve(async (req) => {
         image: i.product.main_image || ''
     }));
 
-    // 5. Calculate Total in USD (Database Currency)
     let subtotal = 0;
     cartItems.forEach((item: any) => {
         subtotal += Number(item.price) * item.quantity;
     });
 
-    const shipping = 0; 
-    const fees = 0;
-    const totalUSD = subtotal + shipping + fees;
+    const totalUSD = subtotal; 
 
-    // 6. Create Order (Status: awaiting_payment)
+    // 5. Create Order
     const orderPayload = {
       user_id: user.id,
       subtotal,
       total: totalUSD, 
-      fees,
+      fees: 0,
       order_status: 'awaiting_payment',
       payment_status: 'pending',
-      currency: 'USD', // Database keeps USD
+      currency: 'USD',
       shipping_address: delivery_address || {},
       payment_method: payment_method || 'vesicash'
     };
@@ -103,8 +97,8 @@ serve(async (req) => {
          throw { reason: 'ORDER_CREATION_FAILED', message: orderError.message };
     }
 
-    // 7. Create Order Items
-    const orderItemsPayload = cartItems.map((item: any) => ({
+    // 6. Insert Order Items
+    const dbOrderItems = cartItems.map((item: any) => ({
       order_id: order.id,
       product_id: item.id,
       title: item.name,
@@ -113,32 +107,25 @@ serve(async (req) => {
       subtotal: item.price * item.quantity
     }));
 
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItemsPayload);
+    const { error: itemsError } = await supabase.from('order_items').insert(dbOrderItems);
     if (itemsError) throw { reason: 'ORDER_ITEMS_FAILED', message: itemsError.message };
 
-    // 8. Initiate Vesicash Payment
+    // 7. Payment Link (Vesicash)
     let paymentLink = null;
     const paymentReference = `ORD-${order.id}-${Date.now()}`;
 
     if (payment_method === 'vesicash') {
         const vesicashSecret = Deno.env.get('VESICASH_PRIVATE_KEY');
         const vesicashPublic = Deno.env.get('VESICASH_PUBLIC_KEY');
-
-        // ✅ Fallback to origin or your production URL
         const origin = req.headers.get('origin') || 'https://massridesspares.netlify.app';
-        // ✅ Correct Callback URL
         const callbackUrl = `${origin}/checkout/success`; 
-
-        // Currency Conversion (Option A: Charge in Kwacha)
+        
+        // Convert to ZMW
         const EXCHANGE_RATE = 28.5; 
         const totalZMW = Math.ceil(totalUSD * EXCHANGE_RATE); 
 
-        if (!vesicashSecret) {
-            console.warn("VESICASH_PRIVATE_KEY not set. Using Mock Link.");
-            paymentLink = `${origin}/checkout/success?mock_ref=${paymentReference}`;
-        } else {
-            // Real Vesicash Call
-            const vesicashRes = await fetch('https://sandbox.api.vesicash.com/v1/payment/pay', {
+        if (vesicashSecret) {
+             const vesicashRes = await fetch('https://sandbox.api.vesicash.com/v1/payment/pay', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -146,37 +133,34 @@ serve(async (req) => {
                     'v-public-key':  vesicashPublic || ''
                 },
                 body: JSON.stringify({
-                    amount: totalZMW, // ✅ Send converted Kwacha amount
-                    currency: 'ZMW',  // ✅ Tell Vesicash this is Kwacha
-                    email: user.email,
-                    phone_number: user.phone || '0977000000',
+                    amount: totalZMW, 
+                    currency: 'ZMW',  
+                    email: user.email, // Use authenticated email
+                    phone_number: delivery_address?.phone || '0977000000',
                     reference: paymentReference,
                     callback_url: callbackUrl, 
                     metadata: { 
                         order_id: order.id,
-                        cart_type: 'flat', // Deprecated cart_id column
+                        cart_type: 'user', // Strict
                         original_amount_usd: totalUSD
                     }
                 })
             });
-
-            const vesicashData = await vesicashRes.json();
-
-            
+            const vData = await vesicashRes.json();
             if (!vesicashRes.ok) {
-                 console.error("Vesicash Error:", vesicashData);
-                 throw { reason: 'PAYMENT_GATEWAY_ERROR', message: vesicashData.message || "Failed to init payment" };
+                 console.error("Vesicash Error:", vData);
+                 throw { reason: 'PAYMENT_GATEWAY_ERROR', message: vData.message || "Failed to init payment" };
             }
-
-            paymentLink = vesicashData.link || vesicashData.payment_url;
+            paymentLink = vData.link || vData.payment_url;
+        } else {
+            paymentLink = `${origin}/checkout/success?mock_ref=${paymentReference}`;
         }
     }
 
-    // 9. Return Success
     return new Response(
       JSON.stringify({ 
         order_id: order.id, 
-        total, 
+        total: totalUSD, 
         payment_link: paymentLink,
         message: 'Order created successfully' 
       }),
@@ -184,11 +168,11 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error("Validation Error:", error);
+    console.error("Handler Error:", error);
     return new Response(
       JSON.stringify({
-        error: "CHECKOUT_VALIDATION_FAILED",
-        reason: error.reason || "UNKNOWN_ERROR",
+        error: "CHECKOUT_FAILED",
+        reason: error.reason || "UNKNOWN",
         message: error.message || String(error)
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

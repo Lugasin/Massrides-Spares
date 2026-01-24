@@ -237,34 +237,41 @@ const Checkout = () => {
     setPaymentProcessingMessage("Initializing secure payment...");
 
     try {
-      // 0. Auth Guard
-      // Soft check - do not force logout, just stop checkout
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        console.error("Auth Guard Failed:", authError);
-        toast.error("Session invalid. Please refresh or log in again.");
+      // 0. Strict Auth Guard (Auth-Only Checkout)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.user) {
+        toast.error("Please log in to complete your purchase.");
+        // Ideally open login modal here if available, or redirect
+        navigate('/login?returnUrl=/checkout');
         setIsProcessing(false);
         return;
       }
 
+      const user = session.user;
+
       // 1. Validate Checkout & Create Order (Server-Side)
       toast.info("Validating order...");
 
-      const session_id = localStorage.getItem('guest_session_id');
-
-      // Explicit Payload
+      // Explicit Payload (Auth Only)
       const payload = {
         user_id: user.id,
-        guest_session_id: session_id,
-        delivery_address: useShippingAddress ? shippingInfo : customerInfo, // Send address even if optional
+        // guest_session_id removed - strictly auth
+        delivery_address: useShippingAddress ? shippingInfo : customerInfo,
         notes: null,
-        payment_method: 'vesicash' // Explicit intent
+        payment_method: 'vesicash'
       };
 
       console.log('Sending Checkout Payload:', payload);
 
+      const sessionResponse = await supabase.auth.getSession();
+      const headers = sessionResponse.data.session
+        ? { Authorization: `Bearer ${sessionResponse.data.session.access_token}` }
+        : {};
+
       const validationResponse = await supabase.functions.invoke('validate-checkout', {
-        body: payload
+        body: payload,
+        headers: headers // Pass dynamic headers
       });
 
       if (validationResponse.error) {
