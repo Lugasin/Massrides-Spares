@@ -9,9 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  CreditCard, 
-  Search, 
+import {
+  CreditCard,
+  Search,
   RefreshCw,
   CheckCircle,
   XCircle,
@@ -41,7 +41,7 @@ interface TJTransaction {
   processed_at: string;
   created_at: string;
   order?: {
-    order_number: string;
+    // order_number removed, use id if needed
     total_amount: number;
     status: string;
     payment_status: string;
@@ -112,14 +112,14 @@ const PaymentMonitoring = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch transactions
       const { data: transactionData, error: transactionError } = await supabase
         .from('tj_transaction_logs')
         .select(`
           *,
           order:orders(
-            order_number,
+            id,
             total_amount,
             status,
             payment_status,
@@ -277,7 +277,7 @@ const PaymentMonitoring = () => {
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = !searchTerm ||
       transaction.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.order?.order_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      String(transaction.order?.id || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
 
@@ -476,8 +476,8 @@ const PaymentMonitoring = () => {
                               </Button>
                               {order.payment_status === 'authorised' && (
                                 <>
-                                  <Button 
-                                    variant="outline" 
+                                  <Button
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => setSettlementDialog({
                                       isOpen: true,
@@ -487,8 +487,8 @@ const PaymentMonitoring = () => {
                                   >
                                     Settle
                                   </Button>
-                                  <Button 
-                                    variant="destructive" 
+                                  <Button
+                                    variant="destructive"
                                     size="sm"
                                     onClick={() => setSettlementDialog({
                                       isOpen: true,
@@ -536,7 +536,7 @@ const PaymentMonitoring = () => {
                           {transaction.transaction_id || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {transaction.order?.order_number || 'N/A'}
+                          {transaction.order?.id ? `Order #${String(transaction.order.id).slice(0, 8)}` : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
@@ -561,16 +561,16 @@ const PaymentMonitoring = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => setSelectedTransaction(transaction)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
                             {transaction.transaction_id && (
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleTransactionLookup(transaction.transaction_id)}
                               >
@@ -599,7 +599,7 @@ const PaymentMonitoring = () => {
                 <CardContent>
                   <div className="text-center py-8">
                     <div className="text-4xl font-bold text-success mb-2">
-                      {metrics.totalTransactions > 0 
+                      {metrics.totalTransactions > 0
                         ? ((metrics.successfulPayments / metrics.totalTransactions) * 100).toFixed(1)
                         : 0}%
                     </div>
@@ -658,7 +658,7 @@ const PaymentMonitoring = () => {
                     <p>${(selectedTransaction.amount || 0).toLocaleString()}</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <Label>Webhook Data</Label>
                   <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-64">
@@ -671,7 +671,7 @@ const PaymentMonitoring = () => {
         )}
 
         {/* Settlement Dialog */}
-        <Dialog open={settlementDialog.isOpen} onOpenChange={(open) => 
+        <Dialog open={settlementDialog.isOpen} onOpenChange={(open) =>
           setSettlementDialog(prev => ({ ...prev, isOpen: open }))
         }>
           <DialogContent>
@@ -685,7 +685,7 @@ const PaymentMonitoring = () => {
                 <Label>Transaction ID</Label>
                 <Input value={settlementDialog.transactionId} disabled />
               </div>
-              
+
               <div>
                 <Label>Amount (optional for partial)</Label>
                 <Input
@@ -696,7 +696,7 @@ const PaymentMonitoring = () => {
                   placeholder="Leave empty for full amount"
                 />
               </div>
-              
+
               <div>
                 <Label>Reason</Label>
                 <Textarea
@@ -705,13 +705,13 @@ const PaymentMonitoring = () => {
                   placeholder="Enter reason for settlement/reversal"
                 />
               </div>
-              
+
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleManualSettlement} className="flex-1">
                   {settlementDialog.action === 'settle' ? 'Settle' : 'Reverse'} Transaction
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setSettlementDialog(prev => ({ ...prev, isOpen: false }))}
                 >
                   Cancel

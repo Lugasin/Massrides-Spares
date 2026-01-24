@@ -69,20 +69,13 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
 
   if (user) {
     // User Cart: Upsert into cart_items (PK: user_id, product_id)
-    const { error } = await (supabase as any)
-      .from('cart_items')
-      .upsert({
-        user_id: user.id,
-        product_id: parseInt(sparePartId),
-        quantity: quantity // For pure upsert, this overwrites. Logic below handles increment if needed.
-      }, { onConflict: 'user_id, product_id' })
-      // Note: Upsert with just quantity overwrites. To increment, we typically need a procedure or fetch-then-update.
-      // For simplicity/speed in this fix, we'll implementing fetch-then-update logic manualy for accumulation.
-    
-    // Correct Logic: Check existence to accumulate quantity
+    // Check for existence to determine update (increment) or insert
     const { data: existing } = await (supabase as any)
       .from('cart_items')
-      .select('quantity')
+      .select('row_id:id, quantity') // Use alias if needed, or just select 'id' if PK is composite but we have a surrogate
+      // Wait, schema has composite PK (user_id, product_id). No surrogate 'id' in new schema?
+      // Check create table cart_items: PRIMARY KEY (user_id, product_id)
+      // So no 'id' column exists. We cannot select 'id'.
       .eq('user_id', user.id)
       .eq('product_id', sparePartId)
       .maybeSingle();

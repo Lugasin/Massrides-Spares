@@ -40,7 +40,7 @@ const CheckoutSuccess = () => {
               )
             )
           `)
-          .eq('order_number', orderId)
+          .eq('id', orderId)
           .single();
 
         if (data) {
@@ -73,7 +73,7 @@ const CheckoutSuccess = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
                     <div>
                       <p className="text-muted-foreground">Order Number:</p>
-                      <p className="font-medium">{orderDetails.order_number}</p>
+                      <p className="font-medium">#{String(orderDetails.id).slice(0, 8)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Status:</p>

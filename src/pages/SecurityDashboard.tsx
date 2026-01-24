@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Shield, 
+import {
+  Shield,
   AlertTriangle,
   Activity,
   TrendingUp,
@@ -55,7 +55,7 @@ interface PaymentMetrics {
   recent_activity: any[];
   problematic_payments?: {
     id: string;
-    order_number: string;
+    id: string; // Used as order identifier
     customer_email: string;
     amount: number;
     status: string;
@@ -99,7 +99,7 @@ const SecurityDashboard = () => {
   const fetchSecurityData = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('security-monitoring', {
-        body: { 
+        body: {
           timeframe,
           risk_threshold: 7
         }
@@ -507,7 +507,7 @@ const SecurityDashboard = () => {
                         </Badge>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <div className="text-sm text-muted-foreground">Uptime</div>
@@ -516,7 +516,7 @@ const SecurityDashboard = () => {
                       <Zap className="h-8 w-8 text-green-500" />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="text-center py-8">
                       <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />

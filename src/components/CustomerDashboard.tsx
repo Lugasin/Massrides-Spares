@@ -23,7 +23,7 @@ const CustomerDashboard = () => {
         // 1. Fetch recent orders
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
-          .select('id, order_number, created_at, total_amount, status')
+          .select('id, created_at, total_amount, status')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(3);
@@ -115,7 +115,7 @@ const CustomerDashboard = () => {
                 {recentOrders.map(order => (
                   <li key={order.id} className="flex justify-between items-center">
                     <div>
-                      <p className="font-semibold">{order.order_number}</p>
+                      <p className="font-semibold">Order #{String(order.id).slice(0, 8)}</p>
                       <p className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">

@@ -16,6 +16,7 @@ interface AuthContextType {
   hasPermission: (permission: string) => boolean
   isAdmin: () => boolean
   isVendor: () => boolean
+  signOut: () => Promise<{ error: Error | null }>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
   hasPermission: () => false,
   isAdmin: () => false,
   isVendor: () => false,
+  signOut: async () => ({ error: null }),
 })
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -175,7 +177,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       refreshProfile,
       hasPermission,
       isAdmin,
-      isVendor
+      isVendor,
+      signOut: async () => await supabase.auth.signOut(),
     }}>
       {children}
     </AuthContext.Provider>
