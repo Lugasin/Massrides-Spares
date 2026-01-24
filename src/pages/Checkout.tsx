@@ -253,10 +253,8 @@ const Checkout = () => {
       // 1. Validate Checkout & Create Order (Server-Side)
       toast.info("Validating order...");
 
-      // Explicit Payload (Auth Only)
+      // Explicit Payload (Auth Only - SDK will inject JWT automatically)
       const payload = {
-        user_id: user.id,
-        // guest_session_id removed - strictly auth
         delivery_address: useShippingAddress ? shippingInfo : customerInfo,
         notes: null,
         payment_method: 'vesicash'
@@ -264,14 +262,9 @@ const Checkout = () => {
 
       console.log('Sending Checkout Payload:', payload);
 
-      const sessionResponse = await supabase.auth.getSession();
-      const headers = sessionResponse.data.session
-        ? { Authorization: `Bearer ${sessionResponse.data.session.access_token}` }
-        : {};
-
+      // SDK automatically includes Authorization header from current session
       const validationResponse = await supabase.functions.invoke('validate-checkout', {
-        body: payload,
-        headers: headers // Pass dynamic headers
+        body: payload
       });
 
       if (validationResponse.error) {

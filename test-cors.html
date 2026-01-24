@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>Testing validate-checkout CORS</h1>
+    <button onclick="testOptions()">Test OPTIONS Request</button>
+    <button onclick="testPost()">Test POST Request</button>
+    <pre id="output"></pre>
+
+    <script>
+        const FUNCTION_URL = 'https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/validate-checkout';
+        const output = document.getElementById('output');
+
+        async function testOptions() {
+            output.textContent = 'Testing OPTIONS request...\n';
+            try {
+                const response = await fetch(FUNCTION_URL, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'authorization, content-type'
+                    }
+                });
+                output.textContent += `Status: ${response.status}\n`;
+                output.textContent += `Headers:\n`;
+                for (let [key, value] of response.headers.entries()) {
+                    output.textContent += `  ${key}: ${value}\n`;
+                }
+            } catch (error) {
+                output.textContent += `Error: ${error.message}\n`;
+            }
+        }
+
+        async function testPost() {
+            output.textContent = 'Testing POST request...\n';
+            try {
+                const response = await fetch(FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer test-token'
+                    },
+                    body: JSON.stringify({ test: true })
+                });
+                output.textContent += `Status: ${response.status}\n`;
+                const data = await response.json();
+                output.textContent += `Response: ${JSON.stringify(data, null, 2)}\n`;
+            } catch (error) {
+                output.textContent += `Error: ${error.message}\n`;
+            }
+        }
+    </script>
+</body>
+</html>
