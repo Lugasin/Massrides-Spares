@@ -52,8 +52,8 @@ serve(async (req) => {
     }
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, // ✅ REQUIRED
+      Deno.env.get("SUPABASE_URL") ?? '',
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '', // ✅ REQUIRED for server-side processing
       {
         global: {
           headers: { Authorization: authHeader },
@@ -128,13 +128,9 @@ serve(async (req) => {
       .from("orders")
       .insert({
         user_id: user.id,
-        subtotal,
-        total: totalUSD,
-        currency: "USD",
-        order_status: "awaiting_payment",
-        payment_status: "pending",
+        total_amount: totalUSD,
+        status: "awaiting_payment",
         shipping_address: delivery_address ?? {},
-        payment_method: payment_method ?? "vesicash",
       })
       .select()
       .single();
@@ -149,10 +145,8 @@ serve(async (req) => {
     const orderItems = cartItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
-      title: item.name,
-      price: item.price,
       quantity: item.quantity,
-      subtotal: item.price * item.quantity,
+      price_snapshot: item.price,
     }));
 
     const { error: itemsError } = await supabase
@@ -164,11 +158,18 @@ serve(async (req) => {
     }
 
     /* ----------------------------------
-       PAYMENT (VESICASH)
+       CREATE PAYMENT LOG
     ----------------------------------- */
-    let payment_link: string | null = null;
     const reference = `ORD-${order.id}-${Date.now()}`;
+    
+    await supabase.from("payments").insert({
+      order_id: order.id,
+      provider: "vesicash",
+      vesicash_transaction_id: reference,
+      status: "pending"
+    });
 
+    let payment_link: string | null = null;
     if (payment_method === "vesicash") {
       const privateKey = Deno.env.get("VESICASH_PRIVATE_KEY");
       const publicKey = Deno.env.get("VESICASH_PUBLIC_KEY");
