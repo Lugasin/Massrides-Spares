@@ -44,6 +44,27 @@ serve(async (req) => {
 
   try {
     /* ----------------------------------
+       DIAGNOSTICS
+    ----------------------------------- */
+    console.log("--- DEBUG START ---");
+    console.log("SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
+    console.log("SERVICE_ROLE exists:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+    console.log("ANON_KEY exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
+
+    // Log headers safely
+    const headers: Record<string, string> = {};
+    req.headers.forEach((v, k) => {
+        if (k.toLowerCase() === 'authorization') {
+            headers[k] = v.substring(0, 15) + "...";
+        } else if (k.toLowerCase() === 'apikey') {
+            headers[k] = v.substring(0, 10) + "...";
+        } else {
+            headers[k] = v;
+        }
+    });
+    console.log("Request Headers:", JSON.stringify(headers));
+
+    /* ----------------------------------
        AUTH (STRICT)
     ----------------------------------- */
     const authHeader = req.headers.get("authorization");
@@ -51,9 +72,10 @@ serve(async (req) => {
       throw { reason: "NO_AUTH", message: "Missing Authorization header" };
     }
 
+    // Try verifying with Service Role
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? '',
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '', // ✅ REQUIRED for server-side processing
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '',
       {
         global: {
           headers: { Authorization: authHeader },
@@ -61,14 +83,25 @@ serve(async (req) => {
       }
     );
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw { reason: "INVALID_JWT", message: "Invalid or expired token" };
+    let user;
+    try {
+        const { data: { user: u }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+            console.error("Auth Error (getUser):", authError);
+            throw authError;
+        }
+        user = u;
+    } catch (e) {
+        console.error("Critical Auth Logic Failure:", e);
+        throw { reason: "INVALID_JWT", message: "Verification failed on server" };
     }
+
+    if (!user) {
+      throw { reason: "USER_NOT_FOUND", message: "No user attached to token" };
+    }
+
+    console.log("Auth Success for user:", user.email);
+    console.log("--- DEBUG END ---");
 
     /* ----------------------------------
        INPUT
