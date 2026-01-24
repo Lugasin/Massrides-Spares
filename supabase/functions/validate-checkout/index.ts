@@ -4,13 +4,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 console.log("Validate-Checkout Function Invoked");
 
 serve(async (req) => {
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders, status: 200 });
+  }
+
+  // Enforce POST
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   try {
