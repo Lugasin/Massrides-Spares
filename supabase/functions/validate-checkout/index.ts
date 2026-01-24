@@ -17,6 +17,7 @@ function getCorsHeaders(origin: string | null) {
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
+  console.log("AUTH HEADER:", req.headers.get("Authorization"));
 
   /* ----------------------------------
      PRE-FLIGHT

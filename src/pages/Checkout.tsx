@@ -240,8 +240,11 @@ const Checkout = () => {
       // 0. Strict Auth Guard (Auth-Only Checkout)
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
+      console.log("ACTIVE SESSION:", session);
+
       if (sessionError || !session?.user) {
-        toast.error("Please log in to complete your purchase.");
+        console.error("No active session found:", sessionError);
+        toast.error("Session expired or not found. Please log in again.");
         // Ideally open login modal here if available, or redirect
         navigate('/login?returnUrl=/checkout');
         setIsProcessing(false);
