@@ -45,6 +45,25 @@ serve(async (req) => {
   }
 
   try {
+    /* ----------------------------------
+       DIAGNOSTICS
+    ----------------------------------- */
+    console.log("--- DEBUG START: validate-checkout ---");
+    console.log("SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
+    console.log("ANON_KEY exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
+    console.log("SERVICE_ROLE exists:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+
+    // Log headers safely
+    const headers: Record<string, string> = {};
+    req.headers.forEach((v, k) => {
+        if (k.toLowerCase() === 'authorization') {
+            headers[k] = v.substring(0, 15) + "...";
+        } else {
+            headers[k] = v;
+        }
+    });
+    console.log("Request Headers:", JSON.stringify(headers));
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       throw { reason: "NO_AUTH", message: "Missing Authorization header" };
@@ -58,6 +77,9 @@ serve(async (req) => {
       console.error("Auth Error:", authError);
       throw { reason: "INVALID_JWT", message: "Invalid or expired token" };
     }
+
+    console.log("Auth Success for user:", user.email);
+    console.log("--- DEBUG END: validate-checkout ---");
 
     const { delivery_address, payment_method } = await req.json();
 

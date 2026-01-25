@@ -6,17 +6,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Create a Supabase client with the Auth context of the user that called the function.
+// This client is used to verify the user's JWT.
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+);
+
+// Create a Supabase admin client to perform database operations.
+const supabaseAdmin = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
+    /* ----------------------------------
+       DIAGNOSTICS
+    ----------------------------------- */
+    console.log("--- DEBUG START: get-user-settings ---");
+    console.log("SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
+    console.log("ANON_KEY exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const headers: Record<string, string> = {};
+    req.headers.forEach((v, k) => {
+        if (k.toLowerCase() === 'authorization') {
+            headers[k] = v.substring(0, 15) + "...";
+        } else {
+            headers[k] = v;
+        }
+    });
+    console.log("Request Headers:", JSON.stringify(headers));
+
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      throw new Error("Missing Authorization header");
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
 
     // ✅ CORRECTED DEFAULTS (Matching DB Schema)
     const defaultSettings = { 
@@ -36,7 +67,7 @@ serve(async (req) => {
       });
     }
 
-    const { data: settings } = await supabase
+    const { data: settings } = await supabaseAdmin
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
