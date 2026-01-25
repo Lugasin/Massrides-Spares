@@ -69,13 +69,32 @@ serve(async (req) => {
       throw { reason: "NO_AUTH", message: "Missing Authorization header" };
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const token = authHeader.replace("Bearer ", "");
+    console.log("Token length:", token.length);
+    console.log("Token starts with:", token.substring(0, 20) + "...");
+
+    // Try to decode JWT payload for debugging
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      console.log("JWT Payload:", {
+        iss: payload.iss,
+        aud: payload.aud,
+        exp: payload.exp,
+        iat: payload.iat,
+        sub: payload.sub?.substring(0, 8) + "...",
+      });
+    } catch (e) {
+      console.log("Failed to decode JWT:", e);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      console.error("Auth Error:", authError);
-      throw { reason: "INVALID_JWT", message: "Invalid or expired token" };
+      console.error("Auth Error Details:", JSON.stringify(authError, null, 2));
+      console.error("User object:", user);
+      console.error("Supabase URL:", Deno.env.get("SUPABASE_URL"));
+      console.error("Anon Key exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
+      throw { reason: "INVALID_JWT", message: `Invalid or expired token: ${authError?.message || 'Unknown error'}` };
     }
 
     console.log("Auth Success for user:", user.email);
@@ -122,6 +141,10 @@ serve(async (req) => {
     }
     const totalUSD = subtotal;
 
+    //add more logging Right before the database insert, add this:
+    console.log("About to insert order with user_id:", user.id);
+    console.log("Using supabaseAdmin client");
+
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -133,7 +156,10 @@ serve(async (req) => {
       .select()
       .single();
 
+    console.log("Order insert result:", { order, error: orderError });
+
     if (orderError) {
+      console.error("FULL ORDER ERROR:", JSON.stringify(orderError, null, 2));
       throw { reason: "ORDER_FAILED", message: orderError.message };
     }
 
@@ -163,7 +189,7 @@ serve(async (req) => {
 
     let payment_link: string | null = null;
     if (payment_method === "vesicash") {
-      const privateKey = Deno.env.get("VESICASH_PRIVATE_KEY");
+      const privateKey = Deno.env.get("VESICASH_SECRET_KEY");
       const publicKey = Deno.env.get("VESICASH_PUBLIC_KEY");
 
       if (!privateKey || !publicKey) {
@@ -180,40 +206,52 @@ serve(async (req) => {
         (origin ?? "https://massridesspares.netlify.app") +
         "/checkout/success";
 
+      const webhookUrl =
+        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook";
+
       const vesicashRes = await fetch(
-        "https://sandbox.api.vesicash.com/v1/payment/pay",
+        "https://api.mor.vesicash.com/v1/payment/init",  // ✅ Correct endpoint
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "v-private-key": privateKey,
-            "v-public-key": publicKey,
+            "secret-key": privateKey,  // ✅ Changed from "v-private-key"
+            "public-key": publicKey,   // ✅ Changed from "v-public-key"
           },
           body: JSON.stringify({
-            amount: totalZMW,
             currency: "ZMW",
-            email: user.email,
-            phone_number: delivery_address?.phone ?? "0977000000",
-            reference,
-            callback_url: callbackUrl,
-            metadata: {
-              order_id: order.id,
-              original_amount_usd: totalUSD,
-            },
+            country: "ZM",
+            narration: `Order #${order.id} - ${cartItems.length} items`,
+            method: "mobilemoney",  // or "card" - you can make this dynamic
+            amount: totalZMW,
+            webhook_url: webhookUrl,
+            redirect_url: callbackUrl,
           }),
         }
       );
 
       const vData = await vesicashRes.json();
 
-      if (!vesicashRes.ok) {
+      console.log("Vesicash Response Status:", vesicashRes.status);
+      console.log("Vesicash Response:", JSON.stringify(vData, null, 2));
+
+      if (!vesicashRes.ok || vData.status !== "success") {
         throw {
           reason: "VESICASH_ERROR",
           message: vData?.message ?? "Payment initialization failed",
         };
       }
 
-      payment_link = vData.link || vData.payment_url;
+      payment_link = vData.data?.payment_link;
+
+      // Optional: Store the payment reference
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          vesicash_transaction_id: vData.data?.reference || reference,
+          vesicash_payment_id: vData.data?.payment_id,
+        })
+        .eq("order_id", order.id);
     }
 
     return new Response(
@@ -231,7 +269,7 @@ serve(async (req) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("CHECKOUT ERROR:", error);
     return new Response(
       JSON.stringify({
