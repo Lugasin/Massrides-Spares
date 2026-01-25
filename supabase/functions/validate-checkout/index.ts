@@ -1,15 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-/* ----------------------------------
-   CORS (DYNAMIC ORIGIN — REQUIRED)
------------------------------------ */
+// Create a Supabase client with the Auth context of the user that called the function.
+// This client is used to verify the user's JWT.
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+);
+
+// Create a Supabase admin client to perform database operations.
+const supabaseAdmin = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
 function getCorsHeaders(origin: string | null) {
+  const allowedOrigin = Deno.env.get("CORS_ORIGIN") ?? "https://massridesspares.netlify.app";
   return {
-    "Access-Control-Allow-Origin":
-      origin ?? "https://massridesspares.netlify.app",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Origin": origin ?? allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
@@ -17,11 +26,7 @@ function getCorsHeaders(origin: string | null) {
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
-  console.log("AUTH HEADER:", req.headers.get("Authorization"));
 
-  /* ----------------------------------
-     PRE-FLIGHT
-  ----------------------------------- */
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -30,88 +35,33 @@ serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "Method Not Allowed" }),
-      {
-        status: 405,
-        headers: {
-          ...getCorsHeaders(origin),
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+      status: 405,
+      headers: {
+        ...getCorsHeaders(origin),
+        "Content-Type": "application/json",
+      },
+    });
   }
 
   try {
-    /* ----------------------------------
-       DIAGNOSTICS
-    ----------------------------------- */
-    console.log("--- DEBUG START ---");
-    console.log("SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
-    console.log("SERVICE_ROLE exists:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
-    console.log("ANON_KEY exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
-
-    // Log headers safely
-    const headers: Record<string, string> = {};
-    req.headers.forEach((v, k) => {
-        if (k.toLowerCase() === 'authorization') {
-            headers[k] = v.substring(0, 15) + "...";
-        } else if (k.toLowerCase() === 'apikey') {
-            headers[k] = v.substring(0, 10) + "...";
-        } else {
-            headers[k] = v;
-        }
-    });
-    console.log("Request Headers:", JSON.stringify(headers));
-
-    /* ----------------------------------
-       AUTH (STRICT)
-    ----------------------------------- */
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       throw { reason: "NO_AUTH", message: "Missing Authorization header" };
     }
 
-    // Try verifying with Service Role
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? '',
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", "")
     );
 
-    let user;
-    try {
-        const { data: { user: u }, error: authError } = await supabase.auth.getUser();
-        if (authError) {
-            console.error("Auth Error (getUser):", authError);
-            throw authError;
-        }
-        user = u;
-    } catch (e) {
-        console.error("Critical Auth Logic Failure:", e);
-        throw { reason: "INVALID_JWT", message: "Verification failed on server" };
+    if (authError || !user) {
+      console.error("Auth Error:", authError);
+      throw { reason: "INVALID_JWT", message: "Invalid or expired token" };
     }
 
-    if (!user) {
-      throw { reason: "USER_NOT_FOUND", message: "No user attached to token" };
-    }
-
-    console.log("Auth Success for user:", user.email);
-    console.log("--- DEBUG END ---");
-
-    /* ----------------------------------
-       INPUT
-    ----------------------------------- */
     const { delivery_address, payment_method } = await req.json();
 
-    /* ----------------------------------
-       CART FETCH (USER ONLY)
-    ----------------------------------- */
-    const { data: items, error: cartError } = await supabase
+    const { data: items, error: cartError } = await supabaseAdmin
       .from("cart_items")
       .select(
         `
@@ -134,9 +84,6 @@ serve(async (req) => {
       throw { reason: "EMPTY_CART", message: "Cart is empty" };
     }
 
-    /* ----------------------------------
-       CALCULATE TOTAL
-    ----------------------------------- */
     const cartItems = items
       .filter((i) => i.product && i.quantity > 0)
       .map((i) => ({
@@ -151,13 +98,9 @@ serve(async (req) => {
     for (const item of cartItems) {
       subtotal += item.price * item.quantity;
     }
-
     const totalUSD = subtotal;
 
-    /* ----------------------------------
-       CREATE ORDER
-    ----------------------------------- */
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
         user_id: user.id,
@@ -172,9 +115,6 @@ serve(async (req) => {
       throw { reason: "ORDER_FAILED", message: orderError.message };
     }
 
-    /* ----------------------------------
-       ORDER ITEMS
-    ----------------------------------- */
     const orderItems = cartItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
@@ -182,7 +122,7 @@ serve(async (req) => {
       price_snapshot: item.price,
     }));
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdmin
       .from("order_items")
       .insert(orderItems);
 
@@ -190,12 +130,9 @@ serve(async (req) => {
       throw { reason: "ORDER_ITEMS_FAILED", message: itemsError.message };
     }
 
-    /* ----------------------------------
-       CREATE PAYMENT LOG
-    ----------------------------------- */
     const reference = `ORD-${order.id}-${Date.now()}`;
     
-    await supabase.from("payments").insert({
+    await supabaseAdmin.from("payments").insert({
       order_id: order.id,
       provider: "vesicash",
       vesicash_transaction_id: reference,
@@ -214,7 +151,7 @@ serve(async (req) => {
         };
       }
 
-      const EXCHANGE_RATE = 28.5;
+      const EXCHANGE_RATE = parseFloat(Deno.env.get("EXCHANGE_RATE") ?? "28.5");
       const totalZMW = Math.ceil(totalUSD * EXCHANGE_RATE);
 
       const callbackUrl =
@@ -257,9 +194,6 @@ serve(async (req) => {
       payment_link = vData.link || vData.payment_url;
     }
 
-    /* ----------------------------------
-       SUCCESS
-    ----------------------------------- */
     return new Response(
       JSON.stringify({
         order_id: order.id,
@@ -277,7 +211,6 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error("CHECKOUT ERROR:", error);
-
     return new Response(
       JSON.stringify({
         error: "CHECKOUT_FAILED",

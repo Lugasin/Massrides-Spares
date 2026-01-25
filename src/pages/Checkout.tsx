@@ -73,7 +73,6 @@ const Checkout = () => {
     city: "",
     state: "",
     zipCode: "",
-    phone: "",
     country: "Zambia"
   });
 
@@ -582,17 +581,6 @@ const Checkout = () => {
                                 onChange={(e) => setShippingInfo({ ...shippingInfo, zipCode: e.target.value })}
                               />
                             </div>
-                          </div>
-
-                          <div>
-                            <Label htmlFor="shippingPhone">Phone *</Label>
-                            <Input
-                              id="shippingPhone"
-                              type="tel"
-                              required
-                              value={shippingInfo.phone}
-                              onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
-                            />
                           </div>
                         </div>
                       )}
