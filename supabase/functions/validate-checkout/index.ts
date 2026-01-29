@@ -1,15 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-/* ----------------------------------
-   CORS (DYNAMIC ORIGIN — REQUIRED)
------------------------------------ */
+// Create a Supabase client with the Auth context of the user that called the function.
+// This client is used to verify the user's JWT.
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+);
+
+// Create a Supabase admin client to perform database operations.
+const supabaseAdmin = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
 function getCorsHeaders(origin: string | null) {
+  const allowedOrigin = Deno.env.get("CORS_ORIGIN") ?? "https://massridesspares.netlify.app";
   return {
-    "Access-Control-Allow-Origin":
-      origin ?? "https://massridesspares.netlify.app",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Origin": origin ?? allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
@@ -17,11 +26,7 @@ function getCorsHeaders(origin: string | null) {
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
-  console.log("AUTH HEADER:", req.headers.get("Authorization"));
 
-  /* ----------------------------------
-     PRE-FLIGHT
-  ----------------------------------- */
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -30,55 +35,74 @@ serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "Method Not Allowed" }),
-      {
-        status: 405,
-        headers: {
-          ...getCorsHeaders(origin),
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+      status: 405,
+      headers: {
+        ...getCorsHeaders(origin),
+        "Content-Type": "application/json",
+      },
+    });
   }
 
   try {
     /* ----------------------------------
-       AUTH (STRICT)
+       DIAGNOSTICS
     ----------------------------------- */
+    console.log("--- DEBUG START: validate-checkout ---");
+    console.log("SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
+    console.log("ANON_KEY exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
+    console.log("SERVICE_ROLE exists:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+
+    // Log headers safely
+    const headers: Record<string, string> = {};
+    req.headers.forEach((v, k) => {
+        if (k.toLowerCase() === 'authorization') {
+            headers[k] = v.substring(0, 15) + "...";
+        } else {
+            headers[k] = v;
+        }
+    });
+    console.log("Request Headers:", JSON.stringify(headers));
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       throw { reason: "NO_AUTH", message: "Missing Authorization header" };
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? '',
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? '', // ✅ REQUIRED for server-side processing
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
+    const token = authHeader.replace("Bearer ", "");
+    console.log("Token length:", token.length);
+    console.log("Token starts with:", token.substring(0, 20) + "...");
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw { reason: "INVALID_JWT", message: "Invalid or expired token" };
+    // Try to decode JWT payload for debugging
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      console.log("JWT Payload:", {
+        iss: payload.iss,
+        aud: payload.aud,
+        exp: payload.exp,
+        iat: payload.iat,
+        sub: payload.sub?.substring(0, 8) + "...",
+      });
+    } catch (e) {
+      console.log("Failed to decode JWT:", e);
     }
 
-    /* ----------------------------------
-       INPUT
-    ----------------------------------- */
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      console.error("Auth Error Details:", JSON.stringify(authError, null, 2));
+      console.error("User object:", user);
+      console.error("Supabase URL:", Deno.env.get("SUPABASE_URL"));
+      console.error("Anon Key exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
+      throw { reason: "INVALID_JWT", message: `Invalid or expired token: ${authError?.message || 'Unknown error'}` };
+    }
+
+    console.log("Auth Success for user:", user.email);
+    console.log("--- DEBUG END: validate-checkout ---");
+
     const { delivery_address, payment_method } = await req.json();
 
-    /* ----------------------------------
-       CART FETCH (USER ONLY)
-    ----------------------------------- */
-    const { data: items, error: cartError } = await supabase
+    const { data: items, error: cartError } = await supabaseAdmin
       .from("cart_items")
       .select(
         `
@@ -101,9 +125,6 @@ serve(async (req) => {
       throw { reason: "EMPTY_CART", message: "Cart is empty" };
     }
 
-    /* ----------------------------------
-       CALCULATE TOTAL
-    ----------------------------------- */
     const cartItems = items
       .filter((i) => i.product && i.quantity > 0)
       .map((i) => ({
@@ -118,13 +139,13 @@ serve(async (req) => {
     for (const item of cartItems) {
       subtotal += item.price * item.quantity;
     }
-
     const totalUSD = subtotal;
 
-    /* ----------------------------------
-       CREATE ORDER
-    ----------------------------------- */
-    const { data: order, error: orderError } = await supabase
+    //add more logging Right before the database insert, add this:
+    console.log("About to insert order with user_id:", user.id);
+    console.log("Using supabaseAdmin client");
+
+    const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
         user_id: user.id,
@@ -135,13 +156,13 @@ serve(async (req) => {
       .select()
       .single();
 
+    console.log("Order insert result:", { order, error: orderError });
+
     if (orderError) {
+      console.error("FULL ORDER ERROR:", JSON.stringify(orderError, null, 2));
       throw { reason: "ORDER_FAILED", message: orderError.message };
     }
 
-    /* ----------------------------------
-       ORDER ITEMS
-    ----------------------------------- */
     const orderItems = cartItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
@@ -149,7 +170,7 @@ serve(async (req) => {
       price_snapshot: item.price,
     }));
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdmin
       .from("order_items")
       .insert(orderItems);
 
@@ -157,12 +178,9 @@ serve(async (req) => {
       throw { reason: "ORDER_ITEMS_FAILED", message: itemsError.message };
     }
 
-    /* ----------------------------------
-       CREATE PAYMENT LOG
-    ----------------------------------- */
     const reference = `ORD-${order.id}-${Date.now()}`;
     
-    await supabase.from("payments").insert({
+    await supabaseAdmin.from("payments").insert({
       order_id: order.id,
       provider: "vesicash",
       vesicash_transaction_id: reference,
@@ -171,7 +189,7 @@ serve(async (req) => {
 
     let payment_link: string | null = null;
     if (payment_method === "vesicash") {
-      const privateKey = Deno.env.get("VESICASH_PRIVATE_KEY");
+      const privateKey = Deno.env.get("VESICASH_SECRET_KEY");
       const publicKey = Deno.env.get("VESICASH_PUBLIC_KEY");
 
       if (!privateKey || !publicKey) {
@@ -181,52 +199,61 @@ serve(async (req) => {
         };
       }
 
-      const EXCHANGE_RATE = 28.5;
+      const EXCHANGE_RATE = parseFloat(Deno.env.get("EXCHANGE_RATE") ?? "28.5");
       const totalZMW = Math.ceil(totalUSD * EXCHANGE_RATE);
 
       const callbackUrl =
         (origin ?? "https://massridesspares.netlify.app") +
         "/checkout/success";
 
+      const webhookUrl =
+        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook";
+
       const vesicashRes = await fetch(
-        "https://sandbox.api.vesicash.com/v1/payment/pay",
+        "https://api.mor.vesicash.com/v1/payment/init",  // ✅ Correct endpoint
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "v-private-key": privateKey,
-            "v-public-key": publicKey,
+            "secret-key": privateKey,  // ✅ Changed from "v-private-key"
+            "public-key": publicKey,   // ✅ Changed from "v-public-key"
           },
           body: JSON.stringify({
-            amount: totalZMW,
             currency: "ZMW",
-            email: user.email,
-            phone_number: delivery_address?.phone ?? "0977000000",
-            reference,
-            callback_url: callbackUrl,
-            metadata: {
-              order_id: order.id,
-              original_amount_usd: totalUSD,
-            },
+            country: "ZM",
+            narration: `Order #${order.id} - ${cartItems.length} items`,
+            method: "mobilemoney",  // or "card" - you can make this dynamic
+            amount: totalZMW,
+            webhook_url: webhookUrl,
+            redirect_url: callbackUrl,
           }),
         }
       );
 
       const vData = await vesicashRes.json();
 
-      if (!vesicashRes.ok) {
+      console.log("Vesicash Response Status:", vesicashRes.status);
+      console.log("Vesicash Response:", JSON.stringify(vData, null, 2));
+
+      if (!vesicashRes.ok || vData.status !== "success") {
         throw {
           reason: "VESICASH_ERROR",
           message: vData?.message ?? "Payment initialization failed",
         };
       }
 
-      payment_link = vData.link || vData.payment_url;
+      payment_link = vData.data?.payment_link;
+
+      // Optional: Store the payment reference
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          vesicash_transaction_id: vData.data?.reference || reference,
+          vesicash_payment_id: vData.data?.payment_id,
+        })
+        .eq("order_id", order.id);
     }
 
-    /* ----------------------------------
-       SUCCESS
-    ----------------------------------- */
     return new Response(
       JSON.stringify({
         order_id: order.id,
@@ -242,9 +269,8 @@ serve(async (req) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("CHECKOUT ERROR:", error);
-
     return new Response(
       JSON.stringify({
         error: "CHECKOUT_FAILED",

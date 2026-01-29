@@ -1,63 +1,79 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
+
+console.log("Vesicash Webhook Handler Started");
 
 serve(async (req) => {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  )
-
   try {
-    const body = await req.json();
-    console.log("Vesicash Webhook Body:", JSON.stringify(body, null, 2));
+    const signature = req.headers.get("x-vesicash-signature");
+    const webhookSecret = Deno.env.get("VESICASH_WEBHOOK_SECRET");
 
-    const eventType = body.event || body.type;
-    const checkoutRef = body.data?.reference || body.reference;
-
-    if (!checkoutRef) {
-      return new Response(JSON.stringify({ error: "No reference found" }), { status: 400 });
+    if (!signature || !webhookSecret) {
+      throw new Error("Missing signature or secret for webhook verification.");
     }
 
-    // 1. Find the payment record
-    const { data: payment, error: pError } = await supabase
+    const body = await req.text();
+    const hash = createHmac("sha512", webhookSecret)
+      .update(body)
+      .digest("hex");
+
+    if (hash !== signature) {
+      throw new Error("Invalid webhook signature.");
+    }
+
+    const payload = JSON.parse(body);
+    console.log("Webhook Payload Received and Verified:", JSON.stringify(payload));
+
+    const eventType = payload.event || payload.type;
+    const data = payload.data;
+
+    if (eventType !== 'payment.successful' && eventType !== 'transaction.successful') {
+        console.log(`Event ignored: ${eventType}`);
+        return new Response('Event ignored', { status: 200 });
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const paymentReference = data.reference;
+
+    if (!paymentReference) {
+        throw new Error("No payment reference found in webhook payload");
+    }
+
+    const { data: payment, error: pError } = await supabaseAdmin
       .from('payments')
-      .select('id, order_id')
-      .eq('vesicash_transaction_id', checkoutRef)
+      .update({ status: 'paid' })
+      .eq('vesicash_transaction_id', paymentReference)
+      .select()
       .single();
 
     if (pError || !payment) {
-      console.error("Payment not found for ref:", checkoutRef);
-      return new Response(JSON.stringify({ error: "Payment not found" }), { status: 404 });
+        throw new Error(`Failed to update payment status for reference: ${paymentReference}`);
     }
 
-    // 2. Process based on event
-    if (eventType === 'payment.success' || eventType === 'transaction.successful') {
-      // Update Payment
-      await supabase
-        .from('payments')
-        .update({ status: 'paid' })
-        .eq('id', payment.id);
+    const { error: oError } = await supabaseAdmin
+      .from('orders')
+      .update({ status: 'paid' })
+      .eq('id', payment.order_id);
 
-      // Update Order
-      await supabase
-        .from('orders')
-        .update({ status: 'paid' })
-        .eq('id', payment.order_id);
-        
-      console.log(`Order ${payment.order_id} marked as PAID.`);
-    } else if (eventType === 'payment.failed') {
-      await supabase
-        .from('payments')
-        .update({ status: 'failed' })
-        .eq('id', payment.id);
-        
-      console.log(`Payment ${payment.id} marked as FAILED.`);
+    if (oError) {
+        console.error("Failed to update order status:", oError);
+        throw oError;
     }
 
-    return new Response(JSON.stringify({ received: true }), { status: 200 });
+    console.log(`Order ${payment.order_id} marked as PAID via Webhook.`);
 
-  } catch (err) {
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { "Content-Type": "application/json" },
+      status: 200,
+    });
+
+  } catch (err: any) {
     console.error("Webhook Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 400 });
   }
-})
+});
