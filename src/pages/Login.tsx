@@ -3,126 +3,83 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Mail, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Mail, Phone, Lock, ArrowRight, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import irrigationAerial from "@/assets/irrigation-aerial.jpg";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { logAuthEvent } from '@/lib/activityLogger';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Define a customizable background image URL - You can add more images to assets and change this
 const backgroundImage = irrigationAerial;
 
 export default function Login() {
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState(1); // 1: Input, 2: OTP Verification
   const [isLoading, setIsLoading] = useState(false);
+  const [authMethod, setAuthMethod] = useState("phone"); // "phone" or "email"
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Check for email in query params
-    const searchParams = new URLSearchParams(location.search);
-    const emailParam = searchParams.get('email');
-    if (emailParam) {
-      setEmail(emailParam);
-    }
-  }, [location.search]);
-
-  useEffect(() => {
-    // If user object becomes available, login was successful and the
-    // user profile is loaded. It's now safe to navigate.
     if (user) {
-      // Check for returnUrl
       const searchParams = new URLSearchParams(location.search);
       const returnUrl = searchParams.get('returnUrl');
-      if (returnUrl) {
-        navigate(returnUrl);
-      } else {
-        navigate('/dashboard');
-      }
+      navigate(returnUrl || '/dashboard');
     }
   }, [user, navigate, location.search]);
 
-
-  const handleSocialSignIn = async (provider: 'google' | 'facebook') => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/welcome`
-        }
-      });
-      if (error) {
-        toast.error(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign in failed: ${error.message}`);
-      }
-    } catch (error: any) {
-      toast.error(`Failed to sign in with ${provider}`);
-    }
-    setIsLoading(false);
-  };
-
-  const handleGuestLogin = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-
-    try {
-      // Robust UUID generation with fallback
-      const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : 'guest-' + Date.now() + '-' + Math.random().toString(36).substring(2);
-
-      localStorage.setItem('guest_session_id', sessionId);
-      localStorage.setItem('user_role', 'guest');
-
-      // Log guest login - wrapped in try/catch silently
-      try {
-        logAuthEvent('guest_login', undefined, { session_id: sessionId });
-      } catch (err) {
-        console.warn('Failed to log guest login:', err);
-      }
-
-      toast.success('Logged in as Guest');
-      navigate('/guest-shopping');
-    } catch (error) {
-      console.error('Guest login error:', error);
-      // Fallback navigation even if something fails
-      navigate('/guest-shopping');
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    handleSignIn();
-  };
-
-  const handleSignIn = async () => {
     setIsLoading(true);
-    setErrorMessage(null); // Clear previous errors
 
     try {
-      // ✅ FIX: Use direct Supabase client instead of context function
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = authMethod === "phone"
+        ? await supabase.auth.signInWithOtp({ phone })
+        : await supabase.auth.signInWithOtp({ email });
 
-      if (error) {
-        console.error("Login Error:", error);
-        setErrorMessage("Invalid email or password. Please try again.");
-        setIsLoading(false);
-        return;
-      }
+      if (error) throw error;
 
-      // Success! unique AuthContext will detect session change and redirect.
+      toast.success(`Verification code sent to your ${authMethod}!`);
+      setStep(2);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    } catch (error) {
-      console.error("Unexpected error during sign in:", error);
-      setErrorMessage("An unexpected error occurred. Please try again.");
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const { error } = authMethod === "phone"
+        ? await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' })
+        : await supabase.auth.verifyOtp({ email, token: otp, type: 'email' });
+
+      if (error) throw error;
+      toast.success("Signed in successfully!");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -130,183 +87,128 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4">
-      {/* Background Image */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImage})`,
-        }}
+        style={{ backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${backgroundImage})` }}
       />
 
-      {/* Login form */}
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center text-white mb-8">
-          <h1 className="text-3xl lg:text-4xl font-bold mb-2">Welcome Back</h1>
-          <p className="text-lg opacity-90">Access your Massrides Spares portal</p>
+          <h1 className="text-3xl font-bold mb-2">Massrides Spares</h1>
+          <p className="text-lg opacity-90">Sign in to your account</p>
         </div>
 
-        <Card className="w-full bg-white/95 backdrop-blur-sm border-primary/20 shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl lg:text-2xl font-bold text-primary">Sign In</CardTitle>
-            <CardDescription>
-              Enter your credentials to access your account
-            </CardDescription>
+        <Card className="bg-white/95 backdrop-blur-sm shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center text-primary">Welcome Back</CardTitle>
+            <CardDescription className="text-center">Choose your preferred sign-in method</CardDescription>
           </CardHeader>
           <CardContent>
-            {location.search.includes('registration=success') && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-center flex items-center justify-center gap-2 text-sm">
-                <CheckCircle2 className="h-5 w-5" /> Registration successful! Please check your email for confirmation.
-              </div>
-            )}
-            {location.search.includes('message=check-email') && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-center flex items-center justify-center gap-2 text-sm">
-                <Mail className="h-5 w-5" /> Please check your email and click the verification link to activate your account.
-              </div>
-            )}
-            {location.search.includes('verified=true') && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-center flex items-center justify-center gap-2 text-sm">
-                <CheckCircle2 className="h-5 w-5" /> Email verified successfully! You can now sign in.
-              </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-primary" />
-                  Email
-                </Label>
+            {step === 1 ? (
+              <Tabs value={authMethod} onValueChange={setAuthMethod} className="space-y-6">
+                <TabsList className="grid grid-cols-2 w-full">
+                  <TabsTrigger value="phone">Phone OTP</TabsTrigger>
+                  <TabsTrigger value="email">Email</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="phone">
+                  <form onSubmit={handleSendOtp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="+260..."
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          required
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? <Loader2 className="animate-spin h-4 w-4" /> : "Send OTP"}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="email">
+                  <form onSubmit={handlePasswordLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? <Loader2 className="animate-spin h-4 w-4" /> : "Sign In with Password"}
+                    </Button>
+                    <div className="text-center">
+                        <Button variant="link" type="button" onClick={handleSendOtp} disabled={isLoading}>
+                            Or sign in with Email OTP
+                        </Button>
+                    </div>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-6">
+                <div className="text-center space-y-2">
+                  <ShieldCheck className="h-12 w-12 text-primary mx-auto" />
+                  <p className="text-sm text-muted-foreground">
+                    Enter the code sent to {authMethod === "phone" ? phone : email}
+                  </p>
+                </div>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="text-center text-2xl tracking-widest"
+                  maxLength={6}
                   required
-                  className="focus:ring-primary focus:border-primary h-11"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="flex items-center gap-2 text-sm">
-                  <Lock className="h-4 w-4 text-primary" />
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="focus:ring-primary focus:border-primary h-11"
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
-                <Link to="/register" className="text-primary hover:underline">
-                  Don't have an account?
-                </Link>
-                <Link to="/forgot-password" className="text-muted-foreground hover:text-primary">
-                  Forgot password?
-                </Link>
-              </div>
-
-              {errorMessage && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle2 className="h-4 w-4 rotate-45 text-red-600" />
-                  {errorMessage}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-11 bg-primary hover:bg-primary-hover hover-glow group"
-              >
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Signing In...
-                  </div>
-                ) : (
-                  <>
-                    Sign In
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </>
-                )}
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleSocialSignIn('google')}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  Google
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="animate-spin h-4 w-4" /> : "Verify Code"}
                 </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={true}
-                  onClick={() => handleSocialSignIn('facebook')}
-                  className="w-full"
-                >
-                  <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                  Coming soon
+                <Button variant="ghost" className="w-full" onClick={() => setStep(1)}>
+                  Change {authMethod === "phone" ? "Number" : "Email"}
                 </Button>
-              </div>
+              </form>
+            )}
 
-              <div className="text-center relative z-20">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={(e) => handleGuestLogin(e)}
-                  disabled={isLoading}
-                  className="text-sm text-muted-foreground hover:text-primary cursor-pointer"
-                >
-                  Continue as Guest
-                </Button>
-              </div>
-            </form>
-
-            {/* Back to Home */}
-            <div className="text-center mt-4 relative z-20">
-              <Button asChild variant="ghost">
-                <Link to="/">
-                  ← Back to Home
+            <div className="mt-6 text-center text-sm">
+              <p className="text-muted-foreground">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-primary font-medium hover:underline">
+                  Register here
                 </Link>
-              </Button>
+              </p>
             </div>
           </CardContent>
         </Card>

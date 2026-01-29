@@ -18,13 +18,19 @@ import {
 } from "lucide-react";
 import { useQuote } from "@/context/QuoteContext";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 const Cart = () => {
   const { items, total, itemCount, updateQuantity, removeItem, clearCart, loading } = useQuote();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleCheckout = () => {
-    navigate('/checkout');
+    if (user) {
+      navigate('/checkout');
+    } else {
+      navigate('/login?returnUrl=/checkout');
+    }
   };
 
   return (
@@ -223,9 +229,20 @@ const Cart = () => {
                         className="w-full bg-primary hover:bg-primary-hover group"
                       >
                         <CreditCard className="h-4 w-4 mr-2" />
-                        Proceed to Checkout
+                        {user ? "Proceed to Checkout" : "Sign In to Checkout"}
                         <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                       </Button>
+
+                      {!user && (
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="w-full border-primary text-primary hover:bg-primary/5"
+                          onClick={() => navigate('/guest-checkout')}
+                        >
+                          Checkout as Guest
+                        </Button>
+                      )}
 
                       <Button
                         variant="secondary"

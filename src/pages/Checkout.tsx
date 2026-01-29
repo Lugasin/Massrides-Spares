@@ -77,6 +77,58 @@ const Checkout = () => {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [resendTimer, setResendTimer] = useState(120);
   const [verifyAttempts, setVerifyAttempts] = useState(0);
+  const [pendingOrder, setPendingOrder] = useState<any>(null);
+
+  useEffect(() => {
+    const checkPendingOrder = async () => {
+      let query = supabase
+        .from('orders')
+        .select('*')
+        .in('status', ['PENDING', 'PROCESSING', 'INITIATED', 'REDIRECTED'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (user) {
+        query = query.eq('user_id', user.id);
+      } else {
+        const guestSessionId = localStorage.getItem('guest_session_id');
+        if (!guestSessionId) return;
+        query = query.eq('guest_session_id', guestSessionId);
+      }
+
+      const { data } = await query.maybeSingle();
+      if (data) setPendingOrder(data);
+    };
+    checkPendingOrder();
+  }, [user]);
+
+  const handleResumePayment = async () => {
+    if (!pendingOrder) return;
+    setIsProcessing(true);
+    try {
+        const { data, error } = await supabase.functions.invoke('create-payment-session', {
+            body: { order_id: pendingOrder.id }
+        });
+        if (error) throw error;
+        if (data.checkout_url) window.location.href = data.checkout_url;
+    } catch (e: any) {
+        toast.error("Failed to resume payment: " + e.message);
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!pendingOrder) return;
+    try {
+        const { error } = await supabase.from('orders').update({ status: 'CANCELLED' }).eq('id', pendingOrder.id);
+        if (error) throw error;
+        setPendingOrder(null);
+        toast.success("Order cancelled");
+    } catch (e: any) {
+        toast.error("Failed to cancel order");
+    }
+  };
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -366,6 +418,28 @@ const Checkout = () => {
               </div>
             </div>
           </div>
+
+          {pendingOrder && (
+              <Card className="mb-8 border-yellow-200 bg-yellow-50">
+                  <CardHeader>
+                      <CardTitle className="text-yellow-800">You have a pending order</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <p className="text-yellow-700 mb-4">
+                          We found an unfinished order (#{pendingOrder.order_number}) from {new Date(pendingOrder.created_at).toLocaleDateString()}.
+                          Would you like to complete the payment for this order?
+                      </p>
+                      <div className="flex gap-4">
+                          <Button onClick={handleResumePayment} className="bg-yellow-600 hover:bg-yellow-700">
+                              Resume Payment
+                          </Button>
+                          <Button variant="outline" onClick={handleCancelOrder}>
+                              Cancel Previous Order
+                          </Button>
+                      </div>
+                  </CardContent>
+              </Card>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Content */}

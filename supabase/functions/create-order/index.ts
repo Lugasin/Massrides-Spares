@@ -38,14 +38,11 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-    // Variables declared outside try block for scope access
-    let user = null
-    let profile = null
-    let cartItems: any[] = []
-    let sourceCartId: string | null = null;
-    let sourceIsGuest = false;
-
-    let guest_session_id: string | undefined; // ensure this is also available
+  let user = null
+  let cartItems: any[] = []
+  let sourceCartId: string | null = null;
+  let sourceIsGuest = false;
+  let guest_session_id: string | undefined;
 
   try {
     const supabase = createClient(
@@ -53,143 +50,60 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Try to get authenticated user (may be null for guest checkout)
+    // Try to get authenticated user
     const authHeader = req.headers.get('Authorization')
-    
     if (authHeader) {
-      const userSupabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          global: { headers: { Authorization: authHeader } },
-          auth: { persistSession: false }
-        }
-      )
-      
-      const { data: { user: authUser } } = await userSupabase.auth.getUser()
+      const { data: { user: authUser } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
       user = authUser
-      
-      if (user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-        profile = userProfile
-      }
     }
 
     const body: CreateOrderRequest = await req.json()
     const { customer_info, shipping_info, guest_session_id: gs_id } = body
     guest_session_id = gs_id;
 
-    // Get cart items (either from user cart or guest cart)
-    
     console.log(`Processing order for: User=${user?.id}, GuestSession=${guest_session_id}`);
 
-    if (user && profile) {
-      // Get user cart items
-      const { data: cart } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('user_id', profile.id)
-        .single()
-      
-      console.log('User ID found:', user.id, 'Cart:', cart);
+    // 1. Get Cart Items from unified table
+    const { data: items, error: cartError } = await supabase
+      .from('carts')
+      .select('id, product_id, quantity, product:products(*)')
+      .eq(user ? 'user_id' : 'guest_session_id', user ? user.id : guest_session_id);
 
-      if (cart) {
-        sourceCartId = cart.id;
-        const { data: userCartItems } = await supabase
-          .from('cart_items')
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products(*)
-          `)
-          .eq('cart_id', cart.id)
-
-        cartItems = userCartItems || []
-      }
-    } 
-    
-    // Fallback: If no user items found (or user not logged in), check guest cart
-    if (cartItems.length === 0 && guest_session_id) {
-      // Get guest cart items
-      console.log('Searching for guest cart with session:', guest_session_id);
-      
-      const { data: guestCart, error: guestCartError } = await supabase
-        .from('guest_carts')
-        .select('id')
-        .eq('session_id', guest_session_id)
-        .single()
-      
-      console.log('Guest Cart Result:', { guestCart, error: guestCartError });
-
-      if (guestCart) {
-        sourceCartId = guestCart.id;
-        sourceIsGuest = true;
-        const { data: guestCartItems, error: itemsError } = await supabase
-          .from('guest_cart_items')
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products(*)
-          `)
-          .eq('guest_cart_id', guestCart.id)
-        
-        console.log('Guest Cart Items Result:', { count: guestCartItems?.length, error: itemsError });
-
-        cartItems = guestCartItems || []
-      }
-    }
+    if (cartError) throw cartError;
+    cartItems = items || [];
 
     if (!cartItems || cartItems.length === 0) {
-      console.error('Cart Empty Check Failed. Items:', cartItems);
       throw new Error('Cart is empty')
     }
 
-    // Calculate totals
+    // 2. Calculate Totals
     const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
-    const taxAmount = subtotal * 0.15 // 15% tax rate
-    const shippingAmount = subtotal > 50000 ? 0 : 2500 // Free shipping over $500
+    const taxAmount = subtotal * 0.16 // 16% VAT in Zambia
+    const shippingAmount = subtotal > 1000 ? 0 : 50
     const totalAmount = subtotal + taxAmount + shippingAmount
 
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-
-    // Create order
+    // 3. Create Order record
     const orderData = {
-      user_id: profile?.id || null,
-      order_number: orderNumber,
-      status: 'pending',
-      payment_status: 'pending',
+      user_id: user?.id || null,
+      guest_email: user ? null : customer_info.email,
+      guest_phone: user ? null : customer_info.phone,
+      guest_name: user ? null : `${customer_info.firstName} ${customer_info.lastName}`,
+      guest_session_id: user ? null : guest_session_id,
+      order_number: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      status: 'PENDING',
+      payment_status: 'PENDING',
       total_amount: totalAmount,
-      
+      tax_amount: taxAmount,
+      shipping_amount: shippingAmount,
+      currency: 'ZMW',
       shipping_address: {
         firstName: shipping_info?.firstName || customer_info.firstName,
         lastName: shipping_info?.lastName || customer_info.lastName,
-        company: shipping_info?.company || customer_info.company,
         address: shipping_info?.address || customer_info.address || "",
         city: shipping_info?.city || customer_info.city || "",
-        state: shipping_info?.state || customer_info.state || "",
-        zipCode: shipping_info?.zipCode || customer_info.zipCode || "",
         country: shipping_info?.country || customer_info.country || "Zambia"
       },
-      
-      billing_address: {
-        firstName: customer_info.firstName,
-        lastName: customer_info.lastName,
-        company: customer_info.company,
-        address: customer_info.address || "",
-        city: customer_info.city || "",
-        state: customer_info.state || "",
-        zipCode: customer_info.zipCode || "",
-        country: customer_info.country || "Zambia",
-        email: customer_info.email,
-        phone: customer_info.phone
-      }
+      billing_address: customer_info
     }
 
     const { data: order, error: orderError } = await supabase
@@ -198,81 +112,73 @@ serve(async (req) => {
       .select()
       .single()
 
-    if (orderError) {
-      throw new Error(`Failed to create order: ${orderError.message}`)
-    }
+    if (orderError) throw orderError
 
-    // Create order items
+    // 4. Create Order Items
     const orderItems = cartItems.map(item => ({
       order_id: order.id,
-      product_id: item.product.id,
+      product_id: item.product_id,
       quantity: item.quantity,
-      price: item.product.price
+      price_snapshot: item.product.price
     }))
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems)
+    const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
+    if (itemsError) throw itemsError
 
-    if (itemsError) {
-      throw new Error(`Failed to create order items: ${itemsError.message}`)
+    // 5. Create Vendor Orders
+    const vendorIds = [...new Set(cartItems.map(item => item.product.vendor_id).filter(id => !!id))];
+    if (vendorIds.length > 0) {
+        const vendorOrders = vendorIds.map(vId => ({
+            vendor_id: vId,
+            order_id: order.id,
+            status: 'PENDING'
+        }));
+        await supabase.from('vendor_orders').insert(vendorOrders);
     }
 
+    // 6. Clear Cart
+    await supabase.from('carts')
+      .delete()
+      .eq(user ? 'user_id' : 'guest_session_id', user ? user.id : guest_session_id);
 
-
-    // Send notification if user is logged in
-    if (user && profile) {
-      await supabase.from('notifications').insert({
-        user_id: profile.id,
-        title: 'Order Created',
-        message: `Your order ${orderNumber} has been created and is pending payment.`,
-        type: 'info'
-      })
+    // 7. Send Email Receipt
+    try {
+        await supabase.functions.invoke('send-email', {
+            body: {
+                to: user?.email || customer_info.email,
+                type: 'ORDER_CREATED',
+                order_id: order.id,
+                data: { order_number: order.order_number }
+            }
+        });
+    } catch (e) {
+        console.error("Failed to send order email:", e);
     }
 
-    // Clear cart items
-    if (sourceCartId) {
-        if (sourceIsGuest) {
-            await supabase.from('guest_cart_items').delete().eq('guest_cart_id', sourceCartId);
-        } else {
-            await supabase.from('cart_items').delete().eq('cart_id', sourceCartId);
+    // 8. Notify vendors
+    for (const vId of vendorIds) {
+        const { data: vUsers } = await supabase.from('vendor_users').select('user_id').eq('vendor_id', vId);
+        if (vUsers) {
+            const notifications = vUsers.map(vu => ({
+                user_id: vu.user_id,
+                title: 'New Order Received',
+                message: `You have a new order #${order.order_number} for fulfillment.`,
+                type: 'info'
+            }));
+            await supabase.from('notifications').insert(notifications);
         }
     }
-
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        order: {
-          id: order.id,
-          order_number: orderNumber,
-          total_amount: totalAmount,
-          items: orderItems.length
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      JSON.stringify({ success: true, order }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
-    console.error('Error creating order:', error)
+  } catch (error: any) {
+    console.error('Create Order Error:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-        debug: {
-            user_id: user?.id,
-            guest_session_id,
-            sourceCartId,
-            sourceIsGuest
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 to allow client to parse error message
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })

@@ -70,13 +70,14 @@ const VendorInventory: React.FC = () => {
   const handleUpdateStock = async () => {
     if (!selectedPart) return;
     try {
-      const { data: vendorData } = await supabase
-        .from('vendors')
-        .select('id')
-        .eq('owner_id', user?.id)
-        .single();
+      const { data: vuData } = await supabase
+        .from('vendor_users')
+        .select('vendor_id')
+        .eq('user_id', user?.id)
+        .limit(1)
+        .maybeSingle();
 
-      if (!vendorData) {
+      if (!vuData) {
         toast.error("Could not find your vendor profile");
         return;
       }
@@ -85,7 +86,7 @@ const VendorInventory: React.FC = () => {
         .from('inventory')
         .upsert({
           product_id: parseInt(selectedPart.id),
-          vendor_id: vendorData.id,
+          vendor_id: vuData.vendor_id,
           quantity: newStock,
           last_restocked: new Date().toISOString()
         } as any, { onConflict: 'product_id, vendor_id' });

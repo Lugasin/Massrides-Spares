@@ -29,22 +29,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-interface TJTransaction {
+interface Payment {
   id: string;
   order_id: string;
-  transaction_id: string;
-  event_type: string;
+  provider_reference: string;
+  provider: string;
   amount: number;
   currency: string;
   status: string;
-  webhook_data: any;
-  processed_at: string;
+  raw_payload: any;
   created_at: string;
   order?: {
-    // order_number removed, use id if needed
     total_amount: number;
     status: string;
-    payment_status: string;
     user_id: string;
   };
 }
@@ -53,11 +50,9 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
-  payment_status: string;
   total_amount: number;
-  tj: any;
   created_at: string;
-  user_profile?: {
+  profiles?: {
     full_name: string;
     email: string;
   };
@@ -74,7 +69,7 @@ interface PaymentMetrics {
 
 const PaymentMonitoring = () => {
   const { user, profile, userRole } = useAuth();
-  const [transactions, setTransactions] = useState<TJTransaction[]>([]);
+  const [transactions, setTransactions] = useState<Payment[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<PaymentMetrics>({
     totalTransactions: 0,
@@ -87,7 +82,7 @@ const PaymentMonitoring = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedTransaction, setSelectedTransaction] = useState<TJTransaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Payment | null>(null);
   const [settlementDialog, setSettlementDialog] = useState<{
     isOpen: boolean;
     transactionId: string;
@@ -113,16 +108,15 @@ const PaymentMonitoring = () => {
     try {
       setLoading(true);
 
-      // Fetch transactions
+      // Fetch payments
       const { data: transactionData, error: transactionError } = await supabase
-        .from('tj_transaction_logs')
+        .from('payments')
         .select(`
           *,
           order:orders(
             id,
             total_amount,
             status,
-            payment_status,
             user_id
           )
         `)
@@ -132,14 +126,13 @@ const PaymentMonitoring = () => {
       if (transactionError) throw transactionError;
       setTransactions(transactionData || []);
 
-      // Fetch orders with payment data
+      // Fetch orders
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select(`
           *,
-          user_profile:user_profiles(full_name, email)
+          profiles(full_name, email)
         `)
-        .not('payment_intent_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -148,9 +141,9 @@ const PaymentMonitoring = () => {
 
       // Calculate metrics
       const allTransactions = transactionData || [];
-      const successfulTxns = allTransactions.filter(t => t.status === 'PAYMENT_SETTLED');
-      const failedTxns = allTransactions.filter(t => t.status === 'PAYMENT_FAILED' || t.status === 'PAYMENT_DECLINED');
-      const pendingTxns = allTransactions.filter(t => t.status === 'PAYMENT_AUTHORISED');
+      const successfulTxns = allTransactions.filter(t => t.status === 'PAID');
+      const failedTxns = allTransactions.filter(t => t.status === 'FAILED');
+      const pendingTxns = allTransactions.filter(t => t.status === 'PENDING' || t.status === 'INITIATED');
       const totalRevenue = successfulTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
 
       setMetrics({
@@ -178,7 +171,7 @@ const PaymentMonitoring = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'tj_transaction_logs'
+            table: 'payments'
         },
         () => {
           fetchData();
@@ -241,17 +234,14 @@ const PaymentMonitoring = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PAYMENT_SETTLED':
-      case 'paid':
+      case 'PAID':
         return 'default';
-      case 'PAYMENT_AUTHORISED':
-      case 'authorised':
+      case 'INITIATED':
+      case 'PROCESSING':
         return 'secondary';
-      case 'PAYMENT_FAILED':
-      case 'failed':
+      case 'FAILED':
         return 'destructive';
-      case 'PAYMENT_CANCELLED':
-      case 'cancelled':
+      case 'CANCELLED':
         return 'outline';
       default:
         return 'secondary';
@@ -260,14 +250,12 @@ const PaymentMonitoring = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PAYMENT_SETTLED':
-      case 'paid':
+      case 'PAID':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'PAYMENT_AUTHORISED':
-      case 'authorised':
+      case 'INITIATED':
+      case 'PROCESSING':
         return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'PAYMENT_FAILED':
-      case 'failed':
+      case 'FAILED':
         return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return <AlertTriangle className="h-4 w-4 text-gray-500" />;
@@ -276,8 +264,8 @@ const PaymentMonitoring = () => {
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = !searchTerm ||
-      transaction.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(transaction.order?.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+      transaction.provider_reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(transaction.order_id || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
 
@@ -287,9 +275,9 @@ const PaymentMonitoring = () => {
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm ||
       order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      order.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || order.payment_status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -314,7 +302,7 @@ const PaymentMonitoring = () => {
             <CreditCard className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-3xl font-bold">Payment Monitoring</h1>
-              <p className="text-muted-foreground">Monitor Transaction Junction payments and settlements</p>
+              <p className="text-muted-foreground">Monitor Vesicash payments and settlements</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -443,8 +431,8 @@ const PaymentMonitoring = () => {
                           <TableCell className="font-medium">{order.order_number}</TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium">{order.user_profile?.full_name || 'Guest'}</p>
-                              <p className="text-sm text-muted-foreground">{order.user_profile?.email}</p>
+                              <p className="font-medium">{order.profiles?.full_name || 'Guest'}</p>
+                              <p className="text-sm text-muted-foreground">{order.profiles?.email}</p>
                             </div>
                           </TableCell>
                           <TableCell className="font-medium">
@@ -533,14 +521,14 @@ const PaymentMonitoring = () => {
                     {filteredTransactions.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell className="font-mono text-sm">
-                          {transaction.transaction_id || 'N/A'}
+                            {transaction.provider_reference || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {transaction.order?.id ? `Order #${String(transaction.order.id).slice(0, 8)}` : 'N/A'}
+                            {transaction.order_id ? `Order #${String(transaction.order_id).slice(0, 8)}` : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {transaction.event_type}
+                              {transaction.provider}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -642,27 +630,27 @@ const PaymentMonitoring = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <Label>Transaction ID</Label>
-                    <p className="font-mono">{selectedTransaction.transaction_id || 'N/A'}</p>
+                    <Label>Provider Reference</Label>
+                    <p className="font-mono">{selectedTransaction.provider_reference || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label>Order Number</Label>
-                    <p>{selectedTransaction.order?.order_number || 'N/A'}</p>
+                    <Label>Order ID</Label>
+                    <p>{selectedTransaction.order_id || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label>Event Type</Label>
-                    <Badge variant="outline">{selectedTransaction.event_type}</Badge>
+                    <Label>Provider</Label>
+                    <Badge variant="outline">{selectedTransaction.provider}</Badge>
                   </div>
                   <div>
                     <Label>Amount</Label>
-                    <p>${(selectedTransaction.amount || 0).toLocaleString()}</p>
+                    <p>ZK {(selectedTransaction.amount || 0).toLocaleString()}</p>
                   </div>
                 </div>
 
                 <div>
-                  <Label>Webhook Data</Label>
+                  <Label>Raw Payload</Label>
                   <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-64">
-                    {JSON.stringify(selectedTransaction.webhook_data, null, 2)}
+                    {JSON.stringify(selectedTransaction.raw_payload, null, 2)}
                   </pre>
                 </div>
               </div>
