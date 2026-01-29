@@ -15,185 +15,124 @@ import {
   CheckCircle,
   CreditCard,
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  Phone
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { supabase } from '@/integrations/supabase/client';
-import { mergeGuestCart } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
 
 const GuestCheckout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
-  const navigate = useNavigate(); // Hook must be first
-  // Initialize from localStorage immediately
-  const [sessionId] = useState(() => localStorage.getItem('guest_session_id') || '');
-  const [step, setStep] = useState(1); // 1: Email, 2: Verification, 3: Payment
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1); // 1: Info, 2: Payment
+  const [pendingOrder, setPendingOrder] = useState<any>(null);
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentProcessingMessage, setPaymentProcessingMessage] = useState<string | null>(null);
-  const [sendReceipt, setSendReceipt] = useState(true);
 
-  const handleSendVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const checkPendingOrder = async () => {
+      const sessionId = localStorage.getItem('guest_session_id');
+      if (!sessionId) return;
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .in('status', ['PENDING', 'PROCESSING', 'INITIATED'])
+        .eq('guest_session_id', sessionId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) setPendingOrder(data);
+    };
+    checkPendingOrder();
+  }, []);
 
-    if (!email || !name) {
-      toast.error('Please enter both name and email');
-      return;
-    }
-
-    setIsVerifying(true);
-
+  const handleResumePayment = async () => {
+    if (!pendingOrder) return;
+    setIsProcessing(true);
     try {
-      // Use Supabase Auth for OTP
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          data: {
-            full_name: name,
-            role: 'customer' // Automatically make them a customer
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success('Verification code sent to your email.');
-      setStep(2);
-    } catch (error: any) {
-      console.error('Error sending verification:', error);
-      toast.error(`Failed to send verification code: ${error.message}`);
-    } finally {
-      setIsVerifying(false);
+        const { data, error } = await supabase.functions.invoke('create-payment-session', {
+            body: { order_id: pendingOrder.id }
+        });
+        if (error) throw error;
+        if (data.checkout_url) window.location.href = data.checkout_url;
+    } catch (e: any) {
+        toast.error("Failed to resume payment");
+        setIsProcessing(false);
     }
   };
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCancelOrder = async () => {
+    if (!pendingOrder) return;
+    try {
+        await supabase.from('orders').update({ status: 'CANCELLED' }).eq('id', pendingOrder.id);
+        setPendingOrder(null);
+        toast.success("Order cancelled");
+    } catch (e: any) {
+        toast.error("Failed to cancel order");
+    }
+  };
 
-    if (!verificationCode) {
-      toast.error('Please enter the verification code');
+  const handleInfoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !phone || !firstName || !lastName) {
+      toast.error('Please fill in all required fields');
       return;
     }
-
-    setIsVerifying(true);
-
-    try {
-      // Verify OTP and sign in
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: verificationCode,
-        type: 'email'
-      });
-
-      if (error) throw error;
-
-      if (data.session) {
-        toast.success('Email verified successfully! You are now logged in.');
-
-        // Explicitly merge cart before proceeding
-        try {
-          await mergeGuestCart();
-          setStep(3);
-        } catch (error) {
-          console.error("Cart merge failed", error);
-          // Still proceed, as they are logged in, but warn? 
-          // Actually, if merge fails, their cart is empty. 
-          // But create-order might check guest_session_id if provided.
-          // Better to proceed.
-          setStep(3);
-        }
-      } else {
-        throw new Error('Verification successful but no session created.');
-      }
-
-    } catch (error: any) {
-      console.error('Error verifying code:', error);
-      toast.error(`Verification failed: ${error.message}`);
-    } finally {
-      setIsVerifying(false);
-    }
+    setStep(2);
   };
 
   const handleProceedToPayment = async () => {
     setIsProcessing(true);
     setPaymentProcessingMessage("Initializing secure payment...");
-    toast.info("Proceeding to payment gateway...");
-
-    // Add delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
-      // Use state variable which persists even if localStorage is cleared by mergeGuestCart
-      const currentSessionId = sessionId; // Use state
+      const sessionId = localStorage.getItem('guest_session_id');
 
-      // If not logged in and no guest session, we can't proceed
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !currentSessionId) {
-        throw new Error("Session not found. Please start checkout again.");
-      }
-
-      // Create order using Edge Function
+      // 1. Create Order as Guest
       const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
         body: {
-          guest_session_id: currentSessionId,
+          guest_session_id: sessionId,
           customer_info: {
             email,
-            firstName: name.split(' ')[0],
-            lastName: name.split(' ').slice(1).join(' '),
-            address: 'Guest Address', // Minimal info for guest checkout
+            phone,
+            firstName,
+            lastName,
+            address: 'Guest Address',
             city: 'Guest City',
-            state: 'Guest State',
-            zipCode: '00000',
             country: 'Zambia',
-          },
-          send_receipt: sendReceipt
+          }
         }
       });
 
       if (orderError) throw new Error(orderError.message);
       const { order } = orderData;
 
-      // Create Payment session (Vesicash via generic endpoint)
+      // 2. Create Payment Session
       const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-payment-session', {
         body: {
-          amount: order.total_amount,
-          currency: 'USD',
-          customer_email: email,
-          customer_name: name,
-          merchant_ref: order.order_number,
-          public_key: import.meta.env.VITE_VESICASH_PUBLIC_KEY,
-          success_url: `${window.location.origin}/checkout/success?order=${order.order_number}`,
-          cancel_url: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
-          webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
+          order_id: order.id,
+          return_url: `${window.location.origin}/checkout/success?order=${order.order_number}`
         }
       });
 
       if (paymentError) throw new Error(paymentError.message);
 
-      // Redirect to payment page
-      // Handle both potential response formats (generic or direct)
-      const redirectUrl = paymentData.payment_url || paymentData.redirectUrl;
-      if (redirectUrl) {
-        window.open(redirectUrl, '_blank');
+      if (paymentData.checkout_url) {
+        toast.success("Redirecting to payment gateway...");
+        window.location.href = paymentData.checkout_url;
       } else {
-        throw new Error('No redirect URL received from payment provider');
+        throw new Error('No redirect URL received');
       }
-
-      // Clear local cart
-      clearCart();
-
-      // Navigate to success page
-      navigate(`/checkout/success?order=${order.order_number}`);
 
     } catch (error: any) {
       console.error('Payment error:', error);
       toast.error(`Failed to process payment: ${error.message}`);
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -223,7 +162,7 @@ const GuestCheckout = () => {
         <div className="max-w-2xl mx-auto">
           {/* Back to Cart */}
           <div className="mb-6">
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" size="sm">
               <Link to="/cart">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Cart
@@ -231,26 +170,41 @@ const GuestCheckout = () => {
             </Button>
           </div>
 
+          {pendingOrder && (
+              <Card className="mb-8 border-yellow-200 bg-yellow-50">
+                  <CardHeader>
+                      <CardTitle className="text-yellow-800">Pending Order Found</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <p className="text-yellow-700 mb-4 text-sm">
+                          You have an unfinished order (#{pendingOrder.order_number}).
+                          Would you like to complete the payment or start a new one?
+                      </p>
+                      <div className="flex gap-4">
+                          <Button onClick={handleResumePayment} className="bg-yellow-600 hover:bg-yellow-700">
+                              Resume Payment
+                          </Button>
+                          <Button variant="outline" onClick={handleCancelOrder}>
+                              Cancel Order
+                          </Button>
+                      </div>
+                  </CardContent>
+              </Card>
+          )}
+
           {/* Progress Steps */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center space-x-4">
               <div className={`flex items-center ${step >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  {step > 1 ? <CheckCircle className="h-4 w-4" /> : '1'}
+                  1
                 </div>
-                <span className="ml-2 font-medium">Email</span>
+                <span className="ml-2 font-medium">Info</span>
               </div>
               <div className="w-8 h-px bg-border"></div>
               <div className={`flex items-center ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  {step > 2 ? <CheckCircle className="h-4 w-4" /> : '2'}
-                </div>
-                <span className="ml-2 font-medium">Verify</span>
-              </div>
-              <div className="w-8 h-px bg-border"></div>
-              <div className={`flex items-center ${step >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  3
+                  2
                 </div>
                 <span className="ml-2 font-medium">Payment</span>
               </div>
@@ -261,66 +215,69 @@ const GuestCheckout = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Guest Checkout
+                  <User className="h-5 w-5" />
+                  Guest Information
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-5 w-5 text-blue-600" />
-                      <h3 className="font-medium text-blue-800">Quick Guest Checkout</h3>
+                <form onSubmit={handleInfoSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name *</Label>
+                      <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="John"
+                        required
+                      />
                     </div>
-                    <p className="text-sm text-blue-700">
-                      No account needed! Just verify your email and complete your purchase securely.
-                    </p>
-                  </div>
-
-                  <div className="bg-muted/30 rounded-lg p-4 mb-6">
-                    <h4 className="font-medium mb-2">Order Summary</h4>
-                    <div className="flex justify-between items-center">
-                      <span>{itemCount} items</span>
-                      <span className="text-xl font-bold text-primary">${total.toLocaleString()}</span>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name *</Label>
+                      <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Doe"
+                        required
+                      />
                     </div>
                   </div>
-                </div>
 
-                <form onSubmit={handleSendVerification} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter your full name"
-                      required
-                    />
-                  </div>
-
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email address"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      We'll send a verification code to this email
-                    </p>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        className="pl-10"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="john@example.com"
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={isVerifying}
-                  >
-                    {isVerifying ? 'Sending...' : 'Send Verification Code'}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        className="pl-10"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+260..."
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full" size="lg">
+                    Continue to Payment
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </form>
@@ -343,126 +300,39 @@ const GuestCheckout = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5" />
-                  Verify Your Email
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center mb-6">
-                  <p className="text-muted-foreground">
-                    We've sent a 6-digit verification code to:
-                  </p>
-                  <p className="font-medium text-primary">{email}</p>
-                </div>
-
-                <form onSubmit={handleVerifyCode} className="space-y-4">
-                  <div>
-                    <Label htmlFor="code">Verification Code</Label>
-                    <Input
-                      id="code"
-                      type="text"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                      maxLength={6}
-                      className="text-center text-lg tracking-widest"
-                      required
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={isVerifying}
-                  >
-                    {isVerifying ? 'Verifying...' : 'Verify Email'}
-                    <CheckCircle className="ml-2 h-4 w-4" />
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => setStep(1)}
-                  >
-                    Change Email Address
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          {step === 3 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
-                  Complete Payment
+                  Review & Pay
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <h3 className="font-medium text-green-800">Email Verified</h3>
-                    </div>
-                    <p className="text-sm text-green-700">
-                      Your email has been verified. You can now proceed to payment.
-                    </p>
-                  </div>
-
                   <div className="bg-muted/30 rounded-lg p-4">
-                    <h4 className="font-medium mb-3">Order Summary</h4>
-                    <div className="space-y-2">
-                      {items.slice(0, 3).map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span>{item.name} x{item.quantity}</span>
-                          <span>${(item.price * item.quantity).toLocaleString()}</span>
-                        </div>
-                      ))}
-                      {items.length > 3 && (
-                        <div className="text-sm text-muted-foreground">
-                          +{items.length - 3} more items
-                        </div>
-                      )}
-                      <div className="border-t pt-2 mt-2">
-                        <div className="flex justify-between font-medium">
-                          <span>Total:</span>
-                          <span className="text-xl font-bold text-primary">
-                            ${total.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
+                    <h4 className="font-medium mb-2">Order Summary</h4>
+                    <div className="flex justify-between items-center mb-4">
+                      <span>{itemCount} items</span>
+                      <span className="text-xl font-bold text-primary">ZK {total.toLocaleString()}</span>
+                    </div>
+                    <div className="text-sm space-y-1 text-muted-foreground">
+                        <p><strong>Name:</strong> {firstName} {lastName}</p>
+                        <p><strong>Email:</strong> {email}</p>
+                        <p><strong>Phone:</strong> {phone}</p>
                     </div>
                   </div>
 
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-4">
-                      You will be redirected to our secure payment partner to complete your purchase.
+                      You will be redirected to Vesicash for secure payment processing.
                     </p>
-
-                    <div className="flex items-center justify-center space-x-2 mb-4">
-                      <Checkbox
-                        id="sendReceipt"
-                        checked={sendReceipt}
-                        onCheckedChange={(checked) => setSendReceipt(checked === true)}
-                      />
-                      <Label htmlFor="sendReceipt">
-                        Email me a copy of the order receipt
-                      </Label>
-                    </div>
 
                     <Button
                       onClick={handleProceedToPayment}
                       disabled={isProcessing}
-                      className="w-full bg-primary hover:bg-primary-hover"
+                      className="w-full"
                       size="lg"
                     >
                       {isProcessing ? 'Processing...' : (
                         <>
-                          Proceed to Payment
+                          Pay Now with Vesicash
                           <ExternalLink className="ml-2 h-4 w-4" />
                         </>
                       )}
@@ -470,7 +340,7 @@ const GuestCheckout = () => {
 
                     <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
                       <ShieldCheck className="h-4 w-4" />
-                      <span>Secure payment processing via Vesicash</span>
+                      <span>Secure Payment Verified</span>
                     </div>
                   </div>
                 </div>
@@ -480,11 +350,10 @@ const GuestCheckout = () => {
 
           {isProcessing && (
             <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-              <Card className="w-full max-w-md p-6 shadow-lg border-primary/20">
+              <Card className="w-full max-w-md p-6 shadow-lg">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                   <p className="text-lg font-medium">{paymentProcessingMessage || "Processing..."}</p>
-                  <p className="text-sm text-muted-foreground">Please do not close this window.</p>
                 </div>
               </Card>
             </div>

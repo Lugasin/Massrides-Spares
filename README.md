@@ -1,22 +1,21 @@
 # Massrides Agricultural Spare Parts PWA
 
-A comprehensive Progressive Web Application for agricultural spare parts e-commerce with real-time features, admin controls, and Transaction Junction payment integration.
+A comprehensive Progressive Web Application for agricultural spare parts e-commerce with real-time features, multi-vendor support, and Vesicash payment integration.
 
 ## 🚀 Features
 
 ### Core E-commerce
-- **Product Catalog**: Browse 80+ agricultural spare parts with advanced filtering
+- **Product Catalog**: Browse agricultural products with advanced filtering
 - **Shopping Cart**: Real-time sync for users, localStorage for guests
-- **Guest Checkout**: Email verification for secure guest purchases
-- **User Accounts**: Complete registration, login, and profile management
-- **Order Management**: Full lifecycle tracking with real-time updates
+- **Guest Checkout**: "Payment First, Account Later" architecture allowing guests to purchase without immediate registration
+- **User Accounts**: Phone OTP (SMS) as primary auth, with automatic linking of previous guest orders
+- **Order Management**: Full lifecycle tracking (PENDING, PAID, SHIPPED, etc.)
 
 ### Payment Processing
-- **Transaction Junction Integration**: Secure HPP (Hosted Payment Page) flow
-- **Payment Monitoring**: Real-time transaction tracking for admins
-- **Manual Settlement**: Admin controls for authorized transactions
-- **Payment Methods**: Tokenized payment method storage
-- **Webhook Handling**: Idempotent webhook processing with audit trails
+- **Vesicash Integration**: Secure payment link generation via Vesicash
+- **Payment Monitoring**: Timeline-based tracking of payment status and transitions
+- **Webhook Handling**: Robust webhook processing for status updates with detailed logging
+- **Multi-Vendor Payments**: Automatic association of payments with specific vendors
 
 ### Admin & Vendor Tools
 - **Admin Dashboard**: Comprehensive system control and monitoring
@@ -49,9 +48,9 @@ A comprehensive Progressive Web Application for agricultural spare parts e-comme
 
 ### Backend
 - **Supabase** (PostgreSQL, Auth, Realtime, Storage, Edge Functions)
-- **Transaction Junction** for payment processing
-- **Row Level Security** for data protection
-- **Edge Functions** for server-side logic
+- **Vesicash** for secure payment processing
+- **Row Level Security** (RLS) for multi-tenant data protection
+- **Edge Functions** for server-side logic (TypeScript/Deno)
 
 ### PWA
 - **Service Worker** for offline functionality
@@ -62,34 +61,22 @@ A comprehensive Progressive Web Application for agricultural spare parts e-comme
 ## 📋 Database Schema
 
 ### Core Tables
-- `user_profiles` - User information and roles
-- `spare_parts` - Product catalog with full specifications
-- `orders` - Order management with payment tracking
+- `profiles` - User information and roles
+- `vendors` - Multi-vendor platform data
+- `products` - Product catalog with vendor associations
+- `orders` - Order management with payment and vendor tracking
 - `order_items` - Order line items
-- `categories` - Product categorization
 
-### Cart Management
-- `user_carts` - Authenticated user carts
-- `cart_items` - Cart line items
-- `guest_carts` - Guest shopping carts
-- `guest_cart_items` - Guest cart items
+### Payment & Monitoring
+- `payments` - Core payment records and status tracking
+- `payment_logs` - Detailed history of payment state changes
+- `webhook_events` - Raw and processed webhook data for auditing
+- `email_logs` - Tracking of all system-sent emails
 
-### Communication
-- `notifications` - Real-time user notifications
-- `messages` - User messaging system
-- `conversations` - Message threads
-
-### Payment & Security
-- `tj_transaction_logs` - Complete payment audit trail
-- `tj_payment_methods` - Tokenized payment methods
-- `tj_security_logs` - Security event logging
-- `activity_logs` - Comprehensive user activity tracking
-
-### System Management
-- `user_settings` - User preferences
-- `system_metrics` - Performance monitoring
-- `audit_logs` - Change tracking for compliance
-- `guest_verifications` - Email verification for guests
+### System & Security
+- `notifications` - In-app alerts and notifications
+- `activity_logs` - Generic audit trail for system events
+- `inventory_logs` - Tracking of stock movements
 
 ## 🔧 Setup Instructions
 
@@ -136,14 +123,16 @@ supabase migration up
 supabase db reset --linked
 ```
 
-### 4. Configure Transaction Junction
-Set up TJ credentials in Supabase secrets:
+### 4. Configure Vesicash
+Set up Vesicash credentials in Supabase secrets:
 ```bash
-supabase secrets set TJ_CLIENT_ID="your_client_id"
-supabase secrets set TJ_CLIENT_SECRET="your_client_secret"
-supabase secrets set TJ_OAUTH_TOKEN_URL="your_oauth_url"
-supabase secrets set TJ_API_BASE_URL="your_api_base_url"
-supabase secrets set TJ_WEBHOOK_SECRET="your_webhook_secret"
+supabase secrets set VESICASH_PRIVATE_KEY="your_private_key"
+supabase secrets set VESICASH_PUBLIC_KEY="your_public_key"
+supabase secrets set VESICASH_WEBHOOK_SECRET="your_webhook_secret"
+supabase secrets set VESICASH_API_URL="https://api.vesicash.com/v1"
+
+# Set Email provider secrets
+supabase secrets set RESEND_API_KEY="your_resend_api_key"
 ```
 
 ### 5. Deploy Edge Functions
@@ -159,9 +148,10 @@ npm run dev
 ## 👥 User Roles & Permissions
 
 ### Guest
-- Browse catalog
+- Browse products
 - Add to cart (localStorage)
-- Guest checkout with email verification
+- Checkout using phone/email
+- Claim order later by signing up
 
 ### Customer
 - Full shopping experience
@@ -362,12 +352,12 @@ supabase db reset
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   React PWA     │    │   Supabase       │    │ Transaction     │
-│                 │    │                  │    │ Junction        │
+│   React PWA     │    │   Supabase       │    │   Vesicash      │
+│                 │    │                  │    │                 │
 │ • Components    │◄──►│ • PostgreSQL     │    │                 │
-│ • Pages         │    │ • Auth           │    │ • HPP           │
+│ • Pages         │    │ • Auth (OTP)     │    │ • Payment Link  │
 │ • Contexts      │    │ • Realtime       │◄──►│ • Webhooks      │
-│ • Hooks         │    │ • Edge Functions │    │ • Settlement    │
+│ • Hooks         │    │ • Edge Functions │    │                 │
 │ • Service Worker│    │ • Storage        │    │                 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```

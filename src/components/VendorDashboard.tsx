@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
 import { VendorPaymentPanel } from '@/components/vendor/VendorPaymentPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DashboardData {
   totalRevenue: number;
@@ -76,7 +77,28 @@ const VendorDashboard: React.FC = () => {
   ];
 
   if (loading) {
-    return <div className="p-6 text-center">Loading vendor dashboard...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded-full" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-48" /></CardHeader>
+          <CardContent><Skeleton className="h-40 w-full" /></CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

@@ -11,6 +11,7 @@ const error = (...args) => console.error('[SW]', ...args);
 // Assets to cache immediately
 const STATIC_ASSETS = [
   '/',
+  '/offline.html',
   '/manifest.json',
   '/tractor.ico',
   '/tractor-192x192.png',
@@ -139,7 +140,7 @@ self.addEventListener('fetch', (event) => {
 
         // Return offline page for navigation requests
         if (request.mode === 'navigate') {
-          const offlineResponse = await caches.match('/');
+          const offlineResponse = await caches.match('/offline.html');
           if (offlineResponse) {
             return offlineResponse;
           }

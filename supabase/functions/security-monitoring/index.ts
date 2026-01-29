@@ -103,30 +103,23 @@ serve(async (req) => {
 async function getSecurityMetrics(supabase: any, since: string, params: SecurityQueryParams) {
   // Security events summary
   const { data: eventsSummary } = await supabase
-    .from('tj_security_logs')
-    .select('event_type, risk_score, blocked, created_at')
+    .from('activity_logs')
+    .select('action, metadata, created_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(params.limit || 1000)
 
   const events = eventsSummary || []
   
-  // High-risk events
-  const highRiskEvents = events.filter(e => e.risk_score >= (params.risk_threshold || 7))
+  // Risk evaluation based on activity logs
+  const highRiskEvents = events.filter(e => e.metadata?.risk_score >= (params.risk_threshold || 7))
   
-  // Blocked events
-  const blockedEvents = events.filter(e => e.blocked)
+  // Blocked events (if metadata has blocked info)
+  const blockedEvents = events.filter(e => e.metadata?.blocked)
   
   // Event type breakdown
   const eventTypes = events.reduce((acc, event) => {
-    acc[event.event_type] = (acc[event.event_type] || 0) + 1
-    return acc
-  }, {})
-
-  // Risk score distribution
-  const riskDistribution = events.reduce((acc, event) => {
-    const range = getRiskRange(event.risk_score)
-    acc[range] = (acc[range] || 0) + 1
+    acc[event.action] = (acc[event.action] || 0) + 1
     return acc
   }, {})
 
@@ -135,30 +128,31 @@ async function getSecurityMetrics(supabase: any, since: string, params: Security
     high_risk_events: highRiskEvents.length,
     blocked_events: blockedEvents.length,
     event_types: eventTypes,
-    risk_distribution: riskDistribution,
     latest_events: events.slice(0, 10)
   }
 }
 
 async function getSecurityAlerts(supabase: any, since: string, riskThreshold: number) {
+  // Use activity logs for security alerts
   const { data: alerts } = await supabase
-    .from('tj_security_logs')
+    .from('activity_logs')
     .select('*')
     .gte('created_at', since)
-    .gte('risk_score', riskThreshold)
     .order('created_at', { ascending: false })
     .limit(50)
 
-  return (alerts || []).map(alert => ({
-    id: alert.id,
-    event_type: alert.event_type,
-    risk_score: alert.risk_score,
-    blocked: alert.blocked,
-    created_at: alert.created_at,
-    metadata: alert.metadata,
-    severity: getSeverity(alert.risk_score),
-    description: getEventDescription(alert.event_type, alert.metadata)
-  }))
+  return (alerts || [])
+    .filter(a => (a.metadata?.risk_score || 0) >= riskThreshold)
+    .map(alert => ({
+      id: alert.id,
+      event_type: alert.action,
+      risk_score: alert.metadata?.risk_score || 0,
+      blocked: alert.metadata?.blocked || false,
+      created_at: alert.created_at,
+      metadata: alert.metadata,
+      severity: getSeverity(alert.metadata?.risk_score || 0),
+      description: getEventDescription(alert.action, alert.metadata)
+    }))
 }
 
 async function getPaymentMetrics(supabase: any, since: string) {

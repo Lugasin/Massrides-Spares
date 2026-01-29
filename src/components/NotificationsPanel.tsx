@@ -44,7 +44,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', profile.id)
+        .or(`user_id.eq.${profile.id},role.eq.${profile.role}`)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -68,11 +68,11 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, onClose
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${profile.id}`
+          table: 'notifications'
         },
         (payload) => {
           const newNotification = payload.new as Notification;
+          if ((newNotification as any).user_id !== profile.id && (newNotification as any).role !== profile.role) return;
           setNotifications(prev => [newNotification, ...prev]);
 
           // Show toast notification

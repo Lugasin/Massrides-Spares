@@ -19,6 +19,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AdminMetrics {
   totalUsers: number;
@@ -73,21 +75,19 @@ const AdminDashboard: React.FC = () => {
         ordersResult,
         revenueResult,
         vendorsResult,
-        activityResult,
-        securityResult
+        activityResult
       ] = await Promise.all([
-        supabase.from('user_profiles').select('id', { count: 'exact' }),
-        supabase.from('spare_parts').select('id', { count: 'exact' }),
+        supabase.from('profiles').select('id', { count: 'exact' }),
+        supabase.from('products').select('id', { count: 'exact' }),
         supabase.from('orders').select('id, status, total_amount'),
-        supabase.from('orders').select('total_amount').eq('payment_status', 'paid'),
-        supabase.from('user_profiles').select('id', { count: 'exact' }).eq('role', 'vendor').eq('is_active', true),
-        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10),
-        supabase.from('tj_security_logs').select('id', { count: 'exact' }).gte('risk_score', 7)
+        supabase.from('orders').select('total_amount').eq('status', 'PAID'),
+        supabase.from('vendors').select('id', { count: 'exact' }).eq('status', 'active'),
+        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10)
       ]);
 
       // Calculate metrics
-      const totalRevenue = revenueResult.data?.reduce((sum, order) => sum + order.total_amount, 0) || 0;
-      const pendingOrders = ordersResult.data?.filter(o => o.status === 'pending').length || 0;
+      const totalRevenue = revenueResult.data?.reduce((sum, order) => sum + Number(order.total_amount), 0) || 0;
+      const pendingOrders = ordersResult.data?.filter(o => o.status === 'PENDING').length || 0;
 
       setMetrics({
         totalUsers: usersResult.count || 0,
@@ -96,8 +96,8 @@ const AdminDashboard: React.FC = () => {
         totalRevenue,
         pendingOrders,
         activeVendors: vendorsResult.count || 0,
-        systemHealth: 98, // This would come from actual health checks
-        securityAlerts: securityResult.count || 0
+        systemHealth: 98,
+        securityAlerts: 0 // Mock for now
       });
 
       setRecentActivity(activityResult.data || []);
@@ -157,6 +157,35 @@ const AdminDashboard: React.FC = () => {
   const visibleActions = quickActions.filter(action => 
     !action.roles || action.roles.includes(userRole)
   );
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-6 w-24" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded-full" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-48" /></CardHeader>
+          <CardContent><Skeleton className="h-40 w-full" /></CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (userRole !== 'admin' && userRole !== 'super_admin') {
     return (

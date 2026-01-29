@@ -60,6 +60,7 @@ const AddProduct: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [vendorId, setVendorId] = useState<string | null>(null);
   const isEditMode = !!productId;
 
   const form = useForm<ProductFormValues>({
@@ -88,10 +89,22 @@ const AddProduct: React.FC = () => {
 
   useEffect(() => {
     fetchCategories();
+    fetchVendor();
     if (isEditMode) {
       fetchProduct();
     }
-  }, [isEditMode]);
+  }, [isEditMode, user?.id]);
+
+  const fetchVendor = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('vendor_users')
+      .select('vendor_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+    if (data) setVendorId(data.vendor_id);
+  };
 
   const fetchCategories = async () => {
     try {
@@ -178,16 +191,16 @@ const AddProduct: React.FC = () => {
       };
 
       const productData = {
-        title: values.title,
+        name: values.title, // Table uses 'name' not 'title' in initial schema
         description: values.description,
         price: values.price,
         sku: sku,
         category_id: values.category_id ? Number(values.category_id) : null,
-        vendor_id: profile.id, // Now a UUID
+        vendor_id: vendorId || profile.id, // Use vendorId from vendor_users
         attributes: attributes,
-        active: true, // or values.featured
+        is_active: true,
         main_image: values.main_image,
-        currency: 'USD'
+        currency: 'ZMW'
       };
 
       let currentProductId = isEditMode ? Number(productId) : null;
@@ -219,10 +232,9 @@ const AddProduct: React.FC = () => {
 
         const inventoryData = {
           product_id: currentProductId,
-          vendor_id: profile.id, // UUID
+          vendor_id: vendorId || profile.id,
           quantity: values.stock_quantity,
           location: 'Main Warehouse', // Default
-          updated_at: new Date().toISOString()
         };
 
         if (existingInv) {

@@ -1,8 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
-import { corsHeaders } from "../_shared/cors.ts";
 
-console.log("Create-Payment-Session Function Invoked");
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,8 +23,6 @@ serve(async (req) => {
       throw new Error("Missing order_id");
     }
 
-    console.log(`Creating payment session for Order: ${order_id}`);
-
     // 1. Fetch Order
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -34,40 +34,30 @@ serve(async (req) => {
       throw new Error(`Order not found: ${orderError?.message}`);
     }
 
-    // 2. Prepare Vesicash Payload
-    const amount = order.total || 0;
-    const currency = order.currency || 'ZMW'; // Default to ZMW as per schema
-    const description = `Order #${order.id}`;
-    
-    // Vesicash API requires: amount, currency, reference, redirect_url, etc.
-    // Assuming 'create_session' or 'transactions/create' endpoint.
-    // Based on user prompt: "Call Vesicash create-session endpoint"
-    
-    const vesicashSecret = Deno.env.get('VESICASH_SECRET_KEY');
-    const isMock = !vesicashSecret || vesicashSecret.includes('morSec_test_'); // treat test key as partial mock if needed, or real test
-    // Actually if key is there, use it.
+    // 2. Call Vesicash API
+    const vesicashSecret = Deno.env.get('VESICASH_PRIVATE_KEY') || Deno.env.get('VESICASH_SECRET_KEY');
+    const isMock = !vesicashSecret;
     
     let checkoutUrl = '';
     let transactionId = '';
     let rawResponse = {};
 
-    if (vesicashSecret) {
-      // Real API Call
+    if (!isMock) {
       const payload = {
-        amount,
-        currency,
-        reference: `ORD-${order.id}-${Date.now()}`, // Unique Ref
-        redirect_url: return_url,
-        return_url: return_url, // Some versions use this
-        email: order.customer_email || 'guest@massrides.co.zm', // Fallback
-        description
+        amount: order.total_amount,
+        currency: order.currency || 'ZMW',
+        reference: `ORD-${order.id}-${Date.now()}`,
+        success_url: return_url || `${Deno.env.get('SITE_URL')}/checkout/success`,
+        cancel_url: `${Deno.env.get('SITE_URL')}/checkout/cancel`,
+        email: order.guest_email || 'customer@massrides.co.zm',
+        metadata: { order_id: order.id }
       };
 
       const resp = await fetch('https://api.mor.vesicash.com/v1/transactions/create', { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'V-PRIVATE-KEY': vesicashSecret 
+          'V-PRIVATE-KEY': vesicashSecret!
         },
         body: JSON.stringify(payload)
       });
@@ -75,32 +65,29 @@ serve(async (req) => {
       rawResponse = await resp.json();
       
       if (!resp.ok) {
-        console.error("Vesicash Error:", rawResponse);
-        throw new Error("Failed to create Vesicash session");
+        throw new Error(`Vesicash Error: ${JSON.stringify(rawResponse)}`);
       }
 
-      // Map response
-      // Assuming response structure: { data: { link: '...', reference: '...' } }
       checkoutUrl = rawResponse.data?.link || rawResponse.data?.payment_url;
       transactionId = rawResponse.data?.reference || rawResponse.data?.id;
 
     } else {
-      // Mock Fallback
-      console.warn("Using MOCK Payment Session (No Secret Key)");
+      console.warn("Using MOCK Payment Session");
       transactionId = `mock_tx_${Date.now()}`;
-      checkoutUrl = `${return_url}?status=success&tx=${transactionId}`;
+      checkoutUrl = `${return_url || ''}?status=success&tx=${transactionId}`;
       rawResponse = { mock: true, transactionId };
     }
 
-    // 3. Insert Payment Record
+    // 3. Insert Payment Record (Generic Table)
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .insert({
         order_id: order.id,
-        vesicash_transaction_id: transactionId,
-        amount,
-        currency,
-        payment_status: 'pending', // Enum
+        provider: 'vesicash',
+        provider_reference: transactionId,
+        amount: order.total_amount,
+        currency: order.currency || 'ZMW',
+        status: 'INITIATED',
         raw_payload: rawResponse
       })
       .select()
@@ -108,22 +95,16 @@ serve(async (req) => {
 
     if (paymentError) throw paymentError;
 
-    // 4. Audit Log
-    await supabase.from('audit_logs').insert({
-      entity_type: 'payment',
-      entity_id: String(payment.id),
-      event_type: 'PAYMENT_SESSION_CREATED',
-      actor: 'system',
-      metadata: { order_id: order.id, transactionId }
-    });
+    // 4. Update Order Status
+    await supabase.from('orders').update({ status: 'INITIATED' }).eq('id', order.id);
 
     return new Response(
-      JSON.stringify({ checkout_url: checkoutUrl }),
+      JSON.stringify({ checkout_url: checkoutUrl, payment_id: payment.id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
-    console.error("Error:", error);
+  } catch (error: any) {
+    console.error("Payment Session Error:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

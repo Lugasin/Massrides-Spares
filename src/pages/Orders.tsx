@@ -121,19 +121,23 @@ const Orders = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'default';
-      case 'processing': return 'secondary';
-      case 'shipped': return 'outline';
-      case 'cancelled': return 'destructive';
+      case 'PAID':
+      case 'DELIVERED': return 'default';
+      case 'PENDING':
+      case 'PROCESSING': return 'secondary';
+      case 'SHIPPED': return 'outline';
+      case 'FAILED':
+      case 'CANCELLED': return 'destructive';
       default: return 'outline';
     }
   };
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'default';
-      case 'pending': return 'secondary';
-      case 'failed': return 'destructive';
+      case 'PAID': return 'default';
+      case 'PENDING':
+      case 'INITIATED': return 'secondary';
+      case 'FAILED': return 'destructive';
       default: return 'outline';
     }
   };
@@ -266,11 +270,12 @@ const Orders = () => {
                   className="px-3 py-2 border border-input rounded-md bg-background"
                 >
                   <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="PROCESSING">Processing</option>
+                  <option value="SHIPPED">Shipped</option>
+                  <option value="PAID">Paid</option>
+                  <option value="DELIVERED">Delivered</option>
+                  <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
             </div>
@@ -350,11 +355,11 @@ const Orders = () => {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="processing">Processing</SelectItem>
-                                  <SelectItem value="shipped">Shipped</SelectItem>
-                                  <SelectItem value="completed">Completed</SelectItem>
-                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                  <SelectItem value="PENDING">Pending</SelectItem>
+                                  <SelectItem value="PROCESSING">Processing</SelectItem>
+                                  <SelectItem value="SHIPPED">Shipped</SelectItem>
+                                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
                                 </SelectContent>
                               </Select>
                             )}

@@ -28,12 +28,11 @@ supabase migration up --file migrate_product_data.sql
 
 ### 3. Configure Secrets
 ```bash
-# Set Transaction Junction credentials
-supabase secrets set TJ_CLIENT_ID="your_tj_client_id"
-supabase secrets set TJ_CLIENT_SECRET="your_tj_client_secret"
-supabase secrets set TJ_OAUTH_TOKEN_URL="https://api.transactionjunction.com/oauth/token"
-supabase secrets set TJ_API_BASE_URL="https://api.transactionjunction.com"
-supabase secrets set TJ_WEBHOOK_SECRET="your_webhook_secret"
+# Set Vesicash credentials
+supabase secrets set VESICASH_PRIVATE_KEY="your_private_key"
+supabase secrets set VESICASH_PUBLIC_KEY="your_public_key"
+supabase secrets set VESICASH_WEBHOOK_SECRET="your_webhook_secret"
+supabase secrets set VESICASH_API_URL="https://api.vesicash.com/v1"
 
 # Set other required secrets
 supabase secrets set RESEND_API_KEY="your_resend_api_key"
@@ -44,13 +43,12 @@ supabase secrets set RESEND_API_KEY="your_resend_api_key"
 # Deploy all functions
 supabase functions deploy
 
-# Or deploy individually
-supabase functions deploy tj-create-session
-supabase functions deploy tj-webhook
-supabase functions deploy tj-lookup
-supabase functions deploy tj-manual-settlement
-supabase functions deploy guest-verification
-supabase functions deploy real-time-notifications
+# Core Edge Functions:
+# - create-order
+# - create-payment-session
+# - handle-vesicash-webhook
+# - send-email
+# - notify-users
 ```
 
 ### 5. Enable Realtime
@@ -67,7 +65,7 @@ Create `.env.production`:
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_APP_URL=https://your-domain.com
-VITE_TJ_ENVIRONMENT=production
+VITE_VESICASH_ENVIRONMENT=production
 ```
 
 ### 2. Build Configuration
@@ -179,9 +177,9 @@ supabase storage download --recursive
    - Monitor connection status
 
 4. **Payment Integration Issues**
-   - Verify TJ credentials
+   - Verify Vesicash credentials
    - Check webhook URL accessibility
-   - Monitor transaction logs
+   - Monitor payment logs and webhook_events
 
 ### Performance Optimization
 
