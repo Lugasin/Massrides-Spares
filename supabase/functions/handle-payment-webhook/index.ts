@@ -1,114 +1,136 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
-const supabaseAdmin = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-);
+async function verifySignature(rawBody: string, signature: string) {
+  const secret = Deno.env.get("WEBHOOK_SECRET");
+  if (!secret) {
+    console.error("WEBHOOK_SECRET is not set");
+    return false;
+  }
+  const encoder = new TextEncoder();
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signed = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(rawBody)
+  );
+
+  const hash = Array.from(new Uint8Array(signed))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return hash === signature;
+}
 
 serve(async (req) => {
   try {
-    if (req.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
+    const raw = await req.text();
+    const signature = req.headers.get("x-signature") || req.headers.get("X-Signature"); // Case insensitive check
+
+    if (!signature) {
+       return new Response("Missing signature", { status: 401 });
     }
 
-    // 1. Verify Webhook Signature (CRITICAL)
-    const secret = Deno.env.get("VESICASH_WEBHOOK_SECRET");
-    const signature = req.headers.get("v-signature"); // Confirm header name with Vesicash docs
-
-    // Note: If no secret is set, we might skip verification in dev, but cleaner to fail.
-    if (!secret || !signature) {
-       console.warn("Missing webhook secret or signature. Proceeding with caution (DEV ONLY).");
-       // In prod, return 401.
-    } else {
-        // Implement HMAC-SHA256 verification here if needed.
-        // For now, we trust the signature if we can matches it, 
-        // but since we might not have the secret set up yet, we'll log it.
-        // const isValid = await verifySignature(secret, signature, await req.clone().text());
+    if (!await verifySignature(raw, signature)) {
+      return new Response("Invalid signature", { status: 401 });
     }
 
-    const payload = await req.json();
-    console.log("Webhook Payload:", JSON.stringify(payload, null, 2));
+    const payload = JSON.parse(raw);
+    const reference = payload.data?.reference;
 
-    const { type, data } = payload;
-    // Vesicash payload structure varies. 
-    // Usually: event type (payment.successful) and data object.
-    
-    // We expect 'reference' in data to match our 'vesicash_transaction_id'
-    // or 'reference' from our Payment table.
-    
-    const reference = data?.reference;
-    
     if (!reference) {
-        return new Response("No reference found in payload", { status: 200 }); // Return 200 to satisfy webhook sender
+      return new Response("No reference in payload", { status: 400 });
     }
 
-    // Find Payment Record
-    const { data: payment, error: fetchError } = await supabaseAdmin
-        .from("payments")
-        .select("id, order_id, status")
-        .eq("vesicash_transaction_id", reference)
-        .single();
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    if (fetchError || !payment) {
+    // Find the payment record
+    const { data: payment, error: paymentError } = await supabaseAdmin
+      .from("payments")
+      .select("*")
+      .eq("vesicash_transaction_id", reference)
+      .single();
+
+    if (paymentError || !payment) {
         console.error("Payment not found for reference:", reference);
-        return new Response("Payment not found", { status: 200 });
+        return new Response("Payment not found", { status: 404 });
     }
 
-    // Handle Event Types
-    // Assuming 'payment.successful' or similar. Check payload structure.
-    // If successful:
-    if (type === 'payment.successful' || data?.status === 'success') {
-        if (payment.status !== 'paid') {
-            
-            // 1. Update Payment
-            await supabaseAdmin
-                .from("payments")
-                .update({ 
-                    status: 'paid', 
-                    vesicash_payment_id: data.id, 
-                    updated_at: new Date().toISOString() 
-                })
-                .eq("id", payment.id);
+    const orderId = payment.order_id;
 
-            // 2. Update Order
-            await supabaseAdmin
-                .from("orders")
-                .update({ 
-                    status: 'processing', 
-                    payment_status: 'paid',
-                    updated_at: new Date().toISOString()
-                })
-                .eq("id", payment.order_id);
-                
-            // 3. Trigger Email (Optional - can be separate function or direct here)
-            // await fetch(emailFunctionUrl, ...)
+    if (payload.data.status === "success") {
+      // SUCCESS path
+      if (payment.status === "paid") {
+        return new Response("Already processed");
+      }
 
-            console.log(`Payment ${payment.id} marked as PAID.`);
-        }
-    } else if (type === 'payment.failed') {
-         if (payment.status !== 'failed') {
-            // 1. Update Payment
-            await supabaseAdmin
-                .from("payments")
-                .update({ status: 'failed', updated_at: new Date().toISOString() })
-                .eq("id", payment.id);
-            
-            // 2. Restore Inventory (CRITICAL atomic operation needed)
-            // For now, verify logic.
-            
-            console.log(`Payment ${payment.id} marked as FAILED.`);
-         }
+      await supabaseAdmin
+        .from("payments")
+        .update({ status: "paid", completed_at: new Date().toISOString() })
+        .eq("id", payment.id);
+
+      await supabaseAdmin
+        .from("orders")
+        .update({
+          payment_status: "paid",
+          status: "processing"
+        })
+        .eq("id", orderId);
+
+      // TODO: Send email receipt (optional, calling send-email function)
+
+    } else {
+      // FAILURE path
+      if (payment.status === "failed") {
+        return new Response("Already processed");
+      }
+
+      await supabaseAdmin
+        .from("payments")
+        .update({ status: "failed" })
+        .eq("id", payment.id);
+
+      await supabaseAdmin
+        .from("orders")
+        .update({
+          payment_status: "failed",
+          status: "cancelled" // Cancel order
+        })
+        .eq("id", orderId);
+
+      // INVENTORY ROLLBACK
+      const { data: items } = await supabaseAdmin
+        .from("order_items")
+        .select("*")
+        .eq("order_id", orderId);
+
+      if (items) {
+          for (const item of items) {
+            // Increment inventory back using atomic RPC
+            await supabaseAdmin.rpc('increment_inventory', {
+                p_id: item.spare_part_id,
+                qty: item.quantity
+            }).catch((err) => {
+                console.error("Failed to rollback inventory for item:", item.id, err);
+            });
+          }
+      }
     }
 
-    return new Response(JSON.stringify({ received: true }), {
-      headers: { "Content-Type": "application/json" },
-      status: 200,
-    });
-
-  } catch (error) {
-    console.error("Webhook Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response("ok");
+  } catch (err) {
+    console.error("Webhook Error:", err);
+    return new Response("Internal Server Error", { status: 500 });
   }
 });

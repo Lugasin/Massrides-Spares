@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           supabase.from('profiles').upsert({
             id: session.user.id,
             email: session.user.email,
-            role: 'customer',
+            // role: 'customer', // Don't overwrite role on login
           }, { onConflict: 'id' }).then(({ error }) => {
             if (error) console.error("Profile Upsert Error:", error);
             // If success, load profile
