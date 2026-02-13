@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart, RefreshCw, Star } from 'lucide-react';
+import { ShoppingCart, Heart, RefreshCw, Star, MessageSquare, Package, DollarSign, BarChart3 } from 'lucide-react';
 
 const CustomerDashboard = () => {
   const { user } = useAuth();
@@ -12,6 +12,7 @@ const CustomerDashboard = () => {
   const [wishlist, setWishlist] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,12 +36,12 @@ const CustomerDashboard = () => {
           .from('wishlists')
           .select(`
             id,
-            product_id,
-            product:products (
+            spare_part_id,
+            spare_part:spare_parts (
               id,
               name,
               price,
-              main_image
+              images
             )
           `)
           .order('created_at', { ascending: false })
@@ -48,30 +49,62 @@ const CustomerDashboard = () => {
 
         if (wishlistError) {
           console.error('Wishlist fetch error:', wishlistError);
-          // fallback to empty if table missing/error
           setWishlist([]);
         } else {
           // Map to flat structure for UI
           const formattedWishlist = wishlistData.map((item: any) => ({
             id: item.id,
-            product_id: item.product.id,
-            name: item.product.title,
-            image: item.product.main_image,
-            price: item.product.price
+            product_id: item.spare_part.id,
+            name: item.spare_part.name,
+            image: item.spare_part.images?.[0],
+            price: item.spare_part.price
           }));
           setWishlist(formattedWishlist);
         }
 
-        // 3. Recommendations (Newest Products)
+        // 3. Fetch Wishlist Count
+        const { count: wishlistCount } = await supabase
+          .from('wishlists')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        // 4. Fetch Quote Requests Count
+        const { count: quotesCount } = await supabase
+          .from('quotes')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'pending');
+
+        // 5. Calculate Metrics
+        const paidOrders = (orders || []).filter((o: any) => o.status === 'paid');
+        const totalSpent = paidOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+        const activeOrdersCount = (orders || []).filter((o: any) => ['pending', 'processing', 'shipped'].includes(o.status)).length;
+
+        setMetrics([
+          { label: "Active Orders", value: activeOrdersCount.toString(), icon: ShoppingCart, change: "Current state" },
+          { label: "Quote Requests", value: (quotesCount || 0).toString(), icon: MessageSquare, change: "Pending" },
+          { label: "Total Spent", value: `K${totalSpent.toLocaleString()}`, icon: DollarSign, change: "Lifetime" },
+          { label: "Saved Items", value: (wishlistCount || 0).toString(), icon: Package, change: "In wishlist" }
+        ]);
+
+        // 6. Recommendations (Newest Parts)
         const { data: recommendedItems, error: recommendedError } = await supabase
-          .from('products')
+          .from('spare_parts')
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(4);
 
         if (recommendedError) throw recommendedError;
-        setRecommendations(recommendedItems || []);
+
+        // Map recommendations to match UI expectations if needed
+        const formattedRecommendations = recommendedItems.map((item: any) => ({
+          ...item,
+          title: item.name, // UI uses title
+          main_image: item.images?.[0] // UI uses main_image
+        }));
+
+        setRecommendations(formattedRecommendations || []);
 
       } catch (error: any) {
         console.error('Error fetching customer dashboard data:', error);
@@ -98,6 +131,27 @@ const CustomerDashboard = () => {
         <p className="text-muted-foreground">Here's a quick overview of your account.</p>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        {metrics.map((metric) => (
+          <Card key={metric.label} className="border-border/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {metric.label}
+              </CardTitle>
+              <metric.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground mb-1">
+                {metric.value}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {metric.change}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
         <Card>
@@ -120,7 +174,7 @@ const CustomerDashboard = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-bold">${order.total_amount.toLocaleString()}</p>
-                      <p className="text-sm capitalize">{order.status}</p>
+                      <p className="text-sm capitalize">{order.status.replace(/_/g, ' ')}</p>
                     </div>
                   </li>
                 ))}

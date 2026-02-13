@@ -29,7 +29,7 @@ import CustomerDashboard from "@/components/CustomerDashboard";
 import VendorDashboard from "@/components/VendorDashboard";
 // import SuperAdminDashboard from "@/components/SuperAdminDashboard";
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -47,16 +47,22 @@ const Index = () => {
     const fetchFeatured = async () => {
       // Fetch products and filter client-side to avoid 400 if column missing
       const { data, error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .select(`
-          *,
-          inventory(quantity)
+          id,
+          name,
+          price,
+          images,
+          featured,
+          stock_quantity,
+          availability_status,
+          category:categories(name)
         `)
-        .limit(20);
-
+        .eq('is_active', true)
+        .limit(8);
       if (data) {
-        // Filter for featured items manually if needed, or take first 8
-        const featured = data.filter((p: any) => p.featured === true || p.attributes?.featured === true).slice(0, 8);
+        // Filter for featured items manually if needed (though we limit 8 anyway)
+        const featured = data.filter((p: any) => p.featured === true);
         setFeaturedProducts(featured.length > 0 ? featured : data.slice(0, 8));
       }
     };
@@ -154,7 +160,6 @@ const Index = () => {
         <main>
           <CustomerDashboard />
         </main>
-        <Footer />
         <BackToTop />
       </div>
     );
@@ -205,7 +210,7 @@ const Index = () => {
                         <Link to={`/parts/${part.id}`} className="block h-full">
                           <div className="relative overflow-hidden aspect-[3/4] bg-white">
                             <img
-                              src={part.image || '/placeholder-part.png'}
+                              src={part.images?.[0] || part.image || '/placeholder-part.png'}
                               alt={part.title || part.name}
                               className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-110"
                               loading="lazy"

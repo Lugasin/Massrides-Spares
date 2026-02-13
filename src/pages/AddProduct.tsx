@@ -17,19 +17,19 @@ import { Package, Upload } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ImageUploader } from '@/components/ImageUploader';
 
-// Define Zod schema for product creation validation
+// Define Zod schema for spare part creation
 const productSchema = z.object({
-  title: z.string().min(1, { message: "Product name is required." }),
+  title: z.string().min(1, { message: "Part name is required." }),
   description: z.string().optional(),
   price: z.preprocess(
     (val) => (val === '' ? undefined : Number(val)),
     z.number({ invalid_type_error: "Price must be a number." }).positive({ message: "Price must be positive." })
   ),
-  sku: z.string().optional(), // Part number -> SKU
+  sku: z.string().optional(), // part_number
   category_id: z.string().optional(),
   brand: z.string().optional(),
   condition: z.string().optional(),
-  availability_status: z.enum(['in_stock', 'out_of_stock', 'on_order']).optional(),
+  availability_status: z.enum(['in_stock', 'out_of_stock', 'on_order']).optional(), // mapped to status/stock
   stock_quantity: z.preprocess(
     (val) => (val === '' ? 0 : Number(val)),
     z.number({ invalid_type_error: "Stock quantity must be a number." }).int().min(0)
@@ -39,7 +39,7 @@ const productSchema = z.object({
     z.number({ invalid_type_error: "Min stock level must be a number." }).int().min(0)
   ),
   featured: z.boolean().optional(),
-  main_image: z.string().optional(), // New field for image URL
+  main_image: z.string().optional(),
   warranty: z.string().optional(),
   compatibility: z.string().optional(),
   oem_part_number: z.string().optional(),
@@ -57,7 +57,7 @@ interface Category {
 const AddProduct: React.FC = () => {
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
-  const { productId } = useParams<{ productId: string }>();
+  const { productId } = useParams<{ productId: string }>(); // acts as spare_part_id
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const isEditMode = !!productId;
@@ -99,7 +99,7 @@ const AddProduct: React.FC = () => {
         .from('categories')
         .select('id, name, description')
         .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+        .order('name', { ascending: true });
 
       if (error) throw error;
       setCategories(data || []);
@@ -113,42 +113,53 @@ const AddProduct: React.FC = () => {
     if (!productId) return;
     try {
       setLoading(true);
-      // Join inventory to get quantity
+      // Fetch from spare_parts
       const { data, error } = await supabase
-        .from('products')
-        .select('*, inventory(quantity)')
-        .eq('id', Number(productId))
-        .single<any>();
+        .from('spare_parts')
+        .select('*')
+        .eq('id', productId)
+        .single();
 
       if (error) throw error;
 
       if (data) {
         // Map DB fields to form
-        const inv = data.inventory && Array.isArray(data.inventory) && data.inventory.length > 0 ? data.inventory[0] : { quantity: 0 };
-        const attributes = typeof data.attributes === 'object' ? data.attributes : {};
+        // spare_parts has: name, description, price, part_number, stock_quantity, etc.
+        // It also has jsonb 'specifications' or similar if we added them.
+        // Let's check schema: columns are id, name, description, price, part_number, category_id, vendor_id, stock_quantity, low_stock_threshold, is_active, images (array), specifications (jsonb)
+
+        // We need to extract 'main_image' from images[0] or similar if we decide that. 
+        // Previously we used `images` array. The form uses `main_image`.
+        // Let's assume images[0] is main logic for now, or just store a single image in array.
+        const mainImg = data.images && data.images.length > 0 ? data.images[0] : '';
+
+        // Extract attributes from specifications jsonb
+        const specs = data.specifications || {};
 
         reset({
-          title: data.title,
+          title: data.name,
           description: data.description || '',
           price: data.price,
-          sku: data.sku || '',
+          sku: data.part_number || '',
           category_id: data.category_id?.toString() || '',
-          main_image: data.main_image || '',
-          stock_quantity: inv.quantity || 0,
-          // Map stored attributes back to form fields
-          brand: (attributes as any)?.brand || '',
-          condition: (attributes as any)?.condition || 'new',
-          oem_part_number: (attributes as any)?.oem_part_number || '',
-          aftermarket_part_number: (attributes as any)?.aftermarket_part_number || '',
-          warranty: (attributes as any)?.warranty || '',
-          compatibility: (attributes as any)?.compatibility || '',
-          featured: data.active,
-          availability_status: inv.quantity > 0 ? 'in_stock' : 'out_of_stock'
+          main_image: mainImg,
+          stock_quantity: data.stock_quantity || 0,
+          min_stock_level: data.low_stock_threshold || 5,
+
+          // Mapped attributes
+          brand: (specs as any)?.brand || '',
+          condition: (specs as any)?.condition || 'new',
+          oem_part_number: (specs as any)?.oem_part_number || '',
+          aftermarket_part_number: (specs as any)?.aftermarket_part_number || '',
+          warranty: (specs as any)?.warranty || '',
+          compatibility: (specs as any)?.compatibility || '',
+          featured: false, // spare_parts doesn't have featured column in basic schema, maybe add to metadata?
+          availability_status: (data.stock_quantity || 0) > 0 ? 'in_stock' : 'out_of_stock'
         });
       }
     } catch (error: any) {
-      console.error('Error fetching product:', error);
-      toast.error('Failed to load product data');
+      console.error('Error fetching spare part:', error);
+      toast.error('Failed to load part data');
       navigate('/vendor/inventory');
     } finally {
       setLoading(false);
@@ -164,10 +175,10 @@ const AddProduct: React.FC = () => {
     try {
       setLoading(true);
 
-      const sku = values.sku || `${values.brand?.substring(0, 3).toUpperCase() || 'GEN'}-${Date.now().toString().slice(-6)}`;
+      const partNumber = values.sku || `${values.brand?.substring(0, 3).toUpperCase() || 'GEN'}-${Date.now().toString().slice(-6)}`;
 
-      // Store extra fields in JSON attributes
-      const attributes = {
+      // Store extra fields in JSON specifications
+      const specifications = {
         brand: values.brand,
         condition: values.condition,
         oem_part_number: values.oem_part_number,
@@ -177,59 +188,40 @@ const AddProduct: React.FC = () => {
         availability_status: values.availability_status
       };
 
-      const productData = {
-        title: values.title,
+      const partData = {
+        name: values.title,
         description: values.description,
         price: values.price,
-        sku: sku,
+        part_number: partNumber,
         category_id: values.category_id ? Number(values.category_id) : null,
-        vendor_id: profile.id, // Now a UUID
-        attributes: attributes,
-        active: true, // or values.featured
-        main_image: values.main_image,
-        currency: 'USD'
+        vendor_id: profile.id, // linked to user_profiles.id
+        stock_quantity: values.stock_quantity,
+        low_stock_threshold: values.min_stock_level,
+        is_active: true,
+        images: values.main_image ? [values.main_image] : [],
+        specifications: specifications,
+        // currency is usually system-wide or in specs
       };
 
-      let currentProductId = isEditMode ? Number(productId) : null;
+      let currentPartId = isEditMode ? productId : null;
 
-      if (isEditMode && currentProductId) {
+      if (isEditMode && currentPartId) {
         const { error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', currentProductId);
+          .from('spare_parts')
+          .update(partData)
+          .eq('id', currentPartId);
 
         if (error) throw error;
-        toast.success('Product updated successfully!');
+        toast.success('Spare part updated successfully!');
       } else {
         const { data, error } = await supabase
-          .from('products')
-          .insert([productData])
+          .from('spare_parts')
+          .insert([partData])
           .select()
           .single();
 
         if (error) throw error;
-        currentProductId = data.id;
-        toast.success('Product added successfully!');
-      }
-
-      // Update Inventory
-      if (currentProductId) {
-        // Find existing inventory
-        const { data: existingInv } = await supabase.from('inventory').select('id').eq('product_id', currentProductId).maybeSingle();
-
-        const inventoryData = {
-          product_id: currentProductId,
-          vendor_id: profile.id, // UUID
-          quantity: values.stock_quantity,
-          location: 'Main Warehouse', // Default
-          updated_at: new Date().toISOString()
-        };
-
-        if (existingInv) {
-          await supabase.from('inventory').update(inventoryData).eq('id', existingInv.id);
-        } else {
-          await supabase.from('inventory').insert([inventoryData]);
-        }
+        toast.success('Spare part added successfully!');
       }
 
       reset();
@@ -239,8 +231,8 @@ const AddProduct: React.FC = () => {
       }, 1500);
 
     } catch (error: any) {
-      console.error(`Error ${isEditMode ? 'updating' : 'creating'} product:`, error);
-      toast.error(`Error ${isEditMode ? 'updating' : 'creating'} product: ${error.message}`);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} part:`, error);
+      toast.error(`Error ${isEditMode ? 'updating' : 'creating'} part: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -279,11 +271,10 @@ const AddProduct: React.FC = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Image Upload - New! */}
+              {/* Image Upload */}
               <div className="space-y-2">
-                <Label>Product Image</Label>
+                <Label>Part Image</Label>
                 <div className="bg-muted/10 p-4 rounded-lg border border-dashed text-center">
-                  {/* Image Uploader Component */}
                   <ImageUploader
                     value={watch('main_image') || ''}
                     onChange={(url) => setValue('main_image', url)}
@@ -292,9 +283,9 @@ const AddProduct: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Product Title (was Name) */}
+                {/* Part Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="title">Product Title *</Label>
+                  <Label htmlFor="title">Part Name *</Label>
                   <Input
                     id="title"
                     placeholder="e.g., Engine Oil Filter"
@@ -310,30 +301,24 @@ const AddProduct: React.FC = () => {
                   <Label htmlFor="brand">Brand</Label>
                   <Input
                     id="brand"
-                    placeholder="e.g., John Deere, Kubota"
+                    placeholder="e.g., John Deere"
                     {...register('brand')}
                   />
-                  {errors.brand && (
-                    <p className="text-destructive text-sm">{errors.brand.message}</p>
-                  )}
                 </div>
 
-                {/* SKU (was Part Number) */}
+                {/* SKU */}
                 <div className="space-y-2">
-                  <Label htmlFor="sku">SKU / Part Number</Label>
+                  <Label htmlFor="sku">Part Number / SKU</Label>
                   <Input
                     id="sku"
-                    placeholder="Will auto-generate if empty"
+                    placeholder="Auto-generated if empty"
                     {...register('sku')}
                   />
-                  {errors.sku && (
-                    <p className="text-destructive text-sm">{errors.sku.message}</p>
-                  )}
                 </div>
 
                 {/* Price */}
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (USD) *</Label>
+                  <Label htmlFor="price">Price (ZMW) *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -362,9 +347,6 @@ const AddProduct: React.FC = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.category_id && (
-                    <p className="text-destructive text-sm">{errors.category_id.message}</p>
-                  )}
                 </div>
 
                 {/* Condition */}
@@ -378,13 +360,8 @@ const AddProduct: React.FC = () => {
                       <SelectItem value="new">New</SelectItem>
                       <SelectItem value="used">Used</SelectItem>
                       <SelectItem value="refurbished">Refurbished</SelectItem>
-                      <SelectItem value="oem">OEM</SelectItem>
-                      <SelectItem value="aftermarket">Aftermarket</SelectItem>
                     </SelectContent>
                   </Select>
-                  {errors.condition && (
-                    <p className="text-destructive text-sm">{errors.condition.message}</p>
-                  )}
                 </div>
 
                 {/* Stock Quantity */}
@@ -410,9 +387,6 @@ const AddProduct: React.FC = () => {
                     min="0"
                     {...register('min_stock_level')}
                   />
-                  {errors.min_stock_level && (
-                    <p className="text-destructive text-sm">{errors.min_stock_level.message}</p>
-                  )}
                 </div>
               </div>
 
@@ -421,35 +395,10 @@ const AddProduct: React.FC = () => {
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  placeholder="Describe the product..."
+                  placeholder="Describe the part..."
                   rows={3}
                   {...register('description')}
                 />
-                {errors.description && (
-                  <p className="text-destructive text-sm">{errors.description.message}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* OEM Part Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="oem_part_number">OEM Part Number</Label>
-                  <Input
-                    id="oem_part_number"
-                    placeholder="Original equipment manufacturer part number"
-                    {...register('oem_part_number')}
-                  />
-                </div>
-
-                {/* Aftermarket Part Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="aftermarket_part_number">Aftermarket Part Number</Label>
-                  <Input
-                    id="aftermarket_part_number"
-                    placeholder="Aftermarket equivalent part number"
-                    {...register('aftermarket_part_number')}
-                  />
-                </div>
               </div>
 
               {/* Compatibility */}
@@ -462,33 +411,13 @@ const AddProduct: React.FC = () => {
                 />
               </div>
 
-              {/* Warranty */}
-              <div className="space-y-2">
-                <Label htmlFor="warranty">Warranty</Label>
-                <Input
-                  id="warranty"
-                  placeholder="e.g., 12 months"
-                  {...register('warranty')}
-                />
-              </div>
-
-              {/* Featured */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="featured"
-                  checked={watch('featured')}
-                  onCheckedChange={(checked) => setValue('featured', !!checked)}
-                />
-                <Label htmlFor="featured">Featured Product</Label>
-              </div>
-
               <div className="flex gap-4 pt-6">
                 <Button
                   type="submit"
                   disabled={isSubmitting || loading}
                   className="flex-1"
                 >
-                  {isSubmitting || loading ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update Product' : 'Add Product')}
+                  {isSubmitting || loading ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update Part' : 'Add Part')}
                 </Button>
                 <Button
                   type="button"

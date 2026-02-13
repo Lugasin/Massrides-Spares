@@ -52,7 +52,6 @@ const VendorInventory: React.FC = () => {
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
   const [parts, setParts] = useState<SparePart[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -70,25 +69,13 @@ const VendorInventory: React.FC = () => {
   const handleUpdateStock = async () => {
     if (!selectedPart) return;
     try {
-      const { data: vendorData } = await supabase
-        .from('vendors')
-        .select('id')
-        .eq('owner_id', user?.id)
-        .single();
-
-      if (!vendorData) {
-        toast.error("Could not find your vendor profile");
-        return;
-      }
-
       const { error } = await supabase
-        .from('inventory')
-        .upsert({
-          product_id: parseInt(selectedPart.id),
-          vendor_id: vendorData.id,
-          quantity: newStock,
-          last_restocked: new Date().toISOString()
-        } as any, { onConflict: 'product_id, vendor_id' });
+        .from('spare_parts')
+        .update({
+          stock_quantity: newStock,
+          availability_status: newStock > 0 ? 'in_stock' : 'out_of_stock'
+        })
+        .eq('id', selectedPart.id);
 
       if (error) throw error;
 
@@ -104,43 +91,25 @@ const VendorInventory: React.FC = () => {
   useEffect(() => {
     if (userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') {
       fetchVendorParts();
-      fetchCategories();
       subscribeToInventoryUpdates();
     }
   }, [userRole, profile]);
-
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error: any) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to load categories');
-    }
-  };
 
   const fetchVendorParts = async () => {
     try {
       setLoading(true);
 
       let query = supabase
-        .from('products')
+        .from('spare_parts')
         .select(`
           *,
-          category:categories!category_id(name),
-          inventory(quantity, location)
+          category:categories!category_id(name)
         `)
         .order('created_at', { ascending: false });
 
       if (userRole === 'vendor') {
         if (profile?.id) {
-          // Basic filtering logic if needed later
+          query = query.eq('vendor_id', profile.id);
         }
       }
 
@@ -149,24 +118,25 @@ const VendorInventory: React.FC = () => {
       if (error) throw error;
 
       const mappedParts: SparePart[] = (data || []).map((p: any) => {
-        const attrs = p.attributes || {};
-        const totalStock = p.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+        const specs = p.technical_specs || p.specifications || {}; // Handle both names just in case
+        const mainImg = p.images && p.images.length > 0 ? p.images[0] : null;
+
         return {
-          id: p.id.toString(),
-          part_number: p.sku || '',
-          name: p.title,
+          id: p.id,
+          part_number: p.part_number || '',
+          name: p.name,
           description: p.description || '',
           price: p.price,
-          brand: attrs.brand || '',
-          condition: attrs.condition || 'new',
-          availability_status: totalStock > 0 ? 'in_stock' : 'out_of_stock',
-          stock_quantity: totalStock,
-          min_stock_level: attrs.min_stock || 5,
-          featured: attrs.featured === true,
+          brand: p.brand || specs.brand || '',
+          condition: p.condition || 'new',
+          availability_status: p.availability_status || (p.stock_quantity > 0 ? 'in_stock' : 'out_of_stock'),
+          stock_quantity: p.stock_quantity || 0,
+          min_stock_level: p.min_stock_level || 5,
+          featured: p.featured === true,
           category: { name: p.category?.name || 'Uncategorized' },
           created_at: p.created_at,
-          is_active: p.active,
-          main_image: p.main_image
+          is_active: p.is_active,
+          main_image: mainImg
         };
       });
 
@@ -184,7 +154,7 @@ const VendorInventory: React.FC = () => {
       .channel('vendor-inventory')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
+        { event: '*', schema: 'public', table: 'spare_parts' },
         () => { fetchVendorParts(); }
       )
       .subscribe();
@@ -199,9 +169,9 @@ const VendorInventory: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .delete()
-        .eq('id', parseInt(partId));
+        .eq('id', partId);
 
       if (error) throw error;
       toast.success('Part deleted successfully');
@@ -215,9 +185,9 @@ const VendorInventory: React.FC = () => {
   const handleToggleActive = async (partId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('products')
-        .update({ active: !currentStatus })
-        .eq('id', parseInt(partId));
+        .from('spare_parts')
+        .update({ is_active: !currentStatus })
+        .eq('id', partId);
 
       if (error) throw error;
       toast.success(`Part ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
@@ -258,7 +228,6 @@ const VendorInventory: React.FC = () => {
   return (
     <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Vendor'}>
       <div className="space-y-6">
-        {/* ... (Existing Cards) ... */}
         {/* Inventory Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
@@ -421,7 +390,7 @@ const VendorInventory: React.FC = () => {
                         </TableCell>
                         <TableCell>{part.category?.name || 'No Category'}</TableCell>
                         <TableCell>{part.brand}</TableCell>
-                        <TableCell>${part.price.toLocaleString()}</TableCell>
+                        <TableCell>K{part.price.toLocaleString()}</TableCell>
                         <TableCell>
                           <div
                             className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
@@ -455,15 +424,13 @@ const VendorInventory: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            {(userRole === 'admin' || userRole === 'super_admin' || userRole === 'vendor') && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate(`/vendor/edit-product/${part.id}`)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/vendor/edit-product/${part.id}`)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -491,12 +458,6 @@ const VendorInventory: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Update Stock Dialog via simple Prompt for MVP, or Shadcn Dialog if integrated */}
-        {/* Using a simple custom modal overlay here since we didn't import Dialog components in this replacement block 
-            Wait, I should check if Dialog is available. I didn't see it imported in lines 1-22.
-            I can use a simple absolute positioned div for now or modify imports in a separate call.
-            Actually, I'll use a simple conditional rendering for the dialog nicely styled.
-        */}
         {stockDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <Card className="w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">

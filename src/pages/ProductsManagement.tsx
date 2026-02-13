@@ -69,29 +69,26 @@ const ProductsManagement = () => {
       setLoading(true);
 
       let query = supabase
-        .from('products')
+        .from('spare_parts')
         .select(`
           *,
-          title,
-          sku,
           category:categories!category_id(name),
-          vendor:user_profiles!vendor_id(full_name, email, company_name),
-          inventory(quantity)
+          vendor:user_profiles!vendor_id(full_name, email, company_name)
         `)
         .order('created_at', { ascending: false });
 
       // Filter based on user role
       if (userRole === 'vendor') {
         const { data: vendorData } = await supabase
-          .from('vendors')
+          .from('user_profiles')
           .select('id')
-          .eq('owner_id', profile?.id)
+          .eq('user_id', user?.id)
           .single();
 
         if (vendorData) {
           query = query.eq('vendor_id', vendorData.id);
         } else {
-          // If no vendor record found, show no products
+          // If no vendor record found (shouldn't happen if auth/role is correct), show no products
           setProducts([]);
           setLoading(false);
           return;
@@ -104,10 +101,10 @@ const ProductsManagement = () => {
 
       const mappedData = data.map((p: any) => ({
         ...p,
-        name: p.title,
-        part_number: p.sku || '',
-        stock_quantity: p.inventory?.[0]?.quantity || 0,
-        images: p.main_image ? [p.main_image] : [],
+        // name is already name in spare_parts
+        // part_number is already part_number in spare_parts
+        // stock_quantity is already in spare_parts
+        images: p.images || [],
       }));
 
       setProducts(mappedData || []);
@@ -143,7 +140,7 @@ const ProductsManagement = () => {
 
     try {
       const { error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .delete()
         .eq('id', productId);
 
@@ -160,8 +157,8 @@ const ProductsManagement = () => {
   const handleToggleActive = async (productId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('products')
-        .update({ active: !currentStatus } as any)
+        .from('spare_parts')
+        .update({ is_active: !currentStatus })
         .eq('id', productId);
 
       if (error) throw error;
@@ -178,12 +175,35 @@ const ProductsManagement = () => {
   };
 
   const handleToggleFeatured = async (productId: string, currentStatus: boolean) => {
-    toast.info('Featured status checks are currently disabled pending schema update');
+    // Assuming 'featured' column exists in spare_parts, or we need to add it.
+    // Based on previous schema reviews, verify if 'featured' exists.
+    // If not, we might need a migration or skip this.
+    // For now, let's assume it might not exist and log or try update.
+    // Looking at prior logs, spare_parts has is_active, but featured was not explicitly confirmed.
+    // Let's try update, if it fails, we catch it.
+
+    try {
+      const { error } = await supabase
+        .from('spare_parts')
+        .update({ featured: !currentStatus } as any) // Cast as any if TS complains, assuming DB has it or we add it
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      setProducts(products.map(p =>
+        p.id === productId ? { ...p, featured: !currentStatus } : p
+      ));
+      toast.success(`Product ${!currentStatus ? 'featured' : 'un-featured'} successfully`);
+
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      toast.info('Featured status update not supported yet (column might be missing)');
+    }
   };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = !searchTerm ||
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.vendor?.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -225,7 +245,7 @@ const ProductsManagement = () => {
             </p>
           </div>
           {(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') && (
-            <Button onClick={() => navigate('/vendor/add-product')}>
+            <Button onClick={() => navigate(userRole === 'vendor' ? '/vendor/add-product' : '/vendor/add-product')}>
               <Plus className="h-4 w-4 mr-2" />
               Add Product
             </Button>

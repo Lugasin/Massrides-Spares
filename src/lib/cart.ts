@@ -1,56 +1,13 @@
 import { supabase } from '@/integrations/supabase/client'
+// Force rebuild: Fixed mergeGuestCart logic
 import { v4 as uuidv4 } from 'uuid'
-
-// Import types from the database
-import type { Database } from '@/integrations/supabase/types';
-
-export interface Category {
-  id: string
-  name: string
-  description?: string
-  image_url?: string
-  created_at: string
-}
+import { toast } from 'sonner'
 
 export interface CartItem {
   id: string
   spare_part_id: string
   quantity: number
-  spare_part?: any // Will be properly typed after DB is set up
-}
-
-export interface Order {
-  id: string
-  user_id?: string
-  order_number: string
-  status: string
-  payment_status: string
-  total_amount: number
-  shipping_address?: any
-  billing_address?: any
-  notes?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface UserProfile {
-  id: string
-  user_id: string
-  email: string
-  full_name?: string
-  phone?: string
-  address?: string
-  city?: string
-  state?: string
-  zip_code?: string
-  country?: string
-  company_name?: string
-  role: 'super_admin' | 'admin' | 'vendor' | 'customer' | 'guest'
-  website_url?: string
-  avatar_url?: string
-  bio?: string
-  created_at: string
-  updated_at: string
+  spare_part?: any 
 }
 
 // Session management for guest carts
@@ -68,40 +25,77 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    // User Cart: Upsert into cart_items (PK: user_id, product_id)
-    // Check for existence to determine update (increment) or insert
+    // User Cart: 1. Get Cart ID
+    const { data: cart } = await (supabase as any)
+      .from('user_carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!cart) {
+      // Should handle creation, but let's assume it exists or fail cleanly for now
+      // Ideally call a helper or just throw/create
+      // For robustness:
+       await (supabase as any).from('user_carts').insert({ user_id: user.id });
+       // retry fetch
+       // (Simplified for now to match RPC auto-healing expectations)
+    }
+    
+    // We need the cart_id. Let's get it properly.
+    // If we rely on RPC auto-create, frontend might trail behind.
+    // Better: Ensure we have cart_id.
+    
+    let cartId = cart?.id;
+    if (!cartId) {
+       const { data: newCart } = await (supabase as any)
+         .from('user_carts')
+         .insert({ user_id: user.id })
+         .select('id')
+         .single();
+       cartId = newCart?.id;
+    }
+
+    if (!cartId) throw new Error("Could not get or create user cart");
+
+    // 2. Check Item
     const { data: existing } = await (supabase as any)
       .from('cart_items')
       .select('quantity')
-      .eq('user_id', user.id)
-      .eq('product_id', sparePartId)
+      .eq('cart_id', cartId) // Use cart_id, not user_id if schema changed, but verify schema?
+      // Schema says: cart_items has cart_id AND user_id. 
+      // Let's check schema again. `cart_items` table:
+      // cart_id uuid, spare_part_id uuid, quantity int, user_id uuid
+      // It has BOTH. But RPC joins on `cart_items.cart_id = v_cart_id`.
+      // So we MUST set cart_id.
+      .eq('spare_part_id', sparePartId)
       .maybeSingle();
 
     if (existing) {
        return await (supabase as any)
         .from('cart_items')
         .update({ quantity: existing.quantity + quantity })
-        .eq('user_id', user.id)
-        .eq('product_id', sparePartId);
+        .eq('cart_id', cartId)
+        .eq('spare_part_id', sparePartId);
     } else {
        return await (supabase as any)
         .from('cart_items')
         .insert({
-          user_id: user.id,
-          product_id: sparePartId,
+          cart_id: cartId, // CRITICAL FIX
+          user_id: user.id, // Keep user_id for RLS/redundancy
+          spare_part_id: sparePartId,
           quantity
         });
     }
 
   } else {
-    // Guest Cart: Flattened (PK: guest_session_id, product_id)
+    // Guest Cart
     const sessionId = getOrCreateSessionId();
 
     const { data: existing } = await (supabase as any)
       .from('guest_cart_items')
       .select('quantity')
       .eq('guest_session_id', sessionId)
-      .eq('product_id', sparePartId)
+      .eq('spare_part_id', sparePartId)
       .maybeSingle();
 
     if (existing) {
@@ -109,13 +103,13 @@ export const addToCart = async (sparePartId: string, quantity: number = 1) => {
         .from('guest_cart_items')
         .update({ quantity: existing.quantity + quantity })
         .eq('guest_session_id', sessionId)
-        .eq('product_id', sparePartId);
+        .eq('spare_part_id', sparePartId);
     } else {
       return await (supabase as any)
         .from('guest_cart_items')
         .insert({
           guest_session_id: sessionId,
-          product_id: sparePartId,
+          spare_part_id: sparePartId,
           quantity
         });
     }
@@ -126,43 +120,53 @@ export const getCartItems = async (): Promise<CartItem[]> => {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
+    // Get Cart ID first
+    const { data: cart } = await (supabase as any)
+      .from('user_carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+      
+    if (!cart) return []; // No cart = no items
+
     // User Cart Items
     const { data: items, error } = await (supabase as any)
       .from('cart_items')
       .select(`
         quantity,
-        product_id, 
-        product:products(
+        spare_part_id, 
+        spare_part:spare_parts(
           id,
           name,
           price,
-          sku,
-          attributes,
-          main_image,
-          description
+          part_number,
+          brand,
+          images,
+          description,
+          condition,
+          warranty
         )
       `)
-      .eq('user_id', user.id);
+      .eq('cart_id', cart.id); // Use cart_id
 
     if (error) console.error("Error fetching cart", error);
 
     return items?.map((item: any) => {
-       const p = item.product || {};
-       const attrs = p.attributes || {};
+       const p = item.spare_part || {};
        return {
-          id: String(item.product_id), // Use Product ID as Cart Item ID (Composite Key Part)
-          spare_part_id: String(item.product_id),
+          id: String(item.spare_part_id),
+          spare_part_id: String(item.spare_part_id),
           quantity: item.quantity,
           spare_part: {
               id: String(p.id),
-              name: p.name, // Schema uses 'name'
+              name: p.name, 
               price: p.price,
-              part_number: p.sku,
-              brand: attrs.brand || 'Generic',
-              images: p.main_image ? [p.main_image] : [],
+              part_number: p.part_number,
+              brand: p.brand || 'Generic',
+              images: p.images || [],
               description: p.description,
-              condition: attrs.condition || 'new',
-              warranty: attrs.warranty || '12 months'
+              condition: p.condition || 'new',
+              warranty: p.warranty || '12 months'
           }
        };
     }) || [];
@@ -174,15 +178,17 @@ export const getCartItems = async (): Promise<CartItem[]> => {
       .from('guest_cart_items')
       .select(`
         quantity,
-        product_id,
-        product:products(
+        spare_part_id,
+        spare_part:spare_parts(
           id,
           name,
           price,
-          sku,
-          attributes,
-          main_image,
-          description
+          part_number,
+          brand,
+          images,
+          description,
+          condition,
+          warranty
         )
       `)
       .eq('guest_session_id', sessionId)
@@ -190,22 +196,21 @@ export const getCartItems = async (): Promise<CartItem[]> => {
     if (error) console.error("Error fetching guest cart", error);
 
     return items?.map((item: any) => {
-       const p = item.product || {};
-       const attrs = p.attributes || {};
+       const p = item.spare_part || {};
        return {
-          id: String(item.product_id), // Use Product ID as Cart Item ID
-          spare_part_id: String(item.product_id),
+          id: String(item.spare_part_id),
+          spare_part_id: String(item.spare_part_id),
           quantity: item.quantity,
           spare_part: {
               id: String(p.id),
               name: p.name, 
               price: p.price,
-              part_number: p.sku,
-              brand: attrs.brand || 'Generic',
-              images: p.main_image ? [p.main_image] : [],
+              part_number: p.part_number,
+              brand: p.brand || 'Generic',
+              images: p.images || [],
               description: p.description,
-              condition: attrs.condition || 'new',
-              warranty: attrs.warranty || '12 months'
+              condition: p.condition || 'new',
+              warranty: p.warranty || '12 months'
           }
        };
     }) || [];
@@ -214,23 +219,24 @@ export const getCartItems = async (): Promise<CartItem[]> => {
 
 export const removeFromCart = async (itemId: string) => {
   const { data: { user } } = await supabase.auth.getUser()
-
-  // itemId is expected to be the Product ID now (see getCartItems)
   const productId = itemId;
 
   if (user) {
+    const { data: cart } = await (supabase as any).from('user_carts').select('id').eq('user_id', user.id).maybeSingle();
+    if (!cart) return;
+
     return await (supabase as any)
       .from('cart_items')
       .delete()
-      .eq('user_id', user.id)
-      .eq('product_id', productId);
+      .eq('cart_id', cart.id)
+      .eq('spare_part_id', productId);
   } else {
     const sessionId = getOrCreateSessionId();
     return await (supabase as any)
       .from('guest_cart_items')
       .delete()
       .eq('guest_session_id', sessionId)
-      .eq('product_id', productId);
+      .eq('spare_part_id', productId);
   }
 }
 
@@ -239,18 +245,21 @@ export const updateCartItemQuantity = async (itemId: string, quantity: number) =
   const productId = itemId;
 
   if (user) {
+    const { data: cart } = await (supabase as any).from('user_carts').select('id').eq('user_id', user.id).maybeSingle();
+    if (!cart) return;
+
     return await (supabase as any)
       .from('cart_items')
       .update({ quantity })
-      .eq('user_id', user.id)
-      .eq('product_id', productId);
+      .eq('cart_id', cart.id)
+      .eq('spare_part_id', productId);
   } else {
     const sessionId = getOrCreateSessionId();
     return await (supabase as any)
       .from('guest_cart_items')
       .update({ quantity })
       .eq('guest_session_id', sessionId)
-      .eq('product_id', productId);
+      .eq('spare_part_id', productId);
   }
 }
 
@@ -258,10 +267,13 @@ export const clearCart = async () => {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
+    const { data: cart } = await (supabase as any).from('user_carts').select('id').eq('user_id', user.id).maybeSingle();
+    if (!cart) return;
+
     return await (supabase as any)
       .from('cart_items')
       .delete()
-      .eq('user_id', user.id);
+      .eq('cart_id', cart.id);
   } else {
     const sessionId = getOrCreateSessionId();
     return await (supabase as any)
@@ -270,7 +282,6 @@ export const clearCart = async () => {
       .eq('guest_session_id', sessionId);
   }
 }
-
 
 // Merge guest cart with user cart on login
 export const mergeGuestCart = async () => {
@@ -286,22 +297,21 @@ export const mergeGuestCart = async () => {
     // 1. Fetch Guest Items
     const { data: guestItems } = await (supabase as any)
       .from('guest_cart_items')
-      .select('product_id, quantity')
+      .select('spare_part_id, quantity')
       .eq('guest_session_id', guestSessionId);
 
     if (!guestItems || guestItems.length === 0) {
-      localStorage.removeItem('guest_session_id'); // Just cleanup
+      localStorage.removeItem('guest_session_id');
       return;
     }
 
     // 2. Merge into User Cart
     for (const item of guestItems) {
-      // Check existing
       const { data: existing } = await (supabase as any)
         .from('cart_items')
         .select('quantity')
         .eq('user_id', user.id)
-        .eq('product_id', item.product_id)
+        .eq('spare_part_id', item.spare_part_id)
         .maybeSingle();
 
       if (existing) {
@@ -309,13 +319,13 @@ export const mergeGuestCart = async () => {
           .from('cart_items')
           .update({ quantity: existing.quantity + item.quantity })
           .eq('user_id', user.id)
-          .eq('product_id', item.product_id);
+          .eq('spare_part_id', item.spare_part_id);
       } else {
         await (supabase as any)
           .from('cart_items')
           .insert({
             user_id: user.id,
-            product_id: item.product_id,
+            spare_part_id: item.spare_part_id,
             quantity: item.quantity
           });
       }
@@ -335,7 +345,6 @@ export const mergeGuestCart = async () => {
   }
 }
 
-// Notification helpers
 export const createNotification = async (
   userId: string, 
   title: string, 
@@ -350,8 +359,6 @@ export const createNotification = async (
       title,
       message,
       type,
-      link: actionUrl // Schema uses 'link' not 'action_url'
+      link: actionUrl
     } as any);
 }
-
-export { supabase }

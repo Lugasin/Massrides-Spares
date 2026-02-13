@@ -18,26 +18,26 @@ export const ParallaxHero = () => {
       {/* Parallax Background Layers */}
       <div className="absolute inset-0">
         {/* Sky Layer */}
-        <div 
+        <div
           className="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-800 to-green-900"
           style={{ transform: `translateY(${scrollY * 0.1}px)` }}
         />
-        
+
         {/* Field Layer */}
-        <div 
+        <div
           className="absolute bottom-0 w-full h-2/3 bg-gradient-to-t from-green-600 to-green-700"
           style={{ transform: `translateY(${scrollY * 0.3}px)` }}
         />
-        
+
         {/* Equipment Silhouettes */}
-        <div 
+        <div
           className="absolute bottom-0 w-full h-1/2 opacity-20"
           style={{ transform: `translateY(${scrollY * 0.2}px)` }}
         >
           <div className="absolute bottom-0 left-1/4 w-32 h-16 bg-black/30 rounded-lg transform -rotate-12"></div>
           <div className="absolute bottom-4 right-1/3 w-24 h-12 bg-black/30 rounded-lg transform rotate-6"></div>
         </div>
-        
+
         {/* Floating Particles */}
         <div className="absolute inset-0">
           {[...Array(20)].map((_, i) => (
@@ -64,23 +64,23 @@ export const ParallaxHero = () => {
               Spare Parts
             </span>
           </h1>
-          
+
           <p className="text-xl lg:text-2xl mb-8 opacity-90 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             Keep your agricultural equipment running with genuine and aftermarket spare parts
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
-            <Button 
-              size="lg" 
-              onClick={() => navigate('/catalog')}
+            <Button
+              size="lg"
+              onClick={() => navigate('/guest-shopping')}
               className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 group"
             >
               Browse Parts
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
-            
-            <Button 
-              size="lg" 
+
+            <Button
+              size="lg"
               variant="outline"
               onClick={() => document.getElementById('featured-parts')?.scrollIntoView({ behavior: 'smooth' })}
               className="border-white/50 text-white hover:bg-white/10 backdrop-blur-sm"

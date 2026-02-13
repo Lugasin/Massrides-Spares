@@ -327,7 +327,6 @@ const Checkout = () => {
             </Button>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -761,8 +760,6 @@ const Checkout = () => {
         </div>
       </main>
 
-      <Footer />
-
       {/* Guest OTP Authentication Modal */}
       <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -822,7 +819,7 @@ const Checkout = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 };
 

@@ -64,15 +64,15 @@ const VendorDashboard: React.FC = () => {
   };
 
   const customMetrics = dashboardData ? [
-    { label: "Your Products", value: dashboardData.totalProducts.toString(), icon: Package, change: "Active" },
-    { label: "Total Orders", value: dashboardData.totalOrders.toString(), icon: ShoppingCart, change: "Total" },
-    { label: "Total Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, change: "Gross" },
-    { label: "Low Stock Alerts", value: dashboardData.lowStockProducts.length.toString(), icon: AlertTriangle, change: dashboardData.lowStockProducts.length > 0 ? "Action Needed" : "Good" }
+    { label: "Active Products", value: dashboardData.totalProducts.toString(), icon: Package, change: "Inventory" },
+    { label: "Order Count", value: dashboardData.totalOrders.toString(), icon: ShoppingCart, change: "Total Sales" },
+    { label: "Total Revenue", value: `K${(dashboardData.totalRevenue || 0).toLocaleString()}`, icon: TrendingUp, change: "ZMW Gross" },
+    { label: "Low Stock Alerts", value: dashboardData.lowStockProducts.length.toString(), icon: AlertTriangle, change: dashboardData.lowStockProducts.length > 0 ? "Action Needed" : "Healthy" }
   ] : [
-    { label: "Your Products", value: "0", icon: Package, change: "Active" },
-    { label: "Total Orders", value: "0", icon: ShoppingCart, change: "Total" },
-    { label: "Total Revenue", value: "$0", icon: DollarSign, change: "Gross" },
-    { label: "Low Stock Alerts", value: "0", icon: AlertTriangle, change: "Good" }
+    { label: "Active Products", value: "0", icon: Package, change: "Inventory" },
+    { label: "Order Count", value: "0", icon: ShoppingCart, change: "Total Sales" },
+    { label: "Total Revenue", value: "K0", icon: TrendingUp, change: "ZMW Gross" },
+    { label: "Low Stock Alerts", value: "0", icon: AlertTriangle, change: "Healthy" }
   ];
 
   if (loading) {
@@ -164,11 +164,14 @@ const VendorDashboard: React.FC = () => {
                       <TableCell className="font-medium">{order.order_number}</TableCell>
                       <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <Badge variant={order.status === 'completed' ? 'default' : 'secondary'} className="capitalize">
-                          {order.status}
+                        <Badge variant={
+                          ['paid', 'delivered'].includes(order.status) ? 'default' :
+                            ['cancelled', 'failed'].includes(order.status) ? 'destructive' : 'secondary'
+                        } className="capitalize">
+                          {order.status?.replace('_', ' ') || 'Pending'}
                         </Badge>
                       </TableCell>
-                      <TableCell>${order.total_amount.toLocaleString()}</TableCell>
+                      <TableCell>K{order.total_amount?.toLocaleString()}</TableCell>
                       <TableCell>
                         <Link to={`/orders/${order.id}`}>
                           <Button variant="outline" size="sm">View</Button>

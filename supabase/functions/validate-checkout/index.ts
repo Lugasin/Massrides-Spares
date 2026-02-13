@@ -102,81 +102,45 @@ serve(async (req) => {
 
     const { delivery_address, payment_method } = await req.json();
 
-    const { data: items, error: cartError } = await supabaseAdmin
-      .from("cart_items")
-      .select(
-        `
-        quantity,
-        product:products (
-          id,
-          name,
-          price,
-          main_image
-        )
-      `
-      )
-      .eq("user_id", user.id);
+    // -----------------------------------------------------------
+    // ATOMIC ORDER CREATION via RPC
+    // -----------------------------------------------------------
+    console.log("Calling create_order_from_cart RPC...");
+    const { data: orderId, error: rpcError } = await supabaseAdmin
+      .rpc('create_order_from_cart', {
+        _user_id: user.id,
+        _shipping_address: delivery_address ?? {},
+        _payment_method: payment_method ?? 'vesicash'
+      });
 
-    if (cartError) {
-      throw { reason: "CART_FETCH_FAILED", message: cartError.message };
+    if (rpcError) {
+      console.error("RPC Error:", rpcError);
+      throw { reason: "ORDER_CREATION_FAILED", message: rpcError.message };
     }
 
-    if (!items || items.length === 0) {
-      throw { reason: "EMPTY_CART", message: "Cart is empty" };
+    if (!orderId) {
+      throw { reason: "ORDER_CREATION_FAILED", message: "No order ID returned from RPC" };
     }
 
-    const cartItems = items
-      .filter((i) => i.product && i.quantity > 0)
-      .map((i) => ({
-        product_id: i.product.id,
-        name: i.product.name,
-        price: Number(i.product.price),
-        quantity: i.quantity,
-        image: i.product.main_image ?? "",
-      }));
-
-    let subtotal = 0;
-    for (const item of cartItems) {
-      subtotal += item.price * item.quantity;
-    }
-    const totalUSD = subtotal;
-
-    //add more logging Right before the database insert, add this:
-    console.log("About to insert order with user_id:", user.id);
-    console.log("Using supabaseAdmin client");
-
-    const { data: order, error: orderError } = await supabaseAdmin
+    console.log("Order created successfully via RPC. ID:", orderId);
+    
+    // Fetch the newly created order details for total calculation/verification (optional but good for logs)
+    // we need totalUSD for Vesicash
+    const { data: orderData, error: fetchOrderError } = await supabaseAdmin
       .from("orders")
-      .insert({
-        user_id: user.id,
-        total_amount: totalUSD,
-        status: "awaiting_payment",
-        shipping_address: delivery_address ?? {},
-      })
-      .select()
+      .select("total_amount, id")
+      .eq("id", orderId)
       .single();
-
-    console.log("Order insert result:", { order, error: orderError });
-
-    if (orderError) {
-      console.error("FULL ORDER ERROR:", JSON.stringify(orderError, null, 2));
-      throw { reason: "ORDER_FAILED", message: orderError.message };
+      
+    if (fetchOrderError || !orderData) {
+       console.error("Failed to fetch new order:", fetchOrderError);
+       // We can continue but we need total_amount. 
+       // If RPC succeeded, order exists.
     }
-
-    const orderItems = cartItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price_snapshot: item.price,
-    }));
-
-    const { error: itemsError } = await supabaseAdmin
-      .from("order_items")
-      .insert(orderItems);
-
-    if (itemsError) {
-      throw { reason: "ORDER_ITEMS_FAILED", message: itemsError.message };
-    }
+    
+    const order = { id: orderId }; // lightweight order obj
+    const totalUSD = orderData?.total_amount || 0; // Fallback or fail? Prefer fail if critical.
+    if (!orderData) throw { reason: "ORDER_FETCH_FAILED", message: "Created order could not be retrieved" };
 
     const reference = `ORD-${order.id}-${Date.now()}`;
     
@@ -188,11 +152,10 @@ serve(async (req) => {
     });
 
     let payment_link: string | null = null;
-    if (payment_method === "vesicash") {
-      const privateKey = Deno.env.get("VESICASH_SECRET_KEY");
-      const publicKey = Deno.env.get("VESICASH_PUBLIC_KEY");
+      const vesicashSecret = Deno.env.get("VESICASH_SECRET_KEY");
+      const vesicashBaseUrl = Deno.env.get("VESICASH_BASE_URL") || "https://api.vesicash.com";
 
-      if (!privateKey || !publicKey) {
+      if (!vesicashSecret) {
         throw {
           reason: "VESICASH_KEYS_MISSING",
           message: "Payment keys not configured",
@@ -207,26 +170,70 @@ serve(async (req) => {
         "/checkout/success";
 
       const webhookUrl =
-        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook";
+        Deno.env.get('SUPABASE_URL') + "/functions/v1/handle-vesicash-webhook";
 
+      // Extract customer info from delivery_address
+      const customerFirstName = delivery_address?.firstName || user.user_metadata?.full_name?.split(' ')[0] || 'Customer';
+      const customerLastName = delivery_address?.lastName || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '';
+      const customerFullName = `${customerFirstName} ${customerLastName}`.trim();
+      const customerEmail = user.email || delivery_address?.email || '';
+      const customerPhone = delivery_address?.phone || user.phone || '';
+
+      // Build enriched payload
+      const vesicashPayload = {
+        // Amount & Currency
+        currency: "ZMW",
+        country: "ZM",
+        amount: totalZMW,
+        
+        // Reference & Description
+        reference,
+        narration: `Order #${order.id}`,
+        description: `Order #${order.id} – MassRides Spares`,
+        method: "mobilemoney",
+        
+        // === CUSTOMER INFO (CRITICAL for merchant portal) ===
+        customer_name: customerFullName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        email: customerEmail,
+        
+        // Nested customer object
+        customer: {
+          name: customerFullName,
+          first_name: customerFirstName,
+          last_name: customerLastName,
+          email: customerEmail,
+          phone: customerPhone
+        },
+        
+        // Metadata
+        metadata: {
+          order_id: order.id,
+          user_id: user.id,
+          checkout_type: 'authenticated',
+          platform: 'massrides-pwa'
+        },
+        
+        // URLs
+        webhook_url: webhookUrl,
+        callback_url: callbackUrl,
+        redirect_url: callbackUrl,
+        return_url: callbackUrl
+      };
+
+      console.log("Vesicash payload (enriched):", JSON.stringify(vesicashPayload, null, 2));
+
+        // AUTHORITATIVE IMPLEMENTATION: Use Base URL and Bearer Token
       const vesicashRes = await fetch(
-        "https://api.mor.vesicash.com/v1/payment/init",  // ✅ Correct endpoint
+        `${vesicashBaseUrl}/payments/initiate`, 
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "secret-key": privateKey,  // ✅ Changed from "v-private-key"
-            "public-key": publicKey,   // ✅ Changed from "v-public-key"
+            "Authorization": `Bearer ${vesicashSecret}`,
           },
-          body: JSON.stringify({
-            currency: "ZMW",
-            country: "ZM",
-            narration: `Order #${order.id} - ${cartItems.length} items`,
-            method: "mobilemoney",  // or "card" - you can make this dynamic
-            amount: totalZMW,
-            webhook_url: webhookUrl,
-            redirect_url: callbackUrl,
-          }),
+          body: JSON.stringify(vesicashPayload),
         }
       );
 
@@ -242,7 +249,7 @@ serve(async (req) => {
         };
       }
 
-      payment_link = vData.data?.payment_link;
+      payment_link = vData.data?.link || vData.data?.payment_link;
 
       // Optional: Store the payment reference
       await supabaseAdmin
@@ -252,8 +259,7 @@ serve(async (req) => {
           vesicash_payment_id: vData.data?.payment_id,
         })
         .eq("order_id", order.id);
-    }
-
+    
     return new Response(
       JSON.stringify({
         order_id: order.id,
@@ -269,13 +275,14 @@ serve(async (req) => {
         },
       }
     );
-  } catch (error: unknown) {
-    console.error("CHECKOUT ERROR:", error);
+  } catch (error) {
+    const err = error as any;
+    console.error("CHECKOUT ERROR:", err);
     return new Response(
       JSON.stringify({
         error: "CHECKOUT_FAILED",
-        reason: error.reason ?? "UNKNOWN",
-        message: error.message ?? String(error),
+        reason: err.reason ?? "UNKNOWN",
+        message: err.message ?? String(err),
       }),
       {
         status: 400,

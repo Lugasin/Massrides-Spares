@@ -1,0 +1,12 @@
+﻿  origin/HEAD -> origin/main
+  origin/Main-3.0
+  origin/MainTest
+  origin/backup/migrations-20250924
+  origin/feature/admin-vendor-controls
+  origin/feature/user-roles-implementation
+  origin/fix/align-migrations-auth-rls-408357946322473409
+  origin/fix/checkout-and-migrations-incomplete-18380732831482304965
+  origin/main
+  origin/main-2.0
+  origin/pwa-system-overhaul-v2-1306520992073882801
+  origin/test

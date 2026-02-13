@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Mail,
@@ -15,188 +14,173 @@ import {
   CheckCircle,
   CreditCard,
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { useQuote } from '@/context/QuoteContext';
 import { supabase } from '@/integrations/supabase/client';
-import { mergeGuestCart } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useNavigate, Link } from 'react-router-dom';
 
+/**
+ * Guest Checkout - Payment First, Account Later
+ * 
+ * Flow:
+ * 1. Customer Info (email, phone, name, address) - NO AUTH REQUIRED
+ * 2. Order Review + Proceed to Payment
+ * 3. Redirect to Vesicash payment page
+ * 4. On success page: Optional "Create Account" prompt
+ */
+
 const GuestCheckout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
-  const navigate = useNavigate(); // Hook must be first
-  // Initialize from localStorage immediately
+  const navigate = useNavigate();
+
+  // Guest session for cart tracking
   const [sessionId] = useState(() => localStorage.getItem('guest_session_id') || '');
-  const [step, setStep] = useState(1); // 1: Email, 2: Verification, 3: Payment
+
+  // Steps: 1 = Info, 2 = Review & Pay
+  const [step, setStep] = useState(1);
+
+  // Form state
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('Zambia');
+
+  // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentProcessingMessage, setPaymentProcessingMessage] = useState<string | null>(null);
+  const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [sendReceipt, setSendReceipt] = useState(true);
 
-  const handleSendVerification = async (e: React.FormEvent) => {
+  // ==========================================
+  // Step 1: Collect Customer Info
+  // ==========================================
+
+  const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !name) {
-      toast.error('Please enter both name and email');
+      toast.error('Please enter your name and email');
       return;
     }
 
-    setIsVerifying(true);
-
-    try {
-      // Use Supabase Auth for OTP
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          data: {
-            full_name: name,
-            role: 'customer' // Automatically make them a customer
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success('Verification code sent to your email.');
-      setStep(2);
-    } catch (error: any) {
-      console.error('Error sending verification:', error);
-      toast.error(`Failed to send verification code: ${error.message}`);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!verificationCode) {
-      toast.error('Please enter the verification code');
+    if (!address || !city) {
+      toast.error('Please enter your shipping address');
       return;
     }
 
-    setIsVerifying(true);
-
-    try {
-      // Verify OTP and sign in
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: verificationCode,
-        type: 'email'
-      });
-
-      if (error) throw error;
-
-      if (data.session) {
-        toast.success('Email verified successfully! You are now logged in.');
-
-        // Explicitly merge cart before proceeding
-        try {
-          await mergeGuestCart();
-          setStep(3);
-        } catch (error) {
-          console.error("Cart merge failed", error);
-          // Still proceed, as they are logged in, but warn? 
-          // Actually, if merge fails, their cart is empty. 
-          // But create-order might check guest_session_id if provided.
-          // Better to proceed.
-          setStep(3);
-        }
-      } else {
-        throw new Error('Verification successful but no session created.');
-      }
-
-    } catch (error: any) {
-      console.error('Error verifying code:', error);
-      toast.error(`Verification failed: ${error.message}`);
-    } finally {
-      setIsVerifying(false);
-    }
+    // Move to payment step - NO OTP REQUIRED!
+    setStep(2);
+    toast.success('Information saved! Review your order and proceed to payment.');
   };
+
+  // ==========================================
+  // Step 2: Create Order & Redirect to Payment
+  // ==========================================
 
   const handleProceedToPayment = async () => {
     setIsProcessing(true);
-    setPaymentProcessingMessage("Initializing secure payment...");
-    toast.info("Proceeding to payment gateway...");
-
-    // Add delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setProcessingMessage("Creating your order...");
 
     try {
-      // Use state variable which persists even if localStorage is cleared by mergeGuestCart
-      const currentSessionId = sessionId; // Use state
+      // ==========================================
+      // 1. Create Order (Guest - No Auth)
+      // ==========================================
 
-      // If not logged in and no guest session, we can't proceed
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !currentSessionId) {
-        throw new Error("Session not found. Please start checkout again.");
-      }
+      console.log('Creating guest order with session:', sessionId);
 
-      // Create order using Edge Function
       const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
         body: {
-          guest_session_id: currentSessionId,
-          customer_info: {
-            email,
+          guest_email: email,
+          guest_phone: phone,
+          guest_name: name,
+          guest_session_id: sessionId,
+          shipping_info: {
             firstName: name.split(' ')[0],
-            lastName: name.split(' ').slice(1).join(' '),
-            address: 'Guest Address', // Minimal info for guest checkout
-            city: 'Guest City',
-            state: 'Guest State',
-            zipCode: '00000',
-            country: 'Zambia',
+            lastName: name.split(' ').slice(1).join(' ') || '',
+            address,
+            city,
+            state: '',
+            zipCode: '',
+            country
           },
           send_receipt: sendReceipt
         }
       });
 
-      if (orderError) throw new Error(orderError.message);
-      const { order } = orderData;
+      if (orderError) {
+        console.error('Order creation error:', orderError);
+        throw new Error(orderError.message || 'Failed to create order');
+      }
 
-      // Create Payment session (Vesicash via generic endpoint)
+      if (!orderData?.success) {
+        throw new Error(orderData?.error || 'Order creation failed');
+      }
+
+      const order = orderData.order;
+      console.log('Order created:', order);
+
+      setProcessingMessage("Initializing secure payment...");
+
+      // ==========================================
+      // 2. Create Payment Session
+      // ==========================================
+
       const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-payment-session', {
         body: {
-          amount: order.total_amount,
-          currency: 'USD',
+          order_id: order.id,
           customer_email: email,
           customer_name: name,
-          merchant_ref: order.order_number,
-          public_key: import.meta.env.VITE_VESICASH_PUBLIC_KEY,
-          success_url: `${window.location.origin}/checkout/success?order=${order.order_number}`,
-          cancel_url: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
-          webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
+          return_url: `${window.location.origin}/checkout/success?order=${order.order_number}`,
+          cancel_url: `${window.location.origin}/checkout/cancel?order=${order.order_number}`
         }
       });
 
-      if (paymentError) throw new Error(paymentError.message);
-
-      // Redirect to payment page
-      // Handle both potential response formats (generic or direct)
-      const redirectUrl = paymentData.payment_url || paymentData.redirectUrl;
-      if (redirectUrl) {
-        window.open(redirectUrl, '_blank');
-      } else {
-        throw new Error('No redirect URL received from payment provider');
+      if (paymentError) {
+        console.error('Payment session error:', paymentError);
+        throw new Error(paymentError.message || 'Failed to create payment session');
       }
 
-      // Clear local cart
-      clearCart();
+      if (!paymentData?.success && !paymentData?.checkout_url && !paymentData?.payment_url) {
+        throw new Error(paymentData?.error || 'Payment session creation failed');
+      }
 
-      // Navigate to success page
-      navigate(`/checkout/success?order=${order.order_number}`);
+      const redirectUrl = paymentData.checkout_url || paymentData.payment_url;
+      console.log('Redirecting to payment:', redirectUrl);
+
+      // ==========================================
+      // 3. Clear Local Cart & Redirect
+      // ==========================================
+
+      clearCart();
+      localStorage.removeItem('guest_session_id');
+
+      // Store order info for success page
+      sessionStorage.setItem('pending_order', JSON.stringify({
+        order_number: order.order_number,
+        email: email,
+        total: order.total_amount
+      }));
+
+      // Redirect to payment page
+      window.location.href = redirectUrl;
 
     } catch (error: any) {
-      console.error('Payment error:', error);
-      toast.error(`Failed to process payment: ${error.message}`);
+      console.error('Checkout error:', error);
+      toast.error(`Checkout failed: ${error.message}`);
+      setProcessingMessage(null);
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // ==========================================
+  // Empty Cart State
+  // ==========================================
 
   if (items.length === 0) {
     return (
@@ -210,10 +194,13 @@ const GuestCheckout = () => {
             </Button>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
+
+  // ==========================================
+  // Render
+  // ==========================================
 
   return (
     <div className="min-h-screen bg-background">
@@ -238,55 +225,50 @@ const GuestCheckout = () => {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   {step > 1 ? <CheckCircle className="h-4 w-4" /> : '1'}
                 </div>
-                <span className="ml-2 font-medium">Email</span>
+                <span className="ml-2 font-medium">Your Info</span>
               </div>
               <div className="w-8 h-px bg-border"></div>
               <div className={`flex items-center ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  {step > 2 ? <CheckCircle className="h-4 w-4" /> : '2'}
+                  2
                 </div>
-                <span className="ml-2 font-medium">Verify</span>
-              </div>
-              <div className="w-8 h-px bg-border"></div>
-              <div className={`flex items-center ${step >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  3
-                </div>
-                <span className="ml-2 font-medium">Payment</span>
+                <span className="ml-2 font-medium">Pay</span>
               </div>
             </div>
           </div>
 
+          {/* Step 1: Customer Info */}
           {step === 1 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Guest Checkout
+                  <User className="h-5 w-5" />
+                  Your Information
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-5 w-5 text-blue-600" />
-                      <h3 className="font-medium text-blue-800">Quick Guest Checkout</h3>
-                    </div>
-                    <p className="text-sm text-blue-700">
-                      No account needed! Just verify your email and complete your purchase securely.
-                    </p>
+                {/* No Account Required Banner */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="h-5 w-5 text-green-600" />
+                    <h3 className="font-medium text-green-800">No Account Required</h3>
                   </div>
+                  <p className="text-sm text-green-700">
+                    Complete your purchase without signing up. You can create an account after payment to track your order.
+                  </p>
+                </div>
 
-                  <div className="bg-muted/30 rounded-lg p-4 mb-6">
-                    <h4 className="font-medium mb-2">Order Summary</h4>
-                    <div className="flex justify-between items-center">
-                      <span>{itemCount} items</span>
-                      <span className="text-xl font-bold text-primary">${total.toLocaleString()}</span>
-                    </div>
+                {/* Order Summary */}
+                <div className="bg-muted/30 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium mb-2">Order Summary</h4>
+                  <div className="flex justify-between items-center">
+                    <span>{itemCount} items</span>
+                    <span className="text-xl font-bold text-primary">K{total.toLocaleString()}</span>
                   </div>
                 </div>
 
-                <form onSubmit={handleSendVerification} className="space-y-4">
+                <form onSubmit={handleInfoSubmit} className="space-y-4">
+                  {/* Name */}
                   <div>
                     <Label htmlFor="name">Full Name *</Label>
                     <Input
@@ -294,44 +276,108 @@ const GuestCheckout = () => {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter your full name"
+                      placeholder="John Doe"
                       required
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email address"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      We'll send a verification code to this email
-                    </p>
+                  {/* Email & Phone */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="email">Email *</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@example.com"
+                          className="pl-10"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone (optional)</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+260 97 1234567"
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shipping Address */}
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Shipping Address
+                    </h4>
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="address">Street Address *</Label>
+                        <Input
+                          id="address"
+                          type="text"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="123 Main Street"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="city">City *</Label>
+                          <Input
+                            id="city"
+                            type="text"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="Lusaka"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="country">Country</Label>
+                          <Input
+                            id="country"
+                            type="text"
+                            value={country}
+                            onChange={(e) => setCountry(e.target.value)}
+                            placeholder="Zambia"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <Button
                     type="submit"
                     className="w-full"
                     size="lg"
-                    disabled={isVerifying}
                   >
-                    {isVerifying ? 'Sending...' : 'Send Verification Code'}
+                    Continue to Payment
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </form>
 
+                {/* Sign In Link */}
                 <div className="mt-6 text-center">
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-sm text-muted-foreground mb-2">
                     Already have an account?
                   </p>
-                  <Button asChild variant="outline">
-                    <Link to="/login">
-                      Sign In Instead
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/login?redirect=/checkout">
+                      Sign In
                     </Link>
                   </Button>
                 </div>
@@ -339,87 +385,45 @@ const GuestCheckout = () => {
             </Card>
           )}
 
+          {/* Step 2: Review & Pay */}
           {step === 2 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5" />
-                  Verify Your Email
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center mb-6">
-                  <p className="text-muted-foreground">
-                    We've sent a 6-digit verification code to:
-                  </p>
-                  <p className="font-medium text-primary">{email}</p>
-                </div>
-
-                <form onSubmit={handleVerifyCode} className="space-y-4">
-                  <div>
-                    <Label htmlFor="code">Verification Code</Label>
-                    <Input
-                      id="code"
-                      type="text"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                      maxLength={6}
-                      className="text-center text-lg tracking-widest"
-                      required
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={isVerifying}
-                  >
-                    {isVerifying ? 'Verifying...' : 'Verify Email'}
-                    <CheckCircle className="ml-2 h-4 w-4" />
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => setStep(1)}
-                  >
-                    Change Email Address
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          {step === 3 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
-                  Complete Payment
+                  Review & Pay
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <h3 className="font-medium text-green-800">Email Verified</h3>
+                  {/* Customer Info Summary */}
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium">Shipping To</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setStep(1)}
+                      >
+                        Edit
+                      </Button>
                     </div>
-                    <p className="text-sm text-green-700">
-                      Your email has been verified. You can now proceed to payment.
+                    <p className="font-medium">{name}</p>
+                    <p className="text-sm text-muted-foreground">{email}</p>
+                    {phone && <p className="text-sm text-muted-foreground">{phone}</p>}
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {address}, {city}, {country}
                     </p>
                   </div>
 
+                  {/* Order Items */}
                   <div className="bg-muted/30 rounded-lg p-4">
-                    <h4 className="font-medium mb-3">Order Summary</h4>
+                    <h4 className="font-medium mb-3">Order Items</h4>
                     <div className="space-y-2">
                       {items.slice(0, 3).map((item) => (
                         <div key={item.id} className="flex justify-between text-sm">
                           <span>{item.name} x{item.quantity}</span>
-                          <span>${(item.price * item.quantity).toLocaleString()}</span>
+                          <span>K{(item.price * item.quantity).toLocaleString()}</span>
                         </div>
                       ))}
                       {items.length > 3 && (
@@ -431,38 +435,45 @@ const GuestCheckout = () => {
                         <div className="flex justify-between font-medium">
                           <span>Total:</span>
                           <span className="text-xl font-bold text-primary">
-                            ${total.toLocaleString()}
+                            K{total.toLocaleString()}
                           </span>
                         </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Receipt Option */}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sendReceipt"
+                      checked={sendReceipt}
+                      onCheckedChange={(checked) => setSendReceipt(checked === true)}
+                    />
+                    <Label htmlFor="sendReceipt">
+                      Email me a receipt after payment
+                    </Label>
+                  </div>
+
+                  {/* Pay Button */}
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-4">
-                      You will be redirected to our secure payment partner to complete your purchase.
+                      You'll be redirected to our secure payment partner.
                     </p>
-
-                    <div className="flex items-center justify-center space-x-2 mb-4">
-                      <Checkbox
-                        id="sendReceipt"
-                        checked={sendReceipt}
-                        onCheckedChange={(checked) => setSendReceipt(checked === true)}
-                      />
-                      <Label htmlFor="sendReceipt">
-                        Email me a copy of the order receipt
-                      </Label>
-                    </div>
 
                     <Button
                       onClick={handleProceedToPayment}
                       disabled={isProcessing}
-                      className="w-full bg-primary hover:bg-primary-hover"
+                      className="w-full bg-primary hover:bg-primary/90"
                       size="lg"
                     >
-                      {isProcessing ? 'Processing...' : (
+                      {isProcessing ? (
                         <>
-                          Proceed to Payment
+                          <span className="animate-spin mr-2">⏳</span>
+                          {processingMessage || 'Processing...'}
+                        </>
+                      ) : (
+                        <>
+                          Pay K{total.toLocaleString()}
                           <ExternalLink className="ml-2 h-4 w-4" />
                         </>
                       )}
@@ -470,7 +481,7 @@ const GuestCheckout = () => {
 
                     <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
                       <ShieldCheck className="h-4 w-4" />
-                      <span>Secure payment processing via Vesicash</span>
+                      <span>Secured by Vesicash</span>
                     </div>
                   </div>
                 </div>
@@ -478,12 +489,13 @@ const GuestCheckout = () => {
             </Card>
           )}
 
+          {/* Processing Overlay */}
           {isProcessing && (
             <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
               <Card className="w-full max-w-md p-6 shadow-lg border-primary/20">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                  <p className="text-lg font-medium">{paymentProcessingMessage || "Processing..."}</p>
+                  <p className="text-lg font-medium">{processingMessage || "Processing..."}</p>
                   <p className="text-sm text-muted-foreground">Please do not close this window.</p>
                 </div>
               </Card>
@@ -491,8 +503,6 @@ const GuestCheckout = () => {
           )}
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 };

@@ -68,6 +68,15 @@ const SparePartDetail = () => {
 
   useEffect(() => {
     if (partId) {
+      // Validate UUID format to prevent 22P02 invalid input syntax error
+      // This handles legacy/seed data with integer IDs gracefully
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(partId)) {
+        console.warn(`Invalid UUID provided for spare part: ${partId}`);
+        setLoading(false);
+        // Optionally set an error state here or redirect
+        return;
+      }
       fetchSparePartDetails();
     }
   }, [partId]);
@@ -75,11 +84,10 @@ const SparePartDetail = () => {
   const fetchSparePartDetails = async () => {
     try {
       const { data, error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .select(`
           *,
-          category:categories!category_id(name),
-          inventory(quantity)
+          category:categories!inner(name)
         `)
         .eq('id', partId)
         .single();
@@ -87,34 +95,33 @@ const SparePartDetail = () => {
       if (error) throw error;
 
       const product = data as any;
-      const attrs = product.attributes || {};
-      const totalStock = product.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+      // Schema Differences: spare_parts has direct columns for brand, condition, warranty, etc.
+      // But some might still be in JSON if migrated that way. 
+      // Based on 20250801... schema:
+      // name, description, price, part_number, brand, condition, warranty, etc. are columns.
 
       const mappedPart: SparePart = {
-        id: product.id.toString(),
-        part_number: product.sku || '',
-        name: product.title,
+        id: product.id,
+        part_number: product.part_number || '',
+        name: product.name,
         description: product.description || '',
         price: Number(product.price),
-        brand: attrs.brand || 'Generic',
-        oem_part_number: product.sku,
-        condition: attrs.condition || 'new',
-        availability_status: totalStock > 0 ? 'in_stock' : 'out_of_stock',
-        stock_quantity: totalStock,
-        images: product.main_image ? [product.main_image] : [],
-        technical_specs: attrs.technicalSpecs || {},
-        warranty_months: attrs.warranty ? parseInt(attrs.warranty) : 12,
-        weight_kg: attrs.weight,
-        dimensions_cm: attrs.dimensions,
-        featured: attrs.featured === true,
-        tags: attrs.tags || [],
+        brand: product.brand || 'Generic',
+        oem_part_number: product.part_number, // using part_number as fallback
+        condition: product.condition || 'new',
+        availability_status: (product.stock_quantity > 0) ? 'in_stock' : 'out_of_stock',
+        stock_quantity: product.stock_quantity || 0,
+        images: product.images || [],
+        technical_specs: {}, // spare_parts might not have this column yet, or it's jsonb
+        warranty_months: product.warranty ? parseInt(product.warranty) : 12, // warranty is text in schema?
+        weight_kg: 0,
+        dimensions_cm: '',
+        featured: false,
+        tags: [],
         category: {
           name: product.category?.name || 'General'
         },
-        equipment_compatibility: (attrs.compatibility || []).map((comp: string) => ({
-          equipment_type: { name: comp, brand: 'Universal' },
-          is_direct_fit: true
-        }))
+        equipment_compatibility: []
       };
 
       setSparePart(mappedPart);
@@ -141,68 +148,19 @@ const SparePartDetail = () => {
           .eq('user_id', user.id)
           .single();
 
-        if (profile) {
-          // Get or create cart
-          let { data: cart } = await supabase
-            .from('user_carts')
-            .select('id')
-            .eq('user_id', profile.id)
-            .single();
-
-          if (!cart) {
-            const { data: newCart } = await supabase
-              .from('user_carts')
-              .insert({ user_id: profile.id })
-              .select('id')
-              .maybeSingle();
-            cart = newCart;
-          }
-
-          // Add item to cart
-          const { error } = await supabase
-            .from('cart_items')
-            .upsert({
-              cart_id: cart!.id,
-              product_id: parseInt(sparePart.id), // Ensure it's number if DB expects bigint, or string if uuid. Products ID is bigint (serial) in migration? Yes.
-              quantity: quantity
-            });
-
-          if (error) throw error;
-        }
+        // Add item to cart - utilizing the centralized logic in supabase.ts helps, but here we do it manual?
+        // Let's use the helper to avoid duplication and errors
+        const { addToCart } = await import('@/lib/cart');
+        await addToCart(sparePart.id, quantity);
       } else {
-        // Guest user
-        const sessionId = localStorage.getItem('guest_session_id') || crypto.randomUUID();
-        localStorage.setItem('guest_session_id', sessionId);
-
-        let { data: guestCart } = await supabase
-          .from('guest_carts')
-          .select('id')
-          .eq('session_id', sessionId)
-          .maybeSingle();
-
-        if (!guestCart) {
-          const { data: newGuestCart } = await supabase
-            .from('guest_carts')
-            .insert({ session_id: sessionId })
-            .select('id')
-            .maybeSingle();
-          guestCart = newGuestCart;
-        }
-
-        const { error } = await supabase
-          .from('guest_cart_items')
-          .upsert({
-            guest_cart_id: guestCart!.id,
-            spare_part_id: parseInt(sparePart.id),
-            quantity: quantity
-          });
-
-        if (error) throw error;
+        // Guest user - use helper
+        const { addToCart } = await import('@/lib/cart');
+        await addToCart(sparePart.id, quantity);
       }
 
       // Also add to local cart context for immediate UI update
       addItem({
-        id: sparePart.id, // This is a string (UUID) from the database
+        id: sparePart.id,
         name: sparePart.name,
         price: sparePart.price,
         image: sparePart.images[0] || '',

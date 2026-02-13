@@ -20,13 +20,15 @@ import { toast } from 'sonner';
 // Define interface matching DB structure
 interface FeaturedPart {
   id: string; // items from DB have numeric ID but we typically handle as string in frontend routing
-  sku: string;
-  title: string;
+  part_number: string;
+  name: string;
   price: number;
-  main_image: string | null;
+  images: string[] | null;
   category: { name: string } | null; // Joined
-  attributes: any;
+  description: string;
   in_stock: boolean;
+  brand: string;
+  featured: boolean;
 }
 
 const GuestShoppingLanding = () => {
@@ -40,24 +42,34 @@ const GuestShoppingLanding = () => {
 
   const fetchFeaturedParts = async () => {
     try {
-      // Fetch products that are active. 
-      // We can interpret "Featured" as either a specific flag or just the latest items for now.
-      // Based on previous files, 'featured' is in attributes jsonb.
-      // Let's fetch active products and filter or we can use a JSON containment query.
+      // Fetch active spare parts.
       const { data, error } = await supabase
-        .from('products')
+        .from('spare_parts')
         .select(`
-          *,
+          id,
+          name,
+          part_number,
+          price,
+          images,
+          description,
+          stock_quantity,
+          availability_status,
+          brand,
+          featured,
           category:categories(name)
         `)
         .eq('is_active', true)
-        // .contains('attributes', { featured: true }) // Optional: if we want strict featured
         .limit(6);
 
       if (error) throw error;
 
       if (data) {
-        setFeaturedParts(data as any);
+        // Map to interface
+        setFeaturedParts(data.map(p => ({
+          ...p,
+          in_stock: p.availability_status === 'in_stock' || (p.stock_quantity ?? 0) > 0,
+          featured: p.featured
+        })) as any);
       }
     } catch (error) {
       console.error('Error fetching featured parts:', error);
@@ -70,13 +82,13 @@ const GuestShoppingLanding = () => {
   const handleAddToCart = (part: FeaturedPart) => {
     addItem({
       id: String(part.id),
-      name: part.title,
+      name: part.name,
       price: Number(part.price),
-      image: part.main_image || '/placeholder.png', // Fallback image
-      specs: part.attributes?.tags || [],
+      image: part.images?.[0] || '/placeholder-part.png', // Fallback image
+      specs: [], // Spare parts don't have specs column in this query
       category: part.category?.name || 'General'
     });
-    toast.success(`${part.title} added to cart`);
+    toast.success(`${part.name} added to cart`);
   };
 
   return (
@@ -168,13 +180,13 @@ const GuestShoppingLanding = () => {
                   <Link to={`/parts/${part.id}`} className="block">
                     <div className="relative overflow-hidden bg-muted">
                       <img
-                        src={part.main_image || '/placeholder.png'} // Fallback here
-                        alt={part.title}
+                        src={part.images?.[0] || '/placeholder-part.png'} // Fallback here
+                        alt={part.name}
                         className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = '/placeholder.png'; // Runtime fallback
+                          target.src = '/placeholder-part.png'; // Runtime fallback
                         }}
                       />
                       <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">
@@ -198,17 +210,17 @@ const GuestShoppingLanding = () => {
                         </div>
                         <span className="text-sm text-muted-foreground">4.8</span>
                       </div>
-                      <h3 className="font-semibold mb-2 line-clamp-2">{part.title}</h3>
+                      <h3 className="font-semibold mb-2 line-clamp-2">{part.name}</h3>
                       <p className="text-sm text-muted-foreground mb-2">
-                        Part #: {part.sku}
+                        Part #: {part.part_number}
                       </p>
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-bold text-primary">
-                          ${Number(part.price).toLocaleString()}
+                          K{Number(part.price).toLocaleString()}
                         </span>
-                        {part.attributes?.brand && (
+                        {part.brand && (
                           <Badge variant="outline">
-                            {part.attributes.brand}
+                            {part.brand}
                           </Badge>
                         )}
                       </div>

@@ -12,7 +12,7 @@ import { products, categories, Product } from "@/data/products";
 import { useQuote } from "@/context/QuoteContext";
 import { toast } from "sonner";
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const Catalog = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,21 +33,35 @@ const Catalog = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const { data: dbProducts, error } = await supabase
-          .from('products')
-          .select('*');
+        const { data, error } = await supabase
+          .from('spare_parts')
+          .select(`
+            id,
+            name,
+            price,
+            images,
+            part_number,
+            description,
+            stock_quantity,
+            availability_status,
+            featured,
+            brand,
+            categories(name)
+          `)
+          .eq('is_active', true)
+          .order('name');
 
         if (error) {
           console.error('Error fetching products:', error);
           return;
         }
 
-        if (dbProducts) {
+        if (data) {
           // Map DB structure to Product interface
-          const mappedDbProducts: Product[] = (dbProducts as any[]).map(p => {
-            // Logic: If DB has full URL, use it. If relative path (from seed), use it. 
+          const mappedDbProducts: Product[] = (data as any[]).map(p => {
+            // Logic: If DB has full URL, use it. If relative path (from seed), use it.
             // If null, try to find a local match or placeholder.
-            let imageUrl = p.image || p.main_image;
+            let imageUrl = p.images?.[0] || p.main_image;
 
             if (!imageUrl) {
               imageUrl = '/placeholder-part.png';
@@ -59,10 +73,10 @@ const Catalog = () => {
               price: Number(p.price),
               image: imageUrl,
               specs: p.specs || [],
-              category: p.category || 'Uncategorized',
+              category: p.categories?.name || 'Uncategorized', // Access category name from nested object
               description: p.description || '',
-              inStock: p.in_stock,
-              featured: p.is_featured || false,
+              inStock: p.availability_status === 'in_stock' || (p.stock_quantity ?? 0) > 0,
+              featured: p.featured || false,
               brand: p.brand || 'Generic',
               partNumber: p.part_number || p.sku,
               compatibility: p.compatibility || [],

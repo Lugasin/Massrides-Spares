@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 interface VendorPayment {
     id: string;
@@ -13,74 +14,130 @@ interface VendorPayment {
     currency: string;
     status: string;
     created_at: string;
+    order_number: string;
 }
 
 export const VendorPaymentPanel = () => {
+    const { user, profile } = useAuth();
     const [payments, setPayments] = useState<VendorPayment[]>([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        fetchPayments();
-    }, []);
+        if (profile?.id) {
+            fetchPayments();
+        }
+    }, [profile]);
 
     const fetchPayments = async () => {
         setLoading(true);
-        // RLS policy "Users view own payments" ensures they only see payments linked to their orders
-        // But wait, the policy I wrote links payments -> orders -> user_id = auth.uid()
-        // For VENDORS, they check payments -> orders -> vendor_id = auth.vendor_id ??
-        // Actually, the current RLS policy is:
-        // "Users view own payments" -> orders.user_id = auth.uid() (So CUSTOMERS see their payments)
+        if (!profile?.id) return;
 
-        // I need to ADD a policy for Vendors to see payments for orders where THEY are the vendor.
-        // I'll add that sql migration next. For now, let's write the component assuming it works.
+        try {
+            // 1. Get all order items for this vendor
+            const { data: orderItems, error: itemsError } = await supabase
+                .from('order_items')
+                .select(`
+                    order_id,
+                    price,
+                    quantity,
+                    orders (
+                        id,
+                        order_number,
+                        payment_status,
+                        created_at,
+                        status
+                    )
+                `)
+                .eq('spare_parts.vendor_id', profile.id) // This assumes we can filter by nested relation, but Supabase doesn't support deep filter alias easily without !inner
+                // Actually, spare_parts is related to order_items.
+                // But wait, order_items has spare_part_id.
+                // We need to filter order_items where spare_part has vendor_id = profile.id.
+                // This requires: .select('..., spare_parts!inner(vendor_id)')
+                .select(`
+                    order_id,
+                    price,
+                    quantity,
+                    orders!inner (
+                        id,
+                        order_number,
+                        payment_status,
+                        created_at
+                    ),
+                    spare_parts!inner (
+                        vendor_id
+                    )
+                `)
+                .eq('spare_parts.vendor_id', profile.id)
+                .order('created_at', { ascending: false });
 
-        // Actually, a Vendor User has a profile -> linked to a vendor record?
-        // Let's assume standard vendor access via order connection.
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+            if (itemsError) throw itemsError;
 
-        // Fetch payments where the associated order belongs to this vendor
-        // This requires a join or a specific RLS. 
-        // Let's rely on the Supabase client logic.
+            // 2. Group by order to calculate "My Revenue" per order and get payment status
+            const orderMap = new Map<string, VendorPayment>();
 
-        const { data, error } = await supabase
-            .from('payments')
-            .select(`
-            *,
-            orders!inner(vendor_id, user_id)
-        `)
-            .order('created_at', { ascending: false });
+            if (orderItems) {
+                // Determine unique orders
+                const uniqueOrderIds = [...new Set(orderItems.map(item => item.order_id))];
 
-        if (data) {
-            // Filter locally if RLS is loose, but RLS should handle it.
-            // Transforming to simple shape
-            setPayments(data.map(p => ({
-                id: p.id,
-                merchant_reference: p.merchant_reference,
-                amount: p.amount,
-                currency: p.currency,
-                status: p.status,
-                created_at: p.created_at
-            })));
+                // Fetch actual payments only for these orders (optional, if we want payment gateway details)
+                // But orders.payment_status is often enough for the dashboard.
+                // For "Payment History", distinct payments reference is better. 
+                // Let's see if we can get payments.
+                const { data: paymentsData } = await supabase
+                    .from('payments' as any)
+                    .select('order_id, merchant_reference, currency, status')
+                    .in('order_id', uniqueOrderIds);
+
+                const paymentLookup = new Map();
+                paymentsData?.forEach(p => {
+                    paymentLookup.set(p.order_id, p);
+                });
+
+                orderItems.forEach((item: any) => {
+                    const orderId = item.order_id;
+                    const order = item.orders;
+                    const payment = paymentLookup.get(orderId);
+
+                    if (!orderMap.has(orderId)) {
+                        orderMap.set(orderId, {
+                            id: orderId,
+                            merchant_reference: payment?.merchant_reference || order.order_number,
+                            amount: 0,
+                            currency: payment?.currency || 'ZMW', // default to ZMW
+                            status: payment?.status || order.payment_status || 'PENDING',
+                            created_at: order.created_at,
+                            order_number: order.order_number
+                        });
+                    }
+
+                    const entry = orderMap.get(orderId)!;
+                    entry.amount += (item.price * item.quantity);
+                });
+            }
+
+            setPayments(Array.from(orderMap.values()));
+
+        } catch (error) {
+            console.error("Error fetching vendor payments:", error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'PAID': return 'bg-green-100 text-green-800 border-green-200';
-            case 'PENDING': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'FAILED': return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
+        const s = status.toUpperCase();
+        if (s === 'PAID' || s === 'SUCCESSFUL' || s === 'COMPLETED') return 'bg-green-100 text-green-800 border-green-200';
+        if (s === 'PENDING' || s === 'PROCESSING') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        if (s === 'FAILED' || s === 'CANCELLED') return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     };
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle>Payment History</CardTitle>
-                    <CardDescription>Transactions for your store's orders</CardDescription>
+                    <CardTitle>Sales & Payments</CardTitle>
+                    <CardDescription>Earnings from your orders</CardDescription>
                 </div>
                 <Button variant="ghost" size="icon" onClick={fetchPayments} disabled={loading}>
                     <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -91,8 +148,8 @@ export const VendorPaymentPanel = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Reference</TableHead>
-                                <TableHead>Amount</TableHead>
+                                <TableHead>Order # / Ref</TableHead>
+                                <TableHead>My Earnings</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Date</TableHead>
                             </TableRow>
@@ -101,13 +158,18 @@ export const VendorPaymentPanel = () => {
                             {payments.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                        No payments found.
+                                        No sales records found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 payments.map((payment) => (
                                     <TableRow key={payment.id}>
-                                        <TableCell className="font-mono text-xs">{payment.merchant_reference}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-sm">{payment.order_number}</span>
+                                                <span className="text-xs text-muted-foreground font-mono">{payment.merchant_reference}</span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell>{payment.currency} {payment.amount?.toFixed(2)}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={`text-xs ${getStatusColor(payment.status)}`}>

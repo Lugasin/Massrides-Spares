@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   CreditCard,
   Search,
@@ -19,52 +18,41 @@ import {
   DollarSign,
   AlertTriangle,
   Eye,
-  Settings,
   Download,
   TrendingUp,
-  Activity
+  Activity,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-interface TJTransaction {
+interface Payment {
   id: string;
   order_id: string;
-  transaction_id: string;
-  event_type: string;
-  amount: number;
-  currency: string;
+  provider: string;
+  provider_reference: string;
+  vesicash_transaction_id?: string;
   status: string;
-  webhook_data: any;
-  processed_at: string;
+  amount: number | null;
+  currency: string;
+  raw_payload: any;
   created_at: string;
+  updated_at?: string;
   order?: {
-    // order_number removed, use id if needed
+    id: string;
     total_amount: number;
     status: string;
-    payment_status: string;
-    user_id: string;
-  };
-}
-
-interface Order {
-  id: string;
-  order_number: string;
-  status: string;
-  payment_status: string;
-  total_amount: number;
-  tj: any;
-  created_at: string;
-  user_profile?: {
-    full_name: string;
-    email: string;
+    user_id: string | null;
+    guest_email: string | null;
+    customer_email: string | null;
+    shipping_address: any;
   };
 }
 
 interface PaymentMetrics {
-  totalTransactions: number;
+  totalPayments: number;
   successfulPayments: number;
   failedPayments: number;
   pendingPayments: number;
@@ -74,10 +62,9 @@ interface PaymentMetrics {
 
 const PaymentMonitoring = () => {
   const { user, profile, userRole } = useAuth();
-  const [transactions, setTransactions] = useState<TJTransaction[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [metrics, setMetrics] = useState<PaymentMetrics>({
-    totalTransactions: 0,
+    totalPayments: 0,
     successfulPayments: 0,
     failedPayments: 0,
     pendingPayments: 0,
@@ -87,20 +74,7 @@ const PaymentMonitoring = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedTransaction, setSelectedTransaction] = useState<TJTransaction | null>(null);
-  const [settlementDialog, setSettlementDialog] = useState<{
-    isOpen: boolean;
-    transactionId: string;
-    action: 'settle' | 'reverse';
-  }>({
-    isOpen: false,
-    transactionId: '',
-    action: 'settle'
-  });
-  const [settlementForm, setSettlementForm] = useState({
-    amount: '',
-    reason: ''
-  });
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     if (userRole === 'admin' || userRole === 'super_admin') {
@@ -113,53 +87,41 @@ const PaymentMonitoring = () => {
     try {
       setLoading(true);
 
-      // Fetch transactions
-      const { data: transactionData, error: transactionError } = await supabase
-        .from('tj_transaction_logs')
+      // Fetch payments with order details
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
         .select(`
           *,
           order:orders(
             id,
             total_amount,
             status,
-            payment_status,
-            user_id
+            user_id,
+            guest_email,
+            customer_email,
+            shipping_address
           )
         `)
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (transactionError) throw transactionError;
-      setTransactions(transactionData || []);
-
-      // Fetch orders with payment data
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          user_profile:user_profiles(full_name, email)
-        `)
-        .not('payment_intent_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (orderError) throw orderError;
-      setOrders(orderData || []);
+      if (paymentError) throw paymentError;
+      setPayments(paymentData || []);
 
       // Calculate metrics
-      const allTransactions = transactionData || [];
-      const successfulTxns = allTransactions.filter(t => t.status === 'PAYMENT_SETTLED');
-      const failedTxns = allTransactions.filter(t => t.status === 'PAYMENT_FAILED' || t.status === 'PAYMENT_DECLINED');
-      const pendingTxns = allTransactions.filter(t => t.status === 'PAYMENT_AUTHORISED');
-      const totalRevenue = successfulTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
+      const allPayments = paymentData || [];
+      const successfulPmts = allPayments.filter(p => p.status === 'paid');
+      const failedPmts = allPayments.filter(p => p.status === 'failed' || p.status === 'cancelled');
+      const pendingPmts = allPayments.filter(p => ['pending', 'initiated', 'processing'].includes(p.status));
+      const totalRevenue = successfulPmts.reduce((sum, p) => sum + (p.amount || p.order?.total_amount || 0), 0);
 
       setMetrics({
-        totalTransactions: allTransactions.length,
-        successfulPayments: successfulTxns.length,
-        failedPayments: failedTxns.length,
-        pendingPayments: pendingTxns.length,
+        totalPayments: allPayments.length,
+        successfulPayments: successfulPmts.length,
+        failedPayments: failedPmts.length,
+        pendingPayments: pendingPmts.length,
         totalRevenue: totalRevenue,
-        averageOrderValue: successfulTxns.length > 0 ? totalRevenue / successfulTxns.length : 0
+        averageOrderValue: successfulPmts.length > 0 ? totalRevenue / successfulPmts.length : 0
       });
 
     } catch (error: any) {
@@ -178,7 +140,7 @@ const PaymentMonitoring = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'tj_transaction_logs'
+          table: 'payments'
         },
         () => {
           fetchData();
@@ -200,58 +162,18 @@ const PaymentMonitoring = () => {
     return () => supabase.removeChannel(channel);
   };
 
-  const handleManualSettlement = async () => {
-    try {
-      const response = await supabase.functions.invoke('tj-manual-settlement', {
-        body: {
-          transactionId: settlementDialog.transactionId,
-          action: settlementDialog.action,
-          amount: settlementForm.amount ? parseFloat(settlementForm.amount) : undefined,
-          reason: settlementForm.reason
-        }
-      });
-
-      if (response.error) throw response.error;
-
-      toast.success(`Transaction ${settlementDialog.action} successful`);
-      setSettlementDialog({ isOpen: false, transactionId: '', action: 'settle' });
-      setSettlementForm({ amount: '', reason: '' });
-      fetchData();
-    } catch (error: any) {
-      console.error('Settlement error:', error);
-      toast.error(`Failed to ${settlementDialog.action} transaction`);
-    }
-  };
-
-  const handleTransactionLookup = async (transactionId: string) => {
-    try {
-      const response = await supabase.functions.invoke('tj-lookup', {
-        body: { transactionId }
-      });
-
-      if (response.error) throw response.error;
-
-      toast.success('Transaction lookup completed');
-      fetchData();
-    } catch (error: any) {
-      console.error('Lookup error:', error);
-      toast.error('Failed to lookup transaction');
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PAYMENT_SETTLED':
       case 'paid':
         return 'default';
-      case 'PAYMENT_AUTHORISED':
-      case 'authorised':
+      case 'initiated':
+      case 'processing':
+      case 'redirected':
         return 'secondary';
-      case 'PAYMENT_FAILED':
       case 'failed':
-        return 'destructive';
-      case 'PAYMENT_CANCELLED':
       case 'cancelled':
+        return 'destructive';
+      case 'pending':
         return 'outline';
       default:
         return 'secondary';
@@ -260,36 +182,51 @@ const PaymentMonitoring = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PAYMENT_SETTLED':
       case 'paid':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'PAYMENT_AUTHORISED':
-      case 'authorised':
+      case 'initiated':
+      case 'processing':
+      case 'redirected':
         return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'PAYMENT_FAILED':
       case 'failed':
+      case 'cancelled':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'pending':
+        return <AlertTriangle className="h-4 w-4 text-gray-500" />;
       default:
         return <AlertTriangle className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const filteredTransactions = transactions.filter(transaction => {
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'vesicash':
+        return <Smartphone className="h-4 w-4 text-green-600" />;
+      default:
+        return <CreditCard className="h-4 w-4 text-blue-600" />;
+    }
+  };
+
+  const getCustomerInfo = (payment: Payment) => {
+    const order = payment.order;
+    if (!order) return { name: 'Unknown', email: '' };
+
+    const shippingAddress = order.shipping_address || {};
+    const name = shippingAddress.firstName
+      ? `${shippingAddress.firstName} ${shippingAddress.lastName || ''}`
+      : 'Guest';
+    const email = order.customer_email || order.guest_email || shippingAddress.email || '';
+
+    return { name, email };
+  };
+
+  const filteredPayments = payments.filter(payment => {
     const matchesSearch = !searchTerm ||
-      transaction.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(transaction.order?.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+      payment.provider_reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.vesicash_transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(payment.order_id).includes(searchTerm);
 
-    const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = !searchTerm ||
-      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || order.payment_status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -314,7 +251,7 @@ const PaymentMonitoring = () => {
             <CreditCard className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-3xl font-bold">Payment Monitoring</h1>
-              <p className="text-muted-foreground">Monitor Transaction Junction payments and settlements</p>
+              <p className="text-muted-foreground">Monitor Vesicash payments and order transactions</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -335,8 +272,8 @@ const PaymentMonitoring = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Transactions</p>
-                  <p className="text-2xl font-bold">{metrics.totalTransactions}</p>
+                  <p className="text-sm text-muted-foreground">Total Payments</p>
+                  <p className="text-2xl font-bold">{metrics.totalPayments}</p>
                 </div>
                 <Activity className="h-8 w-8 text-primary" />
               </div>
@@ -348,9 +285,9 @@ const PaymentMonitoring = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Successful</p>
-                  <p className="text-2xl font-bold text-success">{metrics.successfulPayments}</p>
+                  <p className="text-2xl font-bold text-green-600">{metrics.successfulPayments}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-success" />
+                <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
@@ -373,7 +310,7 @@ const PaymentMonitoring = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Revenue</p>
                   <p className="text-2xl font-bold text-primary">
-                    ${metrics.totalRevenue.toLocaleString()}
+                    K{metrics.totalRevenue.toLocaleString()}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-primary" />
@@ -382,23 +319,22 @@ const PaymentMonitoring = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="orders" className="space-y-6">
+        <Tabs defaultValue="payments" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="orders">Payment Orders</TabsTrigger>
-            <TabsTrigger value="transactions">Transaction Logs</TabsTrigger>
+            <TabsTrigger value="payments">All Payments</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="orders">
+          <TabsContent value="payments">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Payment Orders</CardTitle>
+                  <CardTitle>Payment Transactions</CardTitle>
                   <div className="flex gap-2">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search orders..."
+                        placeholder="Search by reference..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10 w-64"
@@ -411,7 +347,9 @@ const PaymentMonitoring = () => {
                     >
                       <option value="all">All Status</option>
                       <option value="paid">Paid</option>
-                      <option value="authorised">Authorised</option>
+                      <option value="initiated">Initiated</option>
+                      <option value="processing">Processing</option>
+                      <option value="pending">Pending</option>
                       <option value="failed">Failed</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
@@ -422,167 +360,76 @@ const PaymentMonitoring = () => {
                 {loading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading orders...</p>
+                    <p className="text-muted-foreground">Loading payments...</p>
+                  </div>
+                ) : filteredPayments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No payments found</p>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Order #</TableHead>
+                        <TableHead>Reference</TableHead>
                         <TableHead>Customer</TableHead>
+                        <TableHead>Provider</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Payment Status</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell className="font-medium">{order.order_number}</TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{order.user_profile?.full_name || 'Guest'}</p>
-                              <p className="text-sm text-muted-foreground">{order.user_profile?.email}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            ${order.total_amount.toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getStatusIcon(order.status)}
-                              <Badge variant={getStatusColor(order.status)} className="capitalize">
-                                {order.status}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getStatusIcon(order.payment_status)}
-                              <Badge variant={getStatusColor(order.payment_status)} className="capitalize">
-                                {order.payment_status}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {order.payment_status === 'authorised' && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setSettlementDialog({
-                                      isOpen: true,
-                                      transactionId: order.tj?.transactionId || '',
-                                      action: 'settle'
-                                    })}
-                                  >
-                                    Settle
-                                  </Button>
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => setSettlementDialog({
-                                      isOpen: true,
-                                      transactionId: order.tj?.transactionId || '',
-                                      action: 'reverse'
-                                    })}
-                                  >
-                                    Reverse
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>Transaction Logs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction ID</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="font-mono text-sm">
-                          {transaction.transaction_id || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {transaction.order?.id ? `Order #${String(transaction.order.id).slice(0, 8)}` : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {transaction.event_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {transaction.status && (
-                            <div className="flex items-center gap-2">
-                              {getStatusIcon(transaction.status)}
-                              <Badge variant={getStatusColor(transaction.status)}>
-                                {transaction.status}
-                              </Badge>
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {transaction.amount ? `$${transaction.amount.toLocaleString()}` : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {formatDistanceToNow(new Date(transaction.created_at), { addSuffix: true })}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedTransaction(transaction)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {transaction.transaction_id && (
+                      {filteredPayments.map((payment) => {
+                        const customer = getCustomerInfo(payment);
+                        return (
+                          <TableRow key={payment.id}>
+                            <TableCell className="font-mono text-sm">
+                              {payment.provider_reference?.slice(0, 20) || payment.vesicash_transaction_id?.slice(0, 20) || 'N/A'}
+                              {(payment.provider_reference?.length > 20 || payment.vesicash_transaction_id?.length > 20) && '...'}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{customer.name}</p>
+                                <p className="text-sm text-muted-foreground">{customer.email}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getProviderIcon(payment.provider)}
+                                <span className="capitalize">{payment.provider}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {payment.currency || 'ZMW'} {(payment.amount || payment.order?.total_amount || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(payment.status)}
+                                <Badge variant={getStatusColor(payment.status)} className="capitalize">
+                                  {payment.status}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {formatDistanceToNow(new Date(payment.created_at), { addSuffix: true })}
+                            </TableCell>
+                            <TableCell>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleTransactionLookup(transaction.transaction_id)}
+                                onClick={() => setSelectedPayment(payment)}
                               >
-                                <RefreshCw className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -598,13 +445,13 @@ const PaymentMonitoring = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8">
-                    <div className="text-4xl font-bold text-success mb-2">
-                      {metrics.totalTransactions > 0
-                        ? ((metrics.successfulPayments / metrics.totalTransactions) * 100).toFixed(1)
+                    <div className="text-4xl font-bold text-green-600 mb-2">
+                      {metrics.totalPayments > 0
+                        ? ((metrics.successfulPayments / metrics.totalPayments) * 100).toFixed(1)
                         : 0}%
                     </div>
                     <p className="text-muted-foreground">
-                      {metrics.successfulPayments} of {metrics.totalTransactions} transactions successful
+                      {metrics.successfulPayments} of {metrics.totalPayments} payments successful
                     </p>
                   </div>
                 </CardContent>
@@ -620,11 +467,40 @@ const PaymentMonitoring = () => {
                 <CardContent>
                   <div className="text-center py-8">
                     <div className="text-4xl font-bold text-primary mb-2">
-                      ${metrics.averageOrderValue.toFixed(2)}
+                      K{metrics.averageOrderValue.toFixed(2)}
                     </div>
                     <p className="text-muted-foreground">
-                      Average value per successful transaction
+                      Average value per successful payment
                     </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Payment Status Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <p className="text-2xl font-bold text-green-600">{metrics.successfulPayments}</p>
+                      <p className="text-sm text-green-700">Paid</p>
+                    </div>
+                    <div className="p-4 bg-yellow-50 rounded-lg">
+                      <p className="text-2xl font-bold text-yellow-600">{metrics.pendingPayments}</p>
+                      <p className="text-sm text-yellow-700">Pending/Processing</p>
+                    </div>
+                    <div className="p-4 bg-red-50 rounded-lg">
+                      <p className="text-2xl font-bold text-red-600">{metrics.failedPayments}</p>
+                      <p className="text-sm text-red-700">Failed/Cancelled</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-2xl font-bold text-blue-600">{metrics.totalPayments}</p>
+                      <p className="text-sm text-blue-700">Total</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -632,94 +508,61 @@ const PaymentMonitoring = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Transaction Details Modal */}
-        {selectedTransaction && (
-          <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
+        {/* Payment Details Modal */}
+        {selectedPayment && (
+          <Dialog open={!!selectedPayment} onOpenChange={() => setSelectedPayment(null)}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Transaction Details</DialogTitle>
+                <DialogTitle>Payment Details</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <Label>Transaction ID</Label>
-                    <p className="font-mono">{selectedTransaction.transaction_id || 'N/A'}</p>
+                    <Label>Provider Reference</Label>
+                    <p className="font-mono">{selectedPayment.provider_reference || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label>Order Number</Label>
-                    <p>{selectedTransaction.order?.order_number || 'N/A'}</p>
+                    <Label>Order ID</Label>
+                    <p>{selectedPayment.order_id}</p>
                   </div>
                   <div>
-                    <Label>Event Type</Label>
-                    <Badge variant="outline">{selectedTransaction.event_type}</Badge>
+                    <Label>Provider</Label>
+                    <div className="flex items-center gap-2">
+                      {getProviderIcon(selectedPayment.provider)}
+                      <span className="capitalize">{selectedPayment.provider}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(selectedPayment.status)}
+                      <Badge variant={getStatusColor(selectedPayment.status)} className="capitalize">
+                        {selectedPayment.status}
+                      </Badge>
+                    </div>
                   </div>
                   <div>
                     <Label>Amount</Label>
-                    <p>${(selectedTransaction.amount || 0).toLocaleString()}</p>
+                    <p>{selectedPayment.currency || 'ZMW'} {(selectedPayment.amount || selectedPayment.order?.total_amount || 0).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <Label>Created</Label>
+                    <p>{new Date(selectedPayment.created_at).toLocaleString()}</p>
                   </div>
                 </div>
 
-                <div>
-                  <Label>Webhook Data</Label>
-                  <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-64">
-                    {JSON.stringify(selectedTransaction.webhook_data, null, 2)}
-                  </pre>
-                </div>
+                {selectedPayment.raw_payload && (
+                  <div>
+                    <Label>Raw Response Data</Label>
+                    <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-64">
+                      {JSON.stringify(selectedPayment.raw_payload, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
         )}
-
-        {/* Settlement Dialog */}
-        <Dialog open={settlementDialog.isOpen} onOpenChange={(open) =>
-          setSettlementDialog(prev => ({ ...prev, isOpen: open }))
-        }>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {settlementDialog.action === 'settle' ? 'Settle Transaction' : 'Reverse Transaction'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Transaction ID</Label>
-                <Input value={settlementDialog.transactionId} disabled />
-              </div>
-
-              <div>
-                <Label>Amount (optional for partial)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={settlementForm.amount}
-                  onChange={(e) => setSettlementForm(prev => ({ ...prev, amount: e.target.value }))}
-                  placeholder="Leave empty for full amount"
-                />
-              </div>
-
-              <div>
-                <Label>Reason</Label>
-                <Textarea
-                  value={settlementForm.reason}
-                  onChange={(e) => setSettlementForm(prev => ({ ...prev, reason: e.target.value }))}
-                  placeholder="Enter reason for settlement/reversal"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleManualSettlement} className="flex-1">
-                  {settlementDialog.action === 'settle' ? 'Settle' : 'Reverse'} Transaction
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setSettlementDialog(prev => ({ ...prev, isOpen: false }))}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </DashboardLayout>
   );

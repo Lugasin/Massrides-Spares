@@ -41,7 +41,7 @@ const slides: CarouselSlide[] = [
     title: 'Engine Parts & Components',
     description: 'Premium engine parts including filters, gaskets, pistons, and turbochargers for all major tractor brands.',
     cta: 'Shop Engine Parts',
-    link: '/catalog?category=Engine+Parts',
+    link: '/guest-shopping?category=Engine+Parts',
     type: 'image'
   },
   {
@@ -50,7 +50,7 @@ const slides: CarouselSlide[] = [
     title: 'Hydraulic System Parts',
     description: 'Complete hydraulic solutions including pumps, cylinders, hoses, and valves for reliable equipment operation.',
     cta: 'Shop Hydraulic Parts',
-    link: '/catalog?category=Hydraulic+Parts',
+    link: '/guest-shopping?category=Hydraulic+Parts',
     type: 'image'
   },
   {
@@ -59,7 +59,7 @@ const slides: CarouselSlide[] = [
     title: 'Electrical Components',
     description: 'Alternators, starters, switches, and wiring harnesses for modern agricultural equipment electrical systems.',
     cta: 'Shop Electrical Parts',
-    link: '/catalog?category=Electrical+Parts',
+    link: '/guest-shopping?category=Electrical+Parts',
     type: 'image'
   },
   {
@@ -68,7 +68,7 @@ const slides: CarouselSlide[] = [
     title: 'Implement Attachments',
     description: 'Plow shares, disc blades, cultivator points, and other implement parts for soil preparation equipment.',
     cta: 'Shop Implements',
-    link: '/catalog?category=Implements',
+    link: '/guest-shopping?category=Implements',
     type: 'image'
   },
   {
@@ -77,7 +77,7 @@ const slides: CarouselSlide[] = [
     title: 'Transmission & Drivetrain',
     description: 'Clutch components, transmission filters, and drivetrain parts to keep your equipment moving smoothly.',
     cta: 'Shop Transmission',
-    link: '/catalog?category=Transmission+Parts',
+    link: '/guest-shopping?category=Transmission+Parts',
     type: 'image'
   },
   {
@@ -86,7 +86,7 @@ const slides: CarouselSlide[] = [
     title: 'Cooling System Parts',
     description: 'Radiators, thermostats, water pumps, and cooling system components for optimal engine temperature.',
     cta: 'Shop Cooling Parts',
-    link: '/catalog?category=Cooling+System',
+    link: '/guest-shopping?category=Cooling+System',
     type: 'image'
   },
   {
@@ -95,7 +95,7 @@ const slides: CarouselSlide[] = [
     title: 'Fuel System Components',
     description: 'Fuel pumps, injection systems, and filtration components for efficient fuel delivery and engine performance.',
     cta: 'Shop Fuel Parts',
-    link: '/catalog?category=Fuel+System',
+    link: '/guest-shopping?category=Fuel+System',
     type: 'image'
   },
   {
@@ -104,7 +104,7 @@ const slides: CarouselSlide[] = [
     title: 'Brake & Safety Parts',
     description: 'Brake pads, hydraulic brake components, and safety systems to ensure reliable equipment operation.',
     cta: 'Shop Brake Parts',
-    link: '/catalog?category=Brake+Parts',
+    link: '/guest-shopping?category=Brake+Parts',
     type: 'image'
   },
   {
@@ -113,7 +113,7 @@ const slides: CarouselSlide[] = [
     title: 'Wheels & Tires',
     description: 'Agricultural tires, rims, and wheel components for optimal traction and field performance.',
     cta: 'Shop Tires',
-    link: '/catalog?category=Wheels+%26+Tires',
+    link: '/guest-shopping?category=Wheels+%26+Tires',
     type: 'image'
   },
   {
@@ -122,7 +122,7 @@ const slides: CarouselSlide[] = [
     title: 'Genuine OEM Parts',
     description: 'Authentic manufacturer parts with full warranty coverage for John Deere, Case IH, New Holland, and more.',
     cta: 'Shop OEM Parts',
-    link: '/catalog',
+    link: '/guest-shopping',
     type: 'image'
   }
 ];

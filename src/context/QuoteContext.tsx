@@ -59,7 +59,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const loadCart = async () => {
     try {
       setLoading(true);
-      const savedItems = await import('@/lib/supabase').then(m => m.getCartItems());
+      const savedItems = await import('@/lib/cart').then(m => m.getCartItems());
       const ContextItems = savedItems.map((i: any) => ({
         id: i.id, // Correctly use the Row UUID for deletions/updates
         product_id: i.spare_part_id || i.product_id, // Store Product ID for lookups
@@ -109,7 +109,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
 
     // Sync with DB
     try {
-      const { addToCart } = await import('@/lib/supabase');
+      const { addToCart } = await import('@/lib/cart');
       // Pass the Product ID to addToCart
       await addToCart(incomingProductId, 1);
       // Reload to replace the temporary optimistic item with the real DB row (UUID)
@@ -125,7 +125,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
 
     // Sync with DB
     try {
-      const { removeFromCart } = await import('@/lib/supabase');
+      const { removeFromCart } = await import('@/lib/cart');
       // 'id' is now the proper Row UUID (from loadCart), so this delete works!
       await removeFromCart(id);
       await loadCart();
@@ -148,7 +148,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
 
     // Sync
     try {
-      const { updateCartItemQuantity } = await import('@/lib/supabase');
+      const { updateCartItemQuantity } = await import('@/lib/cart');
       await updateCartItemQuantity(id, quantity);
     } catch (error) {
       console.error("Failed to sync update quantity", error);
@@ -159,7 +159,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     setItems([]);
 
     try {
-      const { clearCart } = await import('@/lib/supabase');
+      const { clearCart } = await import('@/lib/cart');
       await clearCart();
       await loadCart(); // Ensure state is synced
     } catch (error) {

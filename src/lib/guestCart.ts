@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export async function getOrCreateGuestCart(sessionId: string) {
   // Use upsert to handle race conditions and prevent 409 Conflict

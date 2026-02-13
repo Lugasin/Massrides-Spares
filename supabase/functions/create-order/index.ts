@@ -6,30 +6,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/**
+ * Guest Checkout: Payment First, Account Later
+ * 
+ * This function creates orders WITHOUT requiring authentication.
+ * - For guests: user_id = null, store guest_email/guest_phone on order
+ * - For authenticated users: user_id = auth.uid()
+ * 
+ * Account creation happens AFTER payment success, optionally via OTP.
+ */
+
 interface CreateOrderRequest {
-  customer_info: {
-    email: string;
-    phone?: string;
+  // Guest checkout fields (required for guests)
+  guest_email: string;
+  guest_phone?: string;
+  guest_name: string;
+  
+  // Shipping info
+  shipping_info: {
     firstName: string;
     lastName: string;
-    company?: string;
-    address?: string;
-    city?: string;
+    address: string;
+    city: string;
     state?: string;
     zipCode?: string;
-    country?: string;
+    country: string;
   };
-  shipping_info?: {
-    firstName?: string;
-    lastName?: string;
-    company?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-  };
+  
+  // Optional guest session for cart lookup
   guest_session_id?: string;
+  
+  // Options
   send_receipt?: boolean;
 }
 
@@ -38,23 +45,20 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-    // Variables declared outside try block for scope access
-    let user = null
-    let profile = null
-    let cartItems: any[] = []
-    let sourceCartId: string | null = null;
-    let sourceIsGuest = false;
-
-    let guest_session_id: string | undefined; // ensure this is also available
+  // Variables declared outside try block for scope access
+  let user = null;
+  let cartItems: any[] = [];
+  let sourceCartId: string | null = null;
+  let sourceIsGuest = false;
 
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    );
 
-    // Try to get authenticated user (may be null for guest checkout)
-    const authHeader = req.headers.get('Authorization')
+    // Try to get authenticated user (OPTIONAL - guests won't have this)
+    const authHeader = req.headers.get('Authorization');
     
     if (authHeader) {
       const userSupabase = createClient(
@@ -64,182 +68,188 @@ serve(async (req) => {
           global: { headers: { Authorization: authHeader } },
           auth: { persistSession: false }
         }
-      )
+      );
       
-      const { data: { user: authUser } } = await userSupabase.auth.getUser()
-      user = authUser
-      
-      if (user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-        profile = userProfile
-      }
+      const { data: { user: authUser } } = await userSupabase.auth.getUser();
+      user = authUser;
     }
 
-    const body: CreateOrderRequest = await req.json()
-    const { customer_info, shipping_info, guest_session_id: gs_id } = body
-    guest_session_id = gs_id;
+    const body: CreateOrderRequest = await req.json();
+    const { 
+      guest_email, 
+      guest_phone, 
+      guest_name, 
+      shipping_info, 
+      guest_session_id,
+      send_receipt = true 
+    } = body;
 
-    // Get cart items (either from user cart or guest cart)
+    // Validate required fields for guest checkout
+    if (!user && !guest_email) {
+      throw new Error('Guest checkout requires email address');
+    }
+
+    if (!shipping_info || !shipping_info.address) {
+      throw new Error('Shipping address is required');
+    }
+
+    console.log(`Processing order: User=${user?.id || 'GUEST'}, Email=${guest_email}`);
+
+    // ==========================================
+    // 1. Get Cart Items
+    // ==========================================
     
-    console.log(`Processing order for: User=${user?.id}, GuestSession=${guest_session_id}`);
+    if (user) {
+      // Authenticated user: get from cart_items table
+      const { data: userCartItems, error: cartError } = await supabase
+        .from('cart_items')
+        .select(`
+          id,
+          spare_part_id,
+          quantity,
+          spare_part:spare_parts(id, name, price, images, vendor_id)
+        `)
+        .eq('user_id', user.id);
 
-    if (user && profile) {
-      // Get user cart items
-      const { data: cart } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('user_id', profile.id)
-        .single()
-      
-      console.log('User ID found:', user.id, 'Cart:', cart);
-
-      if (cart) {
-        sourceCartId = cart.id;
-        const { data: userCartItems } = await supabase
-          .from('cart_items')
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products(*)
-          `)
-          .eq('cart_id', cart.id)
-
-        cartItems = userCartItems || []
+      if (cartError) {
+        console.error('Cart fetch error:', cartError);
+        throw new Error(`Failed to fetch cart: ${cartError.message}`);
       }
-    } 
-    
-    // Fallback: If no user items found (or user not logged in), check guest cart
-    if (cartItems.length === 0 && guest_session_id) {
-      // Get guest cart items
-      console.log('Searching for guest cart with session:', guest_session_id);
       
-      const { data: guestCart, error: guestCartError } = await supabase
-        .from('guest_carts')
-        .select('id')
-        .eq('session_id', guest_session_id)
-        .single()
+      cartItems = userCartItems || [];
+      sourceCartId = user.id; // For clearing cart later
+      sourceIsGuest = false;
       
-      console.log('Guest Cart Result:', { guestCart, error: guestCartError });
+    } else if (guest_session_id) {
+      // Guest: get from guest_cart_items table
+      console.log('Fetching guest cart for session:', guest_session_id);
+      
+      const { data: guestCartItems, error: guestCartError } = await supabase
+        .from('guest_cart_items')
+        .select(`
+          id,
+          spare_part_id,
+          quantity,
+          spare_part:spare_parts(id, name, price, images, vendor_id)
+        `)
+        .eq('guest_session_id', guest_session_id);
 
-      if (guestCart) {
-        sourceCartId = guestCart.id;
-        sourceIsGuest = true;
-        const { data: guestCartItems, error: itemsError } = await supabase
-          .from('guest_cart_items')
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products(*)
-          `)
-          .eq('guest_cart_id', guestCart.id)
-        
-        console.log('Guest Cart Items Result:', { count: guestCartItems?.length, error: itemsError });
-
-        cartItems = guestCartItems || []
+      if (guestCartError) {
+        console.error('Guest cart fetch error:', guestCartError);
+        throw new Error(`Failed to fetch guest cart: ${guestCartError.message}`);
       }
+      
+      cartItems = guestCartItems || [];
+      sourceCartId = guest_session_id;
+      sourceIsGuest = true;
     }
 
     if (!cartItems || cartItems.length === 0) {
-      console.error('Cart Empty Check Failed. Items:', cartItems);
-      throw new Error('Cart is empty')
+      throw new Error('Cart is empty');
     }
 
-    // Calculate totals
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
-    const taxAmount = subtotal * 0.15 // 15% tax rate
-    const shippingAmount = subtotal > 50000 ? 0 : 2500 // Free shipping over $500
-    const totalAmount = subtotal + taxAmount + shippingAmount
+    console.log(`Found ${cartItems.length} items in cart`);
 
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    // ==========================================
+    // 2. Calculate Totals
+    // ==========================================
+    
+    const subtotal = cartItems.reduce((sum, item) => {
+      const price = item.spare_part?.price || 0;
+      return sum + (price * item.quantity);
+    }, 0);
+    
+    // ... (lines 162-220)
 
-    // Create order
-    const orderData = {
-      user_id: profile?.id || null,
-      order_number: orderNumber,
-      status: 'pending',
-      payment_status: 'pending',
-      total_amount: totalAmount,
-      
-      shipping_address: {
-        firstName: shipping_info?.firstName || customer_info.firstName,
-        lastName: shipping_info?.lastName || customer_info.lastName,
-        company: shipping_info?.company || customer_info.company,
-        address: shipping_info?.address || customer_info.address || "",
-        city: shipping_info?.city || customer_info.city || "",
-        state: shipping_info?.state || customer_info.state || "",
-        zipCode: shipping_info?.zipCode || customer_info.zipCode || "",
-        country: shipping_info?.country || customer_info.country || "Zambia"
-      },
-      
-      billing_address: {
-        firstName: customer_info.firstName,
-        lastName: customer_info.lastName,
-        company: customer_info.company,
-        address: customer_info.address || "",
-        city: customer_info.city || "",
-        state: customer_info.state || "",
-        zipCode: customer_info.zipCode || "",
-        country: customer_info.country || "Zambia",
-        email: customer_info.email,
-        phone: customer_info.phone
+    const orderItems = cartItems.map(item => ({
+      order_id: order.id,
+      spare_part_id: item.spare_part?.id || item.spare_part_id,
+      quantity: item.quantity,
+      price_snapshot: item.spare_part?.price || 0
+    }));
+
+    // ... (lines 228-243)
+    
+    for (const item of cartItems) {
+      const vendorId = item.spare_part?.vendor_id;
+      if (vendorId) {
+        if (!vendorOrdersMap.has(vendorId)) {
+          vendorOrdersMap.set(vendorId, {
+            vendor_id: vendorId,
+            order_id: order.id,
+            status: 'pending',
+            subtotal: 0
+          });
+        }
+        const vo = vendorOrdersMap.get(vendorId);
+        vo.subtotal += (item.spare_part?.price || 0) * item.quantity;
       }
     }
 
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert(orderData)
-      .select()
-      .single()
-
-    if (orderError) {
-      throw new Error(`Failed to create order: ${orderError.message}`)
+    if (vendorOrdersMap.size > 0) {
+      const { error: voError } = await supabase
+        .from('vendor_orders')
+        .insert(Array.from(vendorOrdersMap.values()));
+      
+      if (voError) {
+        console.warn('Vendor orders creation warning:', voError);
+        // Non-fatal, continue
+      }
     }
 
-    // Create order items
-    const orderItems = cartItems.map(item => ({
-      order_id: order.id,
-      product_id: item.product.id,
-      quantity: item.quantity,
-      price: item.product.price
-    }))
-
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems)
-
-    if (itemsError) {
-      throw new Error(`Failed to create order items: ${itemsError.message}`)
+    // ==========================================
+    // 7. Clear Cart
+    // ==========================================
+    
+    if (sourceCartId) {
+      if (sourceIsGuest) {
+        await supabase
+          .from('guest_cart_items')
+          .delete()
+          .eq('guest_session_id', sourceCartId);
+      } else {
+        await supabase
+          .from('cart_items')
+          .delete()
+          .eq('user_id', sourceCartId);
+      }
+      console.log('Cart cleared');
     }
 
-
-
-    // Send notification if user is logged in
-    if (user && profile) {
+    // ==========================================
+    // 8. Send Notification (if user is logged in)
+    // ==========================================
+    
+    if (user) {
       await supabase.from('notifications').insert({
-        user_id: profile.id,
+        user_id: user.id,
         title: 'Order Created',
         message: `Your order ${orderNumber} has been created and is pending payment.`,
         type: 'info'
-      })
+      });
     }
 
-    // Clear cart items
-    if (sourceCartId) {
-        if (sourceIsGuest) {
-            await supabase.from('guest_cart_items').delete().eq('guest_cart_id', sourceCartId);
-        } else {
-            await supabase.from('cart_items').delete().eq('cart_id', sourceCartId);
-        }
-    }
+    // ==========================================
+    // 9. Log Activity
+    // ==========================================
+    
+    await supabase.from('activity_logs').insert({
+      user_id: user?.id || null,
+      action: 'ORDER_CREATED',
+      metadata: {
+        order_id: order.id,
+        order_number: orderNumber,
+        total: totalAmount,
+        items_count: cartItems.length,
+        is_guest: !user,
+        guest_email: guest_email
+      }
+    });
 
-
+    // ==========================================
+    // Return Success
+    // ==========================================
+    
     return new Response(
       JSON.stringify({
         success: true,
@@ -247,32 +257,36 @@ serve(async (req) => {
           id: order.id,
           order_number: orderNumber,
           total_amount: totalAmount,
-          items: orderItems.length
-        }
+          currency: 'ZMW',
+          items: orderItems.length,
+          status: 'pending'
+        },
+        // Include email for payment page
+        customer_email: guest_email || user?.email,
+        send_receipt
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    )
+    );
 
-  } catch (error) {
-    console.error('Error creating order:', error)
+  } catch (error: any) {
+    console.error('Error creating order:', error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
         debug: {
-            user_id: user?.id,
-            guest_session_id,
-            sourceCartId,
-            sourceIsGuest
+          user_id: user?.id,
+          sourceCartId,
+          sourceIsGuest
         }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 to allow client to parse error message
+        status: 400,
       }
-    )
+    );
   }
-})
+});

@@ -30,6 +30,7 @@ import { ScrollToTop } from './components/ScrollToTop';
 import SecurityAlertToast from './components/SecurityAlertToast';
 import ComprehensiveAuditLogger from './components/ComprehensiveAuditLogger';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import SystemHealthMonitor from './components/SystemHealthMonitor';
 
 // Lazy load heavy pages
@@ -62,8 +63,9 @@ const VendorDashboard = lazy(() => import("./pages/VendorDashboard"));
 const VendorInventory = lazy(() => import("./pages/VendorInventory"));
 const VendorMedia = lazy(() => import('./pages/VendorMedia'));
 const AddProduct = lazy(() => import("./pages/AddProduct"));
-const Products = lazy(() => import("./pages/Products"));
+
 const DevSetup = lazy(() => import("./pages/DevSetup"));
+const GuestOrderTracking = lazy(() => import("./pages/GuestOrderTracking"));
 
 // Loading component
 const PageLoader = () => (
@@ -95,7 +97,8 @@ const AppContent = () => {
       <Sonner />
       <SecurityAlertToast />
       <ComprehensiveAuditLogger />
-      <PWAInstallPrompt />
+      {/* <PWAInstallPrompt /> - Removed to avoid duplicates, using Banner instead */}
+      <PWAInstallBanner />
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <ScrollToTop />
         <BackToTop />
@@ -123,6 +126,7 @@ const AppContent = () => {
             <Route path="/welcome" element={<Welcome />} />
             <Route path="/guest-shopping" element={<GuestShoppingLanding />} />
             <Route path="/guest-checkout" element={<GuestCheckout />} />
+            <Route path="/track-order" element={<GuestOrderTracking />} />
 
             <Route path="/vendor/media" element={<VendorMedia />} /> {/* Add route for VendorMedia */}
             <Route path="/vendor/inventory" element={<ProtectedRoute allowedRoles={['vendor', 'admin']} element={<VendorInventory />} />} />

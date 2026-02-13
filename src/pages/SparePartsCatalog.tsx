@@ -30,7 +30,7 @@ import {
 import { sparePartsData, sparePartCategories, SparePart } from "@/data/sparePartsData";
 import SparePartsGrid from "@/components/SparePartsGrid";
 import { useQuote } from "@/context/QuoteContext";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -111,17 +111,16 @@ const SparePartsCatalog = () => {
 
       // Construct Query
       let query = supabase
-        .from('products')
+        .from('spare_parts')
         .select(`
           *,
-          category:categories!inner(name),
-          inventory(quantity)
+          category:categories!inner(name)
         `, { count: 'exact' })
         .eq('is_active', true);
 
       // 1. Text Search (Title or SKU)
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
+        query = query.or(`name.ilike.%${searchTerm}%,part_number.ilike.%${searchTerm}%`);
       }
 
       // 2. Category Filter (Filter locally on the joined table)
@@ -130,14 +129,14 @@ const SparePartsCatalog = () => {
         query = query.eq('categories.name', selectedCategory);
       }
 
-      // 3. Brand Filter (JSONB Containment)
+      // 3. Brand Filter
       if (selectedBrand && selectedBrand !== 'All') {
-        query = query.contains('attributes', { brand: selectedBrand });
+        query = query.eq('brand', selectedBrand);
       }
 
       // 4. Condition Filter (JSONB Containment)
       if (selectedCondition && selectedCondition !== 'All') {
-        query = query.contains('attributes', { condition: selectedCondition });
+        query = query.eq('condition', selectedCondition);
       }
 
       // 5. Price Range
@@ -171,29 +170,29 @@ const SparePartsCatalog = () => {
       } else {
         // Transform Data
         const transformedParts: SparePart[] = (dbParts || []).map(part => {
-          const attrs = part.attributes || {};
-          const totalStock = part.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+          // Use direct columns
+          const totalStock = part.stock_quantity || 0;
 
           return {
             id: part.id.toString(),
-            partNumber: part.sku || '',
+            partNumber: part.part_number || '',
             name: part.name,
             description: part.description || '',
             category: (part.category as any)?.name || 'General',
-            brand: attrs.brand || 'Generic',
-            oemPartNumber: part.sku,
+            brand: part.brand || 'Generic',
+            oemPartNumber: part.part_number,
             price: parseFloat(part.price.toString()),
-            condition: (attrs.condition as any) || 'new',
-            availabilityStatus: (totalStock > 0 || part.in_stock) ? 'in_stock' : 'out_of_stock',
+            condition: part.condition || 'new',
+            availabilityStatus: part.availability_status || (totalStock > 0 ? 'in_stock' : 'out_of_stock'),
             stockQuantity: totalStock,
-            images: part.main_image ? [part.main_image] : [],
-            technicalSpecs: attrs.technicalSpecs || {},
-            compatibility: attrs.compatibility || [],
-            warranty: attrs.warranty || '12 months',
-            weight: attrs.weight ? parseFloat(attrs.weight.toString()) : undefined,
-            dimensions: attrs.dimensions,
-            featured: (attrs.featured === true || attrs.featured === 'true'),
-            tags: attrs.tags || []
+            images: part.images || [],
+            technicalSpecs: part.technical_specs || {},
+            compatibility: part.compatibility || [],
+            warranty: part.warranty || '12 months',
+            weight: part.weight,
+            dimensions: part.dimensions,
+            featured: part.featured || false,
+            tags: part.tags || []
           };
         });
 

@@ -43,10 +43,10 @@ interface Order {
     quantity: number;
     price: number;
     title: string;
-    products: {
+    spare_parts: {
       id: number;
-      title: string;
-      main_image: string | null;
+      name: string;
+      images: string[] | null;
     } | null;
   }>;
 }
@@ -74,6 +74,28 @@ const Orders = () => {
     } catch (error: any) {
       console.error('Error updating order status:', error);
       toast.error(`Failed to update order status: ${error.message}`);
+    }
+  };
+
+  const handleRefund = async (orderId: string) => {
+    if (!confirm('Are you sure you want to refund this order? This action cannot be undone.')) return;
+
+    const toastId = toast.loading('Processing refund...');
+    try {
+      const { data, error } = await supabase.functions.invoke('process-refund', {
+        body: { orderId, reason: 'Admin initiated refund via dashboard' }
+      });
+
+      if (error) throw new Error(error.message || 'Refund failed');
+
+      toast.dismiss(toastId);
+      toast.success('Refund processed successfully');
+      fetchOrders();
+      setSelectedOrder(null);
+    } catch (error: any) {
+      toast.dismiss(toastId);
+      console.error('Error processing refund:', error);
+      toast.error(`Refund failed: ${error.message}`);
     }
   };
 
@@ -175,71 +197,69 @@ const Orders = () => {
     <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
       <div className="space-y-6">
         {/* Orders Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Orders</h1>
-            <p className="text-muted-foreground">Manage and track your orders</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Orders</h1>
+            <p className="text-muted-foreground text-sm">Manage and track your orders</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </div>
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
 
         {/* Order Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Orders</p>
-                  <p className="text-2xl font-bold">{orders.length}</p>
+                  <p className="text-xs text-muted-foreground">Total Orders</p>
+                  <p className="text-xl font-bold">{orders.length}</p>
                 </div>
-                <Package className="h-8 w-8 text-primary" />
+                <Package className="h-6 w-6 text-primary hidden sm:block" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                  <p className="text-2xl font-bold text-success">
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                  <p className="text-xl font-bold text-success">
                     {orders.filter(o => o.status === 'completed').length}
                   </p>
                 </div>
-                <Truck className="h-8 w-8 text-success" />
+                <Truck className="h-6 w-6 text-success hidden sm:block" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Processing</p>
-                  <p className="text-2xl font-bold text-yellow-500">
+                  <p className="text-xs text-muted-foreground">Processing</p>
+                  <p className="text-xl font-bold text-yellow-500">
                     {orders.filter(o => o.status === 'processing').length}
                   </p>
                 </div>
-                <Calendar className="h-8 w-8 text-yellow-500" />
+                <Calendar className="h-6 w-6 text-yellow-500 hidden sm:block" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Value</p>
-                  <p className="text-2xl font-bold text-primary">
+                  <p className="text-xs text-muted-foreground">Total Value</p>
+                  <p className="text-xl font-bold text-primary">
                     {formatCurrency(orders.reduce((sum, o) => sum + o.total_amount, 0))}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-primary" />
+                <DollarSign className="h-6 w-6 text-primary hidden sm:block" />
               </div>
             </CardContent>
           </Card>
@@ -247,31 +267,33 @@ const Orders = () => {
 
         {/* Orders Table */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Order History</CardTitle>
-              <div className="flex gap-2">
-                <div className="relative">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg">Order History</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-initial">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search orders..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
+                    className="pl-10 w-full sm:w-56"
                   />
                 </div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 border border-input rounded-md bg-background"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="processing">Processing</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[140px]">
+                    <Filter className="h-4 w-4 mr-2 shrink-0" />
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="shipped">Shipped</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -332,21 +354,21 @@ const Orders = () => {
                           {order.order_items?.length || 0} items
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-1 items-center">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => setSelectedOrder(order)}
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+                              <Eye className="h-4 w-4" />
+                              <span className="hidden sm:inline ml-1">View</span>
                             </Button>
                             {(userRole === 'admin' || userRole === 'vendor') && (
                               <Select
                                 value={order.status}
                                 onValueChange={(newStatus) => handleUpdateStatus(order.id, newStatus)}
                               >
-                                <SelectTrigger className="w-32">
+                                <SelectTrigger className="h-8 text-xs w-[110px]">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -422,8 +444,8 @@ const Orders = () => {
                         {selectedOrder.order_items?.map((item) => (
                           <div key={item.id} className="flex gap-4 p-4 border rounded-lg">
                             <img
-                              src={item.products?.main_image || '/api/placeholder/80/80'}
-                              alt={item.title}
+                              src={item.spare_parts?.images?.[0] || '/api/placeholder/80/80'}
+                              alt={item.spare_parts?.name || item.title}
                               className="w-16 h-16 object-cover rounded"
                               loading="lazy"
                             />
@@ -469,6 +491,36 @@ const Orders = () => {
                           </p>
                           <p>{selectedOrder.shipping_address.country}</p>
                         </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Admin Actions */}
+                  {(userRole === 'admin' || userRole === 'super_admin') && (
+                    <Card className="border-destructive/50">
+                      <CardHeader>
+                        <CardTitle className="text-destructive">Admin Actions</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex flex-wrap gap-4">
+                          <Button
+                            variant="destructive"
+                            onClick={() => selectedOrder && handleRefund(selectedOrder.id)}
+                            disabled={selectedOrder.status === 'cancelled' || selectedOrder.payment_status === 'refunded'}
+                          >
+                            Refund Order
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            onClick={() => window.open('https://vesicash.com/dashboard/transactions', '_blank')}
+                          >
+                            View in Vesicash
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Warning: Refunds are irreversible. Ensure you have verified the claim.
+                        </p>
                       </CardContent>
                     </Card>
                   )}

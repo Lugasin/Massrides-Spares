@@ -28,14 +28,10 @@ serve(async (req) => {
         }
       )
     }
-    const userSupabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-    const { data: { user } } = await userSupabase.auth.getUser();
 
-    if (!user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    
+    if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         {
@@ -45,109 +41,117 @@ serve(async (req) => {
       )
     }
 
-    // Check user role
-    const { data: userProfile } = await supabase
+    // Check user role from public.user_profiles
+    const { data: profile } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('id, role')
       .eq('user_id', user.id)
       .single();
     
-    const isSuperAdmin = userProfile?.role === 'super_admin' || userProfile?.role === 'admin';
-
-    // Get vendor profile
-    // If super admin, get ANY vendor (first one)
-    // If vendor, get OWN vendor
-    let vendorQuery = supabase.from('vendors').select('id');
-    
-    if (!isSuperAdmin) {
-       vendorQuery = vendorQuery.eq('owner_id', user.id);
-    }
-
-    const { data: vendorRecord, error: vendorError } = await vendorQuery.limit(1).single();
-
-    if (vendorError) {
-       console.error('Vendor record not found:', vendorError);
-       // Return empty data if not a vendor
+    // Check if user is vendor or admin
+    if (!profile || !['vendor', 'admin', 'super_admin'].includes(profile.role)) {
        return new Response(
-         JSON.stringify({ dashboardData: { 
-            totalRevenue: 0, totalOrders: 0, recentOrders: [], lowStockProducts: [], totalProducts: 0 
-         }}),
-         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-       );
+        JSON.stringify({ error: 'Forbidden' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      )
     }
 
-    const vendorId = vendorRecord.id;
+    const ProfileId = profile.id; // Correct ID to filter by
     
-    // 1. Get vendor's products from 'products' table
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('id')
-      .eq('vendor_id', vendorId);
+    // 1. Get vendor's spare parts stats
+    let productsQuery = supabase
+      .from('spare_parts')
+      .select('id, name, price, stock_quantity, low_stock_threshold');
+    
+    // If not admin, restrict to own parts
+    if (profile.role === 'vendor') {
+      productsQuery = productsQuery.eq('vendor_id', ProfileId);
+    }
+    
+    const { data: products, error: productsError } = await productsQuery;
 
     if (productsError) throw productsError;
 
-    const productIds = products.map(p => p.id);
+    const lowStockProducts = products.filter((p: any) => p.stock_quantity <= (p.low_stock_threshold || 5));
 
-    // 2. Get orders containing vendor's products
-    // Use 'product_id' instead of 'spare_part_id'
-    const { data: orderItems, error: orderItemsError } = await supabase
-      .from('order_items')
-      .select('*, order:orders(*)')
-      .in('product_id', productIds);
-
-    if (orderItemsError) throw orderItemsError;
-
-    // Filter out items where order might be null (if RLS hides it? Order RLS is strict)
-    // Vendors need to see orders for THEIR products.
-    // We rely on service_role key?
-    // The client is created with `SUPABASE_SERVICE_ROLE_KEY` in line 17?
-    // YES! Line 15-18 creates `supabase` with SERVICE_ROLE_KEY.
-    // So RLS is bypassed. Great.
-
-    const validItems = orderItems.filter(item => item.order);
-    const uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
-
-    // 3. Calculate total revenue (price * quantity)
-    const totalRevenue = validItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
-
-    // 4. Get recent orders
-    const recentOrders = uniqueOrders
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5);
-
-    // 5. Get low stock products from 'inventory'
-    const { data: lowStockInv, error: lowStockError } = await supabase
-      .from('inventory')
-      .select('quantity, product:products(id, title)')
-      .eq('vendor_id', vendorId)
-      .lt('quantity', 10)
-      .order('quantity', { ascending: true });
-
-    if (lowStockError) throw lowStockError;
+    // 2. Get vendor orders via order_items
+    // We need order items where spare_part.vendor_id = me
+    // Since we queried spare_parts above, we have their IDs.
+    const productIds = products.map((p: any) => p.id);
     
-    // Map to expected format
-    const lowStockProducts = lowStockInv.map(inv => ({
-      id: inv.product?.id,
-      name: inv.product?.title,
-      stock_quantity: inv.quantity
-    }));
+    if (productIds.length > 0) {
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select(`
+          order_id,
+          quantity,
+          price,
+          created_at,
+          orders (
+            order_number,
+            status,
+            created_at
+          )
+        `)
+        .in('spare_part_id', productIds)
+        .order('created_at', { ascending: false });
 
-    const dashboardData = {
-      totalRevenue,
-      totalOrders: uniqueOrders.length,
-      recentOrders,
-      lowStockProducts,
-      totalProducts: products.length,
-    };
+      if (itemsError) throw itemsError;
 
-    return new Response(
-      JSON.stringify({ dashboardData }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-  } catch (error) {
+      // Calculate Total Revenue
+      const totalRevenue = orderItems.reduce((sum: number, item: any) => sum + (Number(item.price) * item.quantity), 0);
+      
+      // Calculate Unique Orders Count
+      const uniqueOrderIds = new Set(orderItems.map((item: any) => item.order_id));
+      const totalOrders = uniqueOrderIds.size;
+
+      // Group items by order for Recent Orders list
+      // Since one order can have multiple items from this vendor, we group them.
+      const recentOrdersMap = new Map();
+      
+      orderItems.forEach((item: any) => {
+        if (!recentOrdersMap.has(item.order_id)) {
+          recentOrdersMap.set(item.order_id, {
+            id: item.order_id,
+            order_number: item.orders?.order_number || 'Unknown',
+            created_at: item.orders?.created_at || item.created_at,
+            status: item.orders?.status || 'pending',
+            total_amount: 0 // Sum of my items only
+          });
+        }
+        const order = recentOrdersMap.get(item.order_id);
+        order.total_amount += (Number(item.price) * item.quantity);
+      });
+
+      const recentOrders = Array.from(recentOrdersMap.values()).slice(0, 5);
+
+      const dashboardData = {
+        totalRevenue,
+        totalOrders,
+        recentOrders,
+        lowStockProducts: lowStockProducts.slice(0, 5),
+        totalProducts: products.length,
+        currency: 'ZMW'
+      };
+
+      return new Response(
+        JSON.stringify({ dashboardData }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    } else {
+      // No products found for vendor
+      return new Response(
+        JSON.stringify({ 
+          dashboardData: { 
+            totalRevenue: 0, totalOrders: 0, recentOrders: [], lowStockProducts: [], totalProducts: 0, currency: 'ZMW' 
+          } 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+  } catch (error: any) {
+    console.error('get-vendor-dashboard-data error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
