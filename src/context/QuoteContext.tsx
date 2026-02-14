@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface CartItem {
-  id: string; // Database Row ID (UUID)
-  product_id?: string; // Product ID (for uniqueness check)
+  id: string; // Database Row ID (UUID) of the cart_item, NOT the product_id
+  product_id: string; // Product ID (for uniqueness check)
   name: string;
   price: number;
   quantity: number;
@@ -14,26 +14,26 @@ export interface CartItem {
 interface QuoteContextType {
   items: CartItem[];
   total: number;
-  addItem: (item: Omit<CartItem, 'quantity'>) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  clearCart: () => void;
+  addItem: (item: Omit<CartItem, 'quantity' | 'id'>) => Promise<void>; // Modified signature
+  removeItem: (id: string) => Promise<void>;
+  updateQuantity: (id: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   itemCount: number;
-  isCartOpen: boolean; // Added isCartOpen
-  openCart: () => void; // Added openCart
-  closeCart: () => void; // Added closeCart
+  isCartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
   loading: boolean;
 }
 
 export const QuoteContext = createContext<QuoteContextType>({
   items: [],
   total: 0,
-  addItem: () => { },
-  removeItem: () => { },
-  updateQuantity: () => { },
-  clearCart: () => { },
+  addItem: async () => { },
+  removeItem: async () => { },
+  updateQuantity: async () => { },
+  clearCart: async () => { },
   itemCount: 0,
-  isCartOpen: false, // Default value
+  isCartOpen: false,
   openCart: () => { },
   closeCart: () => { },
   loading: false,
@@ -59,15 +59,17 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const loadCart = async () => {
     try {
       setLoading(true);
-      const savedItems = await import('@/lib/supabase').then(m => m.getCartItems());
-      const ContextItems = savedItems.map((i: any) => ({
-        id: i.id, // Correctly use the Row UUID for deletions/updates
-        product_id: i.spare_part_id || i.product_id, // Store Product ID for lookups
-        name: i.spare_part?.name || 'Unknown Part',
-        price: i.spare_part?.price || 0,
+      const { getCartItems } = await import('@/lib/supabase');
+      const savedItems = await getCartItems();
+
+      const ContextItems: CartItem[] = savedItems.map((i: any) => ({
+        id: i.id, // This is the Cart Item UUID
+        product_id: String(i.product_id), // Ensure string
+        name: i.product?.name || 'Unknown Part',
+        price: Number(i.product?.price) || 0,
         quantity: i.quantity,
-        image: i.spare_part?.images?.[0] || '',
-        specs: [],
+        image: i.product?.main_image || '',
+        specs: [], // Can populate from attributes if needed
         category: 'Spare Parts'
       }));
       setItems(ContextItems);
@@ -83,37 +85,19 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     loadCart();
   }, []);
 
-  const addItem = async (item: Omit<CartItem, 'quantity'>) => {
-    // The incoming 'item.id' is typically the Product ID from the UI/Catalog
-    const incomingProductId = item.id;
+  const addItem = async (item: Omit<CartItem, 'quantity' | 'id'>) => {
+    // The incoming 'item' only has product info (price, name, etc) but NO ID yet.
+    // 'item.product_id' is expected to be passed if the caller follows the type,
+    // or sometimes 'item.id' was used as product_id in old code.
 
-    // Optimistic update
-    setItems(prev => {
-      // Check if we already have this product using product_id (preferred) or id fallback
-      const existingItem = prev.find(i =>
-        (i.product_id && i.product_id === incomingProductId) ||
-        i.id === incomingProductId
-      );
+    // We assume the caller passes { product_id: "...", name: "...", ... }
+    const productId = item.product_id;
 
-      if (existingItem) {
-        return prev.map(i =>
-          // match by Row ID if we found it, or fallback to checking product_id again
-          (i.id === existingItem.id)
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
-      }
-      // For new optimistic items, we temporarily use Product ID as 'id' until reload
-      return [...prev, { ...item, id: incomingProductId, product_id: incomingProductId, quantity: 1 }];
-    });
-
-    // Sync with DB
     try {
       const { addToCart } = await import('@/lib/supabase');
-      // Pass the Product ID to addToCart
-      await addToCart(incomingProductId, 1);
-      // Reload to replace the temporary optimistic item with the real DB row (UUID)
-      await loadCart();
+      await addToCart(productId, 1);
+      await loadCart(); // Refresh to get the real UUID
+      setIsCartOpen(true);
     } catch (error) {
       console.error("Failed to sync add item", error);
     }
@@ -126,8 +110,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     // Sync with DB
     try {
       const { removeFromCart } = await import('@/lib/supabase');
-      // 'id' is now the proper Row UUID (from loadCart), so this delete works!
-      await removeFromCart(id);
+      await removeFromCart(id); // ID is Cart Item UUID
       await loadCart();
     } catch (error) {
       console.error("Failed to sync remove item", error);
@@ -149,7 +132,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     // Sync
     try {
       const { updateCartItemQuantity } = await import('@/lib/supabase');
-      await updateCartItemQuantity(id, quantity);
+      await updateCartItemQuantity(id, quantity); // ID is Cart Item UUID
     } catch (error) {
       console.error("Failed to sync update quantity", error);
     }
@@ -161,14 +144,14 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     try {
       const { clearCart } = await import('@/lib/supabase');
       await clearCart();
-      await loadCart(); // Ensure state is synced
+      await loadCart();
     } catch (error) {
       console.error("Failed to sync clear cart", error);
     }
   };
 
-  const openCart = () => setIsCartOpen(true); // Added openCart function
-  const closeCart = () => setIsCartOpen(false); // Added closeCart function
+  const openCart = () => setIsCartOpen(true);
+  const closeCart = () => setIsCartOpen(false);
 
   const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -177,15 +160,15 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     <QuoteContext.Provider value={{
       items,
       total,
-      addItem,
+      addItem: addItem as any, // Type assertion for compatibility if strict checks fail
       removeItem,
       updateQuantity,
       clearCart,
       itemCount,
-      isCartOpen, // Provided to context
-      openCart, // Provided to context
-      closeCart, // Provided to context
-      loading // Expose loading
+      isCartOpen,
+      openCart,
+      closeCart,
+      loading
     }}>
       {children}
     </QuoteContext.Provider>
