@@ -42,11 +42,21 @@ const VendorDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data');
+      const sessionResp = await supabase.auth.getSession();
+      const session = sessionResp?.data?.session;
+      const token = session?.access_token;
 
-      if (error) throw new Error(error.message);
+      const invokeOptions: Record<string, any> = {};
+      if (token) invokeOptions.headers = { Authorization: `Bearer ${token}` };
 
-      setDashboardData(data.dashboardData);
+      const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data', invokeOptions);
+
+      if (error) {
+        console.error('Supabase function invocation error:', error);
+        throw new Error(error.message || 'Function invocation failed');
+      }
+
+      setDashboardData(data?.dashboardData ?? null);
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
       // Fallback to empty data to avoid crashing if function fails or CORS issues persist locally

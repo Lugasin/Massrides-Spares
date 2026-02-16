@@ -1,0 +1,45 @@
+
+-- Grant permissions to anon and authenticated roles
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
+-- Products: Allow public read
+GRANT SELECT ON TABLE public.products TO anon, authenticated;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read products" ON public.products;
+CREATE POLICY "Public read products" ON public.products FOR SELECT USING (true);
+
+-- Categories: Allow public read (Re-applying to be safe)
+GRANT SELECT ON TABLE public.categories TO anon, authenticated;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read categories" ON public.categories;
+CREATE POLICY "Public read categories" ON public.categories FOR SELECT USING (true);
+
+-- Inventory: Allow public read
+GRANT SELECT ON TABLE public.inventory TO anon, authenticated;
+ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read inventory" ON public.inventory;
+CREATE POLICY "Public read inventory" ON public.inventory FOR SELECT USING (true);
+
+-- Guest Carts: Allow full access for anon/authenticated (handled by session_id in app)
+GRANT ALL ON TABLE public.guest_carts TO anon, authenticated;
+ALTER TABLE public.guest_carts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public access guest_carts" ON public.guest_carts;
+CREATE POLICY "Public access guest_carts" ON public.guest_carts FOR ALL USING (true) WITH CHECK (true);
+
+-- Guest Cart Items: Allow full access
+GRANT ALL ON TABLE public.guest_cart_items TO anon, authenticated;
+ALTER TABLE public.guest_cart_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public access guest_cart_items" ON public.guest_cart_items;
+CREATE POLICY "Public access guest_cart_items" ON public.guest_cart_items FOR ALL USING (true) WITH CHECK (true);
+
+-- Vendors: Allow public read
+GRANT SELECT ON TABLE public.vendors TO anon, authenticated;
+ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read vendors" ON public.vendors;
+CREATE POLICY "Public read vendors" ON public.vendors FOR SELECT USING (true);

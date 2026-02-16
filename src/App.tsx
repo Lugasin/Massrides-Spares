@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartDrawer } from "@/components/CartDrawer"; // Import CartDrawer
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { createAdvancedQueryClient, setupBackgroundSync } from '@/lib/cacheConfig';
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from 'react';
+import React from 'react';
 
 import { QuoteProvider, useQuote } from "@/context/QuoteContext"; // Import useQuote
 import { AuthProvider } from "@/context/AuthContext"; // Import AuthProvider
@@ -72,9 +74,14 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+const queryClient = createAdvancedQueryClient();
 
 const App = () => {
+  // Setup background sync for offline support
+  React.useEffect(() => {
+    setupBackgroundSync(queryClient);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -167,7 +174,6 @@ const AppContent = () => {
 export default App;
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
-import React from "react";
 
 interface ProtectedRouteProps {
   element: React.ReactNode;

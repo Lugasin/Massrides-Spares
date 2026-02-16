@@ -1,0 +1,22 @@
+
+-- Fix missing foreign key between products and categories
+ALTER TABLE public.products 
+DROP CONSTRAINT IF EXISTS products_category_id_fkey;
+
+ALTER TABLE public.products
+ADD CONSTRAINT products_category_id_fkey 
+FOREIGN KEY (category_id) 
+REFERENCES public.categories(id);
+
+-- Ensure categories table exists (idempotent check)
+CREATE TABLE IF NOT EXISTS public.categories (
+  id bigint NOT NULL DEFAULT nextval('categories_id_seq'::regclass),
+  name text NOT NULL,
+  slug text UNIQUE,
+  parent_id bigint,
+  description text,
+  is_active boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT categories_pkey PRIMARY KEY (id)
+);

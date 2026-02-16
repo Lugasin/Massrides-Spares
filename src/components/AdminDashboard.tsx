@@ -3,18 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  Package, 
-  ShoppingCart, 
+import {
+  Users,
+  Package,
+  ShoppingCart,
   DollarSign,
   TrendingUp,
   Activity,
   Shield,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  XCircle
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -32,7 +34,7 @@ interface AdminMetrics {
 }
 
 interface RecentActivity {
-  id: string;
+  id: number;
   activity_type: string;
   user_email: string;
   created_at: string;
@@ -77,12 +79,13 @@ const AdminDashboard: React.FC = () => {
         securityResult
       ] = await Promise.all([
         supabase.from('user_profiles').select('id', { count: 'exact' }),
-        supabase.from('spare_parts').select('id', { count: 'exact' }),
+        supabase.from('products').select('id', { count: 'exact' }),
         supabase.from('orders').select('id, status, total_amount'),
         supabase.from('orders').select('total_amount').eq('payment_status', 'paid'),
         supabase.from('user_profiles').select('id', { count: 'exact' }).eq('role', 'vendor').eq('is_active', true),
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10),
-        supabase.from('tj_security_logs').select('id', { count: 'exact' }).gte('risk_score', 7)
+        // supabase.from('tj_security_logs').select('id', { count: 'exact' }).gte('risk_score', 7) // Table doesn't exist yet
+        Promise.resolve({ count: 0, data: [] }) // Mock response
       ]);
 
       // Calculate metrics
@@ -116,12 +119,12 @@ const AdminDashboard: React.FC = () => {
         .channel('admin-dashboard-users')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, fetchDashboardData)
         .subscribe(),
-      
+
       supabase
         .channel('admin-dashboard-orders')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchDashboardData)
         .subscribe(),
-      
+
       supabase
         .channel('admin-dashboard-activity')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, fetchDashboardData)
@@ -154,7 +157,7 @@ const AdminDashboard: React.FC = () => {
     { label: 'Analytics', icon: TrendingUp, href: '/analytics', color: 'bg-indigo-500' }
   ];
 
-  const visibleActions = quickActions.filter(action => 
+  const visibleActions = quickActions.filter(action =>
     !action.roles || action.roles.includes(userRole)
   );
 
@@ -358,8 +361,8 @@ const AdminDashboard: React.FC = () => {
                   {metrics.securityAlerts} high-risk security events require attention.
                 </p>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => navigate('/security-dashboard')}
                 className="ml-auto"
@@ -382,8 +385,8 @@ const AdminDashboard: React.FC = () => {
                   {metrics.pendingOrders} orders are waiting for processing.
                 </p>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => navigate('/orders')}
                 className="ml-auto"

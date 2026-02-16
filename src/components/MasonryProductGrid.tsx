@@ -2,10 +2,10 @@ import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ShoppingCart, 
-  Heart, 
-  Eye, 
+import {
+  ShoppingCart,
+  Heart,
+  Eye,
   Star,
   Zap,
   CheckCircle,
@@ -18,17 +18,17 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
 interface MasonryProductGridProps {
-  products: Product[];
+  products: (Product & { id: string | number })[];
   className?: string;
 }
 
-export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({ 
-  products, 
-  className 
+export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
+  products,
+  className
 }) => {
   const { addItem } = useQuote();
-  const [favorites, setFavorites] = useState<number[]>([]);
-  const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+  const [favorites, setFavorites] = useState<(string | number)[]>([]);
+  const [hoveredProduct, setHoveredProduct] = useState<string | number | null>(null);
   const cartIconRef = useRef<HTMLDivElement>(null);
 
   const handleAddToCart = (product: Product) => {
@@ -55,9 +55,9 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
     });
   };
 
-  const toggleFavorite = (productId: number) => {
-    setFavorites(prev => 
-      prev.includes(productId) 
+  const toggleFavorite = (productId: string | number) => {
+    setFavorites(prev =>
+      prev.includes(productId)
         ? prev.filter(id => id !== productId)
         : [...prev, productId]
     );
@@ -66,7 +66,7 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
   return (
     <div className={cn("columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6", className)}>
       {products.map((product, index) => (
-        <Card 
+        <Card
           key={product.id}
           className={cn(
             "break-inside-avoid mb-6 group overflow-hidden border-border/50 hover:shadow-xl transition-all duration-300",
@@ -91,10 +91,10 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
                   e.currentTarget.style.filter = 'blur(0px)';
                 }}
               />
-              
+
               {/* Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              
+
               {/* Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-2">
                 {product.featured && (
@@ -116,15 +116,15 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
                 <Button
                   size="icon"
                   variant="secondary"
-                  onClick={(e) => { 
-                    e.preventDefault(); 
-                    e.stopPropagation(); 
-                    toggleFavorite(product.id); 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFavorite(product.id);
                   }}
                   className={cn(
                     "rounded-full backdrop-blur-sm shadow-lg",
-                    favorites.includes(product.id) 
-                      ? "bg-red-500 text-white hover:bg-red-600" 
+                    favorites.includes(product.id)
+                      ? "bg-red-500 text-white hover:bg-red-600"
                       : "bg-white/90 hover:bg-white"
                   )}
                 >
@@ -133,7 +133,7 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
                     favorites.includes(product.id) && "fill-current"
                   )} />
                 </Button>
-                
+
                 <Button
                   size="icon"
                   variant="secondary"
@@ -163,8 +163,8 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
                     key={i}
                     className={cn(
                       "h-4 w-4",
-                      i < 4 
-                        ? "text-yellow-500 fill-current" 
+                      i < 4
+                        ? "text-yellow-500 fill-current"
                         : "text-gray-300"
                     )}
                   />
@@ -181,7 +181,7 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
                 {product.name}
               </h3>
             </Link>
-            
+
             <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
               {product.description}
             </p>
@@ -204,11 +204,11 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
 
           <CardFooter className="p-4 pt-0">
             <div className="flex gap-2 w-full">
-              <Button 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
                   e.preventDefault();
-                  handleAddToCart(product); 
+                  handleAddToCart(product);
                 }}
                 className="flex-1 bg-primary hover:bg-primary-hover group"
               >
@@ -217,9 +217,9 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
                 </div>
                 Add to Cart
               </Button>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 size="icon"
                 asChild
               >

@@ -19,7 +19,7 @@ import { ImageUploader } from '@/components/ImageUploader';
 
 // Define Zod schema for product creation validation
 const productSchema = z.object({
-  title: z.string().min(1, { message: "Product name is required." }),
+  name: z.string().min(1, { message: "Product name is required." }),
   description: z.string().optional(),
   price: z.preprocess(
     (val) => (val === '' ? undefined : Number(val)),
@@ -49,7 +49,7 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 interface Category {
-  id: number;
+  id: string;
   name: string;
   description?: string;
 }
@@ -65,7 +65,7 @@ const AddProduct: React.FC = () => {
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      title: '',
+      name: '',
       description: '',
       price: undefined,
       sku: '',
@@ -128,7 +128,7 @@ const AddProduct: React.FC = () => {
         const attributes = typeof data.attributes === 'object' ? data.attributes : {};
 
         reset({
-          title: data.title,
+          name: data.name,
           description: data.description || '',
           price: data.price,
           sku: data.sku || '',
@@ -178,14 +178,15 @@ const AddProduct: React.FC = () => {
       };
 
       const productData = {
-        title: values.title,
+        name: values.name,
         description: values.description,
         price: values.price,
         sku: sku,
         category_id: values.category_id ? Number(values.category_id) : null,
         vendor_id: profile.id, // Now a UUID
         attributes: attributes,
-        active: true, // or values.featured
+        is_active: true, // Renamed from active
+        stock_quantity: values.stock_quantity, // Added required field
         main_image: values.main_image,
         currency: 'USD'
       };
@@ -294,14 +295,14 @@ const AddProduct: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Title (was Name) */}
                 <div className="space-y-2">
-                  <Label htmlFor="title">Product Title *</Label>
+                  <Label htmlFor="name">Product Name *</Label>
                   <Input
                     id="title"
                     placeholder="e.g., Engine Oil Filter"
-                    {...register('title')}
+                    {...register('name')}
                   />
-                  {errors.title && (
-                    <p className="text-destructive text-sm">{errors.title.message}</p>
+                  {errors.name && (
+                    <p className="text-destructive text-sm">{errors.name.message}</p>
                   )}
                 </div>
 

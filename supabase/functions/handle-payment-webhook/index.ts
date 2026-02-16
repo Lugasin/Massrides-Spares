@@ -43,9 +43,9 @@ serve(async (req) => {
     const { error } = await supabaseAdmin
       .from('orders')
       .update({ 
-        order_status: 'processing', // or 'paid'
+        status: 'processing', // Match 'status' column in orders table
         payment_status: 'paid',
-        payment_ref: paymentReference,
+        payment_intent_id: paymentReference, // Store ref in payment_intent_id or similar
         updated_at: new Date().toISOString()
       })
       .eq('id', orderId);

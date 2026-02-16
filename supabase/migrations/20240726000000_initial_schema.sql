@@ -1,6 +1,37 @@
 -- Initial Consolidated Schema (Idempotent)
+-- Restored to use PRODUCTS table as requested
+-- FIXED: Sequences defined BEFORE tables
 
 BEGIN;
+
+-- ==========================================
+-- CLEANUP
+-- ==========================================
+DROP TABLE IF EXISTS public.spare_parts CASCADE;
+DROP TABLE IF EXISTS public.products CASCADE;
+DROP TABLE IF EXISTS public.cart_items CASCADE;
+DROP TABLE IF EXISTS public.guest_cart_items CASCADE;
+DROP TABLE IF EXISTS public.order_items CASCADE;
+DROP TABLE IF EXISTS public.orders CASCADE;
+DROP TABLE IF EXISTS public.wishlists CASCADE;
+DROP TABLE IF EXISTS public.inventory CASCADE;
+DROP TABLE IF EXISTS public.payments CASCADE;
+DROP TABLE IF EXISTS public.notifications CASCADE;
+DROP TABLE IF EXISTS public.activity_logs CASCADE;
+DROP TABLE IF EXISTS public.user_carts CASCADE;
+DROP TABLE IF EXISTS public.guest_carts CASCADE;
+DROP TABLE IF EXISTS public.vendors CASCADE;
+DROP TABLE IF EXISTS public.categories CASCADE;
+
+-- ==========================================
+-- SEQUENCES
+-- ==========================================
+CREATE SEQUENCE IF NOT EXISTS public.products_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.categories_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.inventory_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.orders_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.order_items_id_seq;
+CREATE SEQUENCE IF NOT EXISTS public.payments_id_seq;
 
 -- ==========================================
 -- Tables
@@ -14,6 +45,19 @@ CREATE TABLE IF NOT EXISTS public.activity_logs (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT activity_logs_pkey PRIMARY KEY (id),
   CONSTRAINT activity_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+CREATE TABLE IF NOT EXISTS public.categories (
+  id bigint NOT NULL DEFAULT nextval('categories_id_seq'::regclass),
+  name text NOT NULL,
+  slug text UNIQUE,
+  parent_id bigint,
+  description text,
+  is_active boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT categories_pkey PRIMARY KEY (id),
+  CONSTRAINT categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.categories(id)
 );
 
 CREATE TABLE IF NOT EXISTS public.products (
@@ -35,41 +79,51 @@ CREATE TABLE IF NOT EXISTS public.products (
   CONSTRAINT products_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES auth.users(id)
 );
 
+CREATE TABLE IF NOT EXISTS public.user_carts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_carts_pkey PRIMARY KEY (id),
+  CONSTRAINT user_carts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
 CREATE TABLE IF NOT EXISTS public.cart_items (
-  user_id uuid NOT NULL,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cart_id uuid,
   product_id bigint NOT NULL,
   quantity integer NOT NULL CHECK (quantity > 0),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT cart_items_pkey PRIMARY KEY (user_id, product_id),
+  added_at timestamp with time zone DEFAULT now(),
+  user_id uuid,
+  CONSTRAINT cart_items_pkey PRIMARY KEY (id),
+  CONSTRAINT cart_items_cart_id_fkey FOREIGN KEY (cart_id) REFERENCES public.user_carts(id),
   CONSTRAINT cart_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT cart_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
 
-CREATE TABLE IF NOT EXISTS public.categories (
-  id bigint NOT NULL DEFAULT nextval('categories_id_seq'::regclass),
-  name text NOT NULL,
-  slug text UNIQUE,
-  parent_id bigint,
-  description text,
-  is_active boolean DEFAULT true,
-  sort_order integer DEFAULT 0,
+CREATE TABLE IF NOT EXISTS public.guest_carts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id text NOT NULL UNIQUE,
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT categories_pkey PRIMARY KEY (id),
-  CONSTRAINT categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.categories(id)
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT guest_carts_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE IF NOT EXISTS public.guest_cart_items (
-  guest_session_id text NOT NULL,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  guest_cart_id uuid NOT NULL,
   product_id bigint NOT NULL,
   quantity integer NOT NULL CHECK (quantity > 0),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT guest_cart_items_pkey PRIMARY KEY (guest_session_id, product_id),
+  added_at timestamp with time zone DEFAULT now(),
+  guest_session_id text,
+  CONSTRAINT guest_cart_items_pkey PRIMARY KEY (id),
+  CONSTRAINT guest_cart_items_guest_cart_id_fkey FOREIGN KEY (guest_cart_id) REFERENCES public.guest_carts(id),
   CONSTRAINT guest_cart_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
 
 CREATE TABLE IF NOT EXISTS public.inventory (
   id bigint NOT NULL DEFAULT nextval('inventory_id_seq'::regclass),
-  product_id bigint,
+  product_id bigint UNIQUE, 
   vendor_id uuid,
   quantity integer NOT NULL DEFAULT 0,
   reserved integer NOT NULL DEFAULT 0,
@@ -96,15 +150,34 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 
+CREATE TABLE IF NOT EXISTS public.vendors (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  owner_id uuid NOT NULL,
+  name text NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT vendors_pkey PRIMARY KEY (id),
+  CONSTRAINT vendors_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
+);
+
 CREATE TABLE IF NOT EXISTS public.orders (
   id bigint NOT NULL DEFAULT nextval('orders_id_seq'::regclass),
+  order_number text NOT NULL,
   user_id uuid NOT NULL,
-  status text NOT NULL DEFAULT 'awaiting_payment'::text CHECK (status = ANY (ARRAY['pending_payment'::text, 'awaiting_payment'::text, 'paid'::text, 'processing'::text, 'shipped'::text, 'delivered'::text, 'cancelled'::text, 'refunded'::text])),
+  status text NOT NULL DEFAULT 'awaiting_payment'::text,
+  payment_status text NOT NULL DEFAULT 'unpaid'::text,
   total_amount numeric NOT NULL CHECK (total_amount >= 0::numeric),
   shipping_address jsonb NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  vendor_id uuid,
+  platform_fee numeric DEFAULT 0,
+  vendor_earning numeric DEFAULT 0,
+  payout_status text DEFAULT 'unpaid',
+  payout_id uuid,
+  fraud_flag boolean DEFAULT false,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
-  CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT orders_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id)
 );
 
 CREATE TABLE IF NOT EXISTS public.order_items (
@@ -123,15 +196,17 @@ CREATE TABLE IF NOT EXISTS public.payments (
   order_id bigint NOT NULL UNIQUE,
   provider text NOT NULL DEFAULT 'vesicash'::text,
   vesicash_transaction_id text UNIQUE,
-  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'paid'::text, 'failed'::text])),
+  vesicash_payment_id text,
+  status text NOT NULL DEFAULT 'pending'::text,
   created_at timestamp with time zone DEFAULT now(),
+  completed_at timestamptz,
   CONSTRAINT payments_pkey PRIMARY KEY (id),
   CONSTRAINT payments_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
 );
 
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
-  role text NOT NULL DEFAULT 'customer'::text CHECK (role = ANY (ARRAY['customer'::text, 'vendor'::text, 'admin'::text, 'super_admin'::text, 'guest'::text])),
+  role text NOT NULL DEFAULT 'customer'::text,
   full_name text,
   vendor_name text,
   created_at timestamp with time zone DEFAULT now(),
@@ -155,34 +230,26 @@ CREATE TABLE IF NOT EXISTS public.wishlists (
 -- RLS Policies
 -- ==========================================
 
--- Activity Logs
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "insert logs" ON public.activity_logs;
-CREATE POLICY "insert logs" ON public.activity_logs FOR INSERT WITH CHECK (true);
-DROP POLICY IF EXISTS "users read own logs" ON public.activity_logs;
-CREATE POLICY "users read own logs" ON public.activity_logs FOR SELECT USING (auth.uid() = user_id);
-
--- Cart Items
 ALTER TABLE public.cart_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read of products
+DROP POLICY IF EXISTS "Public read products" ON public.products;
+CREATE POLICY "Public read products" ON public.products FOR SELECT USING (true);
+
+-- Users manage their own data
 DROP POLICY IF EXISTS "Users manage own cart items" ON public.cart_items;
 CREATE POLICY "Users manage own cart items" ON public.cart_items FOR ALL USING (user_id = auth.uid());
 
--- Notifications
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users manage own notifications" ON public.notifications;
-CREATE POLICY "Users manage own notifications" ON public.notifications FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-
--- Orders
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users view own orders" ON public.orders;
 CREATE POLICY "Users view own orders" ON public.orders FOR SELECT USING (user_id = auth.uid());
+
 DROP POLICY IF EXISTS "Users create orders" ON public.orders;
 CREATE POLICY "Users create orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() = user_id);
-
--- Wishlists
-ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "users read own wishlist" ON public.wishlists;
-CREATE POLICY "users read own wishlist" ON public.wishlists FOR ALL USING (auth.uid() = user_id);
 
 -- ==========================================
 -- Triggers
@@ -211,5 +278,6 @@ GRANT ALL ON TABLE public.wishlists TO authenticated;
 GRANT ALL ON TABLE public.activity_logs TO authenticated;
 GRANT ALL ON TABLE public.cart_items TO authenticated;
 GRANT ALL ON TABLE public.orders TO authenticated;
+GRANT ALL ON TABLE public.products TO authenticated;
 
 COMMIT;

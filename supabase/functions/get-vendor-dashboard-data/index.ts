@@ -45,38 +45,28 @@ serve(async (req) => {
       )
     }
 
-    // Check user role
+    // Check user role from 'profiles' (was user_profiles)
     const { data: userProfile } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
     
     const isSuperAdmin = userProfile?.role === 'super_admin' || userProfile?.role === 'admin';
+    const isVendor = userProfile?.role === 'vendor';
 
-    // Get vendor profile
-    // If super admin, get ANY vendor (first one)
-    // If vendor, get OWN vendor
-    let vendorQuery = supabase.from('vendors').select('id');
-    
-    if (!isSuperAdmin) {
-       vendorQuery = vendorQuery.eq('owner_id', user.id);
-    }
-
-    const { data: vendorRecord, error: vendorError } = await vendorQuery.limit(1).single();
-
-    if (vendorError) {
-       console.error('Vendor record not found:', vendorError);
-       // Return empty data if not a vendor
+    if (!isVendor && !isSuperAdmin) {
        return new Response(
-         JSON.stringify({ dashboardData: { 
-            totalRevenue: 0, totalOrders: 0, recentOrders: [], lowStockProducts: [], totalProducts: 0 
-         }}),
-         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+         JSON.stringify({ error: 'Forbidden: Vendor access required' }),
+         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
        );
     }
 
-    const vendorId = vendorRecord.id;
+    let vendorId = user.id;
+    
+    // If super admin wants to view a specific vendor dashboard, they might pass a param, 
+    // but for now let's assume they view their own or the system's if they are one.
+    // Use the user's ID as the vendor ID since we unified vendors into auth.users + profiles.
     
     // 1. Get vendor's products from 'products' table
     const { data: products, error: productsError } = await supabase
@@ -90,25 +80,24 @@ serve(async (req) => {
 
     // 2. Get orders containing vendor's products
     // Use 'product_id' instead of 'spare_part_id'
-    const { data: orderItems, error: orderItemsError } = await supabase
-      .from('order_items')
-      .select('*, order:orders(*)')
-      .in('product_id', productIds);
+    let uniqueOrders: any[] = [];
+    let totalRevenue = 0;
 
-    if (orderItemsError) throw orderItemsError;
+    if (productIds.length > 0) {
+        const { data: orderItems, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('*, order:orders(*)')
+        .in('product_id', productIds);
 
-    // Filter out items where order might be null (if RLS hides it? Order RLS is strict)
-    // Vendors need to see orders for THEIR products.
-    // We rely on service_role key?
-    // The client is created with `SUPABASE_SERVICE_ROLE_KEY` in line 17?
-    // YES! Line 15-18 creates `supabase` with SERVICE_ROLE_KEY.
-    // So RLS is bypassed. Great.
+        if (orderItemsError) throw orderItemsError;
 
-    const validItems = orderItems.filter(item => item.order);
-    const uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
-
-    // 3. Calculate total revenue (price * quantity)
-    const totalRevenue = validItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
+        const validItems = orderItems.filter(item => item.order);
+        uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
+        
+        // 3. Calculate total revenue (price * quantity)
+        // Note: price in order_items is a number, quantity is a number
+        totalRevenue = validItems.reduce((sum, item) => sum + (Number(item.price_snapshot) || 0) * (item.quantity || 0), 0);
+    }
 
     // 4. Get recent orders
     const recentOrders = uniqueOrders
@@ -118,7 +107,7 @@ serve(async (req) => {
     // 5. Get low stock products from 'inventory'
     const { data: lowStockInv, error: lowStockError } = await supabase
       .from('inventory')
-      .select('quantity, product:products(id, title)')
+      .select('quantity, product:products(id, name)') // Note: 'name' not 'title' in products table based on seed.sql
       .eq('vendor_id', vendorId)
       .lt('quantity', 10)
       .order('quantity', { ascending: true });
@@ -128,7 +117,7 @@ serve(async (req) => {
     // Map to expected format
     const lowStockProducts = lowStockInv.map(inv => ({
       id: inv.product?.id,
-      name: inv.product?.title,
+      name: inv.product?.name,
       stock_quantity: inv.quantity
     }));
 

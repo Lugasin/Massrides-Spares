@@ -42,6 +42,7 @@ const Index = () => {
 
   // State for DB-fetched featured products
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(true);
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -55,10 +56,21 @@ const Index = () => {
         .limit(20);
 
       if (data) {
-        // Filter for featured items manually if needed, or take first 8
-        const featured = data.filter((p: any) => p.featured === true || p.attributes?.featured === true).slice(0, 8);
-        setFeaturedProducts(featured.length > 0 ? featured : data.slice(0, 8));
+        const mappedProducts = data.map((p: any) => ({
+          ...p,
+          id: p.id,
+          title: p.title || p.name,
+          image: p.main_image || '/placeholder-part.png',
+          price: p.price,
+          in_stock: (p.inventory?.quantity || 0) > 0,
+          part_number: p.sku,
+          featured: p.featured || p.attributes?.featured === true
+        }));
+
+        const featured = mappedProducts.filter((p: any) => p.featured === true).slice(0, 8);
+        setFeaturedProducts(featured.length > 0 ? featured : mappedProducts.slice(0, 8));
       }
+      setLoadingFeatured(false);
     };
     fetchFeatured();
   }, []);
@@ -67,17 +79,17 @@ const Index = () => {
     navigate('/login');
   };
 
-  // Role-based redirection on login
-  if (user) {
-    if (userRole === 'super-admin') {
-      navigate('/admin');
-      return null;
-    }
-    if (userRole === 'admin') {
-      navigate('/vendor');
-      return null;
-    }
-  }
+  // Role-based redirection on login - DISABLED as per user request to start logged out
+  // if (user) {
+  //   if (userRole === 'super-admin') {
+  //     navigate('/admin');
+  //     return null;
+  //   }
+  //   if (userRole === 'admin') {
+  //     navigate('/vendor');
+  //     return null;
+  //   }
+  // }
 
   // Enhanced categories with icons
   const categories = [
@@ -199,7 +211,12 @@ const Index = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {featuredProducts.length > 0 ? (
+                  {loadingFeatured ? (
+                    <div className="col-span-full text-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading products...</p>
+                    </div>
+                  ) : featuredProducts.length > 0 ? (
                     featuredProducts.map((part) => (
                       <Card key={part.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full">
                         <Link to={`/parts/${part.id}`} className="block h-full">

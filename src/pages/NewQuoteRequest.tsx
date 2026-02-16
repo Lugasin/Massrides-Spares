@@ -8,19 +8,19 @@ import { X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Product {
-  id: string;
+  id: number; // Changed to number
   name: string;
   price: number;
 }
 
 interface QuoteItem {
   id: string; // Add an id for uniqueness in the list
-  productId: string;
+  productId: number;
   quantity: number;
 }
 
 const NewQuoteRequest: React.FC = () => {
-const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [errorFetchingProducts, setErrorFetchingProducts] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<QuoteItem[]>([]);
   const [productQuantities, setProductQuantities] = useState<{ [productId: string]: number }>({});
@@ -30,7 +30,8 @@ const [loadingProducts, setLoadingProducts] = useState(true);
   const [submissionSuccess, setSubmissionSuccess] = useState<boolean | null>(null);
 
   // Import supabase client
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<number | ''>(''); // Changed to number
+
   const [quantity, setQuantity] = useState<number>(1);
 
   const handleAddProduct = () => {
@@ -45,10 +46,10 @@ const [loadingProducts, setLoadingProducts] = useState(true);
         setSelectedProducts(updatedItems);
       } else {
         // Add new item if product is not in the list
-        setSelectedProducts([...selectedProducts, { 
-          id: Math.random().toString(36).substring(7), 
-          productId: selectedProductId, 
-          quantity 
+        setSelectedProducts([...selectedProducts, {
+          id: Math.random().toString(36).substring(7),
+          productId: selectedProductId,
+          quantity
         }]);
       }
 
@@ -59,7 +60,7 @@ const [loadingProducts, setLoadingProducts] = useState(true);
   };
 
   const handleProductSelect = (productId: string) => {
-    setSelectedProductId(productId);
+    setSelectedProductId(parseInt(productId)); // Parse to number
   };
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,8 +98,8 @@ const [loadingProducts, setLoadingProducts] = useState(true);
       setLoadingProducts(true);
       setErrorFetchingProducts(null);
 
-const { data, error } = await supabase
-        .from('spare_parts')
+      const { data, error } = await supabase
+        .from('products')
         .select('id, name, price');
 
       if (error) {
@@ -127,26 +128,28 @@ const { data, error } = await supabase
     try {
       // Generate quote number
       const quoteNumber = `Q${Date.now().toString().slice(-8)}`;
-      
-const { data: quoteData, error: quoteError } = await supabase
+
+      const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
-        .insert([{ user_id: (await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
-          .maybeSingle()).data?.id }])
+        .insert([{
+          user_id: (await supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+            .maybeSingle()).data?.id
+        }])
         .select('id')
         .single();
 
       if (quoteError) throw quoteError;
 
       const quoteId = quoteData.id;
-      
+
       // Get product prices for quote items
       const productPrices = await Promise.all(
         selectedProducts.map(async (item) => {
-const { data: product } = await supabase
-            .from('spare_parts')
+          const { data: product } = await supabase
+            .from('products')
             .select('price')
             .eq('id', item.productId)
             .maybeSingle();
@@ -154,8 +157,9 @@ const { data: product } = await supabase
         })
       );
 
-const items = selectedProducts.map((item, index) => ({
-        spare_part_id: item.productId,
+      const items = selectedProducts.map((item, index) => ({
+        spare_part_id: undefined, // Removed/Changed ??
+        product_id: item.productId,
         quantity: item.quantity,
         unit_price: productPrices[index]
       }));
@@ -190,7 +194,7 @@ const items = selectedProducts.map((item, index) => ({
       ));
       // Also update the productQuantities state if you are using it for the input fields
       setProductQuantities(prevQuantities => ({
-        ...prevQuantities, 
+        ...prevQuantities,
         [selectedProducts.find(item => item.id === id)?.productId || '']: quantity
       }));
     }
@@ -222,14 +226,14 @@ const items = selectedProducts.map((item, index) => ({
               <div className="flex gap-4">
                 <div className="flex-grow">
                   <Label htmlFor="product">Product</Label>
-                  <Select onValueChange={handleProductSelect} value={selectedProductId}>
+                  <Select onValueChange={handleProductSelect} value={selectedProductId.toString()}>
                     <SelectTrigger id="product">
                       <SelectValue placeholder="Select a product" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableProducts.map(product => (
                         // Ensure product.id and product.name exist
-                        <SelectItem key={product.id} value={product.id}>
+                        <SelectItem key={product.id} value={product.id.toString()}>
                           {product.name}
                         </SelectItem>
                       ))}
@@ -241,14 +245,14 @@ const items = selectedProducts.map((item, index) => ({
                 </div>
                 <div className="w-24">
                   <Label htmlFor="quantity">Quantity</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={handleQuantityChange}
-                      disabled={!selectedProductId}
-                    />
+                  <Input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={handleQuantityChange}
+                    disabled={!selectedProductId}
+                  />
                 </div>
                 <div className="self-end">
                   <Button type="button" onClick={handleAddProduct}>Add Product</Button>

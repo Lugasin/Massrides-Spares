@@ -14,11 +14,47 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode === 'production' ? false : true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast'],
-          'query-vendor': ['@tanstack/react-query'],
-          'supabase-vendor': ['@supabase/supabase-js']
+        manualChunks: (id) => {
+          // Vendor chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@radix-ui') || id.includes('lucide-react') || id.includes('class-variance-authority')) {
+              return 'ui-vendor';
+            }
+            if (id.includes('@tanstack/react-query')) {
+              return 'query-vendor';
+            }
+            if (id.includes('@supabase/supabase-js')) {
+              return 'supabase-vendor';
+            }
+            if (id.includes('sonner')) {
+              return 'notification-vendor';
+            }
+            if (id.includes('date-fns') || id.includes('uuid') || id.includes('zod')) {
+              return 'utils-vendor';
+            }
+            // Other node_modules go to vendor
+            return 'vendor';
+          }
+
+          // Application chunks
+          if (id.includes('/src/pages/')) {
+            return 'pages';
+          }
+          if (id.includes('/src/components/')) {
+            if (id.includes('/components/admin/') || id.includes('/components/vendor/')) {
+              return 'role-components';
+            }
+            return 'ui-components';
+          }
+          if (id.includes('/src/lib/') || id.includes('/src/hooks/')) {
+            return 'utils';
+          }
+          if (id.includes('/src/context/')) {
+            return 'context';
+          }
         }
       }
     },

@@ -114,7 +114,7 @@ const SparePartsCatalog = () => {
         .from('products')
         .select(`
           *,
-          category:categories!inner(name),
+          category:categories(name),
           inventory(quantity)
         `, { count: 'exact' })
         .eq('is_active', true);
@@ -171,8 +171,10 @@ const SparePartsCatalog = () => {
       } else {
         // Transform Data
         const transformedParts: SparePart[] = (dbParts || []).map(part => {
-          const attrs = part.attributes || {};
-          const totalStock = part.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+          // Parse attributes safely
+          const attrs = (part.attributes as any) || {};
+          // Inventory is 1:1, so it is an object, not an array.
+          const totalStock = part.inventory?.quantity || 0;
 
           return {
             id: part.id.toString(),
@@ -183,8 +185,8 @@ const SparePartsCatalog = () => {
             brand: attrs.brand || 'Generic',
             oemPartNumber: part.sku,
             price: parseFloat(part.price.toString()),
-            condition: (attrs.condition as any) || 'new',
-            availabilityStatus: (totalStock > 0 || part.in_stock) ? 'in_stock' : 'out_of_stock',
+            condition: attrs.condition || 'new',
+            availabilityStatus: totalStock > 0 ? 'in_stock' : 'out_of_stock',
             stockQuantity: totalStock,
             images: part.main_image ? [part.main_image] : [],
             technicalSpecs: attrs.technicalSpecs || {},
@@ -192,7 +194,7 @@ const SparePartsCatalog = () => {
             warranty: attrs.warranty || '12 months',
             weight: attrs.weight ? parseFloat(attrs.weight.toString()) : undefined,
             dimensions: attrs.dimensions,
-            featured: (attrs.featured === true || attrs.featured === 'true'),
+            featured: attrs.featured === true || attrs.featured === 'true',
             tags: attrs.tags || []
           };
         });
