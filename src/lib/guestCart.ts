@@ -22,13 +22,13 @@ export async function getGuestCartItems(cartId: string) {
       id,
       quantity,
       added_at,
-      spare_parts!inner(
+      products!inner(
         id,
         name,
         price,
-        images,
-        brand,
-        part_number
+        main_image,
+        sku,
+        attributes
       )
     `)
     .eq('guest_cart_id', cartId);
@@ -46,7 +46,7 @@ export async function addGuestCartItem(cartId: string, sparePartId: string, quan
     .from('guest_cart_items')
     .select('id, quantity')
     .eq('guest_cart_id', cartId)
-    .eq('spare_part_id', sparePartId) // Use correct column name
+    .eq('product_id', sparePartId) // Mapped to product_id
     .maybeSingle();
 
   if (existing) {
@@ -62,7 +62,7 @@ export async function addGuestCartItem(cartId: string, sparePartId: string, quan
       .from('guest_cart_items')
       .insert({
         guest_cart_id: cartId,
-        spare_part_id: sparePartId, // Ensure this matches DB column
+        product_id: sparePartId, // Mapped to product_id
         quantity
       });
     if (error) throw error;

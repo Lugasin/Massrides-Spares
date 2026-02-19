@@ -41,11 +41,9 @@ interface Order {
   order_items: Array<{
     id: number;
     quantity: number;
-    price: number;
-    title: string;
+    unit_price: number;
     products: {
-      id: number;
-      title: string;
+      name: string;
       main_image: string | null;
     } | null;
   }>;
@@ -428,11 +426,11 @@ const Orders = () => {
                               loading="lazy"
                             />
                             <div className="flex-1">
-                              <h4 className="font-medium">{item.title}</h4>
+                              <h4 className="font-medium">{item.products?.name || 'Unknown Item'}</h4>
                               <div className="flex justify-between mt-2">
                                 <span>Qty: {item.quantity}</span>
                                 <span className="font-medium">
-                                  {formatCurrency(item.price * item.quantity)}
+                                  {formatCurrency(item.unit_price * item.quantity)}
                                 </span>
                               </div>
                             </div>

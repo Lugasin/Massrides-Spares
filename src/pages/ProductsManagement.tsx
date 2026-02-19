@@ -29,7 +29,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 interface Product {
-  id: string;
+  id: number;
   part_number: string;
   name: string;
   description: string;
@@ -44,7 +44,7 @@ interface Product {
   images: string[];
   created_at: string;
   category: { name: string };
-  vendor: { full_name: string; email: string; company_name: string };
+  vendor: { full_name: string; email: string; company_name?: string };
 }
 
 const ProductsManagement = () => {
@@ -72,26 +72,20 @@ const ProductsManagement = () => {
         .from('products')
         .select(`
           *,
-          title,
+          name,
           sku,
           category:categories!category_id(name),
-          vendor:user_profiles!vendor_id(full_name, email, company_name),
+          vendor:profiles!vendor_id(full_name, email),
           inventory(quantity)
         `)
         .order('created_at', { ascending: false });
 
       // Filter based on user role
       if (userRole === 'vendor') {
-        const { data: vendorData } = await supabase
-          .from('vendors')
-          .select('id')
-          .eq('owner_id', profile?.id)
-          .single();
-
-        if (vendorData) {
-          query = query.eq('vendor_id', vendorData.id);
+        // Use profile.id directly as vendor_id
+        if (profile?.id) {
+          query = query.eq('vendor_id', profile.id);
         } else {
-          // If no vendor record found, show no products
           setProducts([]);
           setLoading(false);
           return;
@@ -106,7 +100,7 @@ const ProductsManagement = () => {
         ...p,
         name: p.title,
         part_number: p.sku || '',
-        stock_quantity: p.inventory?.[0]?.quantity || 0,
+        stock_quantity: p.inventory?.quantity || 0,
         images: p.main_image ? [p.main_image] : [],
       }));
 
@@ -127,7 +121,7 @@ const ProductsManagement = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'spare_parts'
+          table: 'products'
         },
         () => {
           fetchProducts();
@@ -138,7 +132,7 @@ const ProductsManagement = () => {
     return () => supabase.removeChannel(channel);
   };
 
-  const handleDeleteProduct = async (productId: string) => {
+  const handleDeleteProduct = async (productId: number) => {
     if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
 
     try {
@@ -157,7 +151,7 @@ const ProductsManagement = () => {
     }
   };
 
-  const handleToggleActive = async (productId: string, currentStatus: boolean) => {
+  const handleToggleActive = async (productId: number, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('products')
@@ -177,7 +171,7 @@ const ProductsManagement = () => {
     }
   };
 
-  const handleToggleFeatured = async (productId: string, currentStatus: boolean) => {
+  const handleToggleFeatured = async (productId: number, currentStatus: boolean) => {
     toast.info('Featured status checks are currently disabled pending schema update');
   };
 

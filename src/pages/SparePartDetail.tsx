@@ -78,17 +78,24 @@ const SparePartDetail = () => {
         .from('products')
         .select(`
           *,
-          category:categories!category_id(name),
+          category:categories(name),
           inventory(quantity)
         `)
-        .eq('id', partId)
-        .single();
+        .eq('id', parseInt(partId))
+        .maybeSingle();
 
       if (error) throw error;
 
+      if (!data) {
+        console.error('Product not found for ID:', partId);
+        setLoading(false);
+        return;
+      }
+
       const product = data as any;
       const attrs = product.attributes || {};
-      const totalStock = product.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+      // Inventory is 1:1, so it is an object, not an array.
+      const totalStock = product.inventory?.quantity || 0;
 
       const mappedPart: SparePart = {
         id: product.id.toString(),
@@ -163,7 +170,7 @@ const SparePartDetail = () => {
             .from('cart_items')
             .upsert({
               cart_id: cart!.id,
-              product_id: parseInt(sparePart.id), // Ensure it's number if DB expects bigint, or string if uuid. Products ID is bigint (serial) in migration? Yes.
+              spare_part_id: sparePart.id,
               quantity: quantity
             });
 
@@ -193,7 +200,7 @@ const SparePartDetail = () => {
           .from('guest_cart_items')
           .upsert({
             guest_cart_id: guestCart!.id,
-            spare_part_id: parseInt(sparePart.id),
+            spare_part_id: sparePart.id,
             quantity: quantity
           });
 

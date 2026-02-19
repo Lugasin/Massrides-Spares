@@ -98,10 +98,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (session.user) {
           // Upsert profile in background
-          supabase.from('profiles').upsert({
+          // We do NOT update role here to avoid resetting manually updated roles (e.g. vendor)
+          supabase.from('user_profiles').upsert({
             id: session.user.id,
-            email: session.user.email,
-            role: 'customer',
+            user_id: session.user.id,
+            email: session.user.email || '',
+            // role: 'customer', // REMOVED: Do not overwrite role
           }, { onConflict: 'id' }).then(({ error }) => {
             if (error) console.error("Profile Upsert Error:", error);
             // If success, load profile
@@ -124,7 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loadUserProfile = async (userId: string): Promise<boolean> => {
     try {
       const { data: rawData, error: userError } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single()

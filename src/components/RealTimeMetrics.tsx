@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  Package, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Package,
   ShoppingCart,
   DollarSign,
   Activity,
@@ -53,12 +53,12 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
   const fetchMetrics = async () => {
     try {
       setLoading(true);
-      
+
       if (userRole === 'admin' || userRole === 'super_admin') {
         // Admin metrics
         const [usersRes, productsRes, ordersRes, revenueRes] = await Promise.all([
           supabase.from('user_profiles').select('id', { count: 'exact' }),
-          supabase.from('spare_parts').select('id', { count: 'exact' }),
+          supabase.from('products').select('id', { count: 'exact' }),
           supabase.from('orders').select('id, total_amount, status'),
           supabase.from('orders').select('total_amount').eq('payment_status', 'paid')
         ]);
@@ -80,12 +80,12 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
       } else if (userRole === 'vendor') {
         // Vendor metrics
         const [productsRes, ordersRes, notificationsRes] = await Promise.all([
-          supabase.from('spare_parts').select('id, stock_quantity, min_stock_level').eq('vendor_id', profile?.id),
+          supabase.from('products').select('id, stock_quantity').eq('vendor_id', profile?.id),
           supabase.from('order_items').select('*, orders(*)'),
           supabase.from('notifications').select('id', { count: 'exact' }).eq('user_id', profile?.id).is('read_at', null)
         ]);
 
-        const lowStockItems = productsRes.data?.filter(p => p.stock_quantity <= (p.min_stock_level || 5)).length || 0;
+        const lowStockItems = productsRes.data?.filter(p => p.stock_quantity <= 5).length || 0;
         const vendorRevenue = ordersRes.data?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
 
         setMetrics({
@@ -136,16 +136,16 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
         supabase.channel('admin-metrics')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, fetchMetrics)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchMetrics)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'spare_parts' }, fetchMetrics)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchMetrics)
           .subscribe()
       );
     } else if (userRole === 'vendor') {
       channels.push(
         supabase.channel('vendor-metrics')
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'spare_parts',
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'products',
             filter: `vendor_id=eq.${profile?.id}`
           }, fetchMetrics)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchMetrics)
@@ -154,15 +154,15 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
     } else if (userRole === 'customer') {
       channels.push(
         supabase.channel('customer-metrics')
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'orders',
             filter: `user_id=eq.${profile?.id}`
           }, fetchMetrics)
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'notifications',
             filter: `user_id=eq.${profile?.id}`
           }, fetchMetrics)

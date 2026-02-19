@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ShoppingCart, 
-  Heart, 
-  Eye, 
+import {
+  ShoppingCart,
+  Heart,
+  Eye,
   Star,
   Package,
   Wrench,
@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
 interface SparePartsGridProps {
-  spareParts: SparePart[];
+  spareParts: (Omit<SparePart, 'id'> & { id: string | number })[];
   className?: string;
 }
 
@@ -36,14 +36,14 @@ const categoryIcons: Record<string, React.ReactNode> = {
   'Implements': <Wrench className="h-4 w-4" />
 };
 
-export const SparePartsGrid: React.FC<SparePartsGridProps> = ({ 
-  spareParts, 
-  className 
+export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
+  spareParts,
+  className
 }) => {
   const { addItem } = useQuote();
-  const [favorites, setFavorites] = useState<number[]>([]);
+  const [favorites, setFavorites] = useState<(string | number)[]>([]);
 
-  const handleAddToCart = (sparePart: SparePart) => {
+  const handleAddToCart = (sparePart: Omit<SparePart, 'id'> & { id: string | number }) => {
     addItem({
       id: String(sparePart.id),
       name: sparePart.name,
@@ -55,9 +55,9 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
     toast.success(`${sparePart.name} added to cart!`);
   };
 
-  const toggleFavorite = (sparePartId: number) => {
-    setFavorites(prev => 
-      prev.includes(sparePartId) 
+  const toggleFavorite = (sparePartId: string | number) => {
+    setFavorites(prev =>
+      prev.includes(sparePartId)
         ? prev.filter(id => id !== sparePartId)
         : [...prev, sparePartId]
     );
@@ -76,7 +76,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
   return (
     <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6", className)}>
       {spareParts.map((sparePart) => (
-        <Card 
+        <Card
           key={sparePart.id}
           className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover-scale border-border/50"
         >
@@ -88,7 +88,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
                 className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
-              
+
               {/* Overlay Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-2">
                 {sparePart.featured && ( // From products.ts
@@ -111,15 +111,15 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
                 <Button
                   size="icon"
                   variant="secondary"
-                  onClick={(e) => { 
-                    e.preventDefault(); 
-                    e.stopPropagation(); 
-                    toggleFavorite(sparePart.id); 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFavorite(sparePart.id);
                   }}
                   className={cn(
                     "rounded-full backdrop-blur-sm",
-                    favorites.includes(sparePart.id) 
-                      ? "bg-red-500 text-white hover:bg-red-600" 
+                    favorites.includes(sparePart.id)
+                      ? "bg-red-500 text-white hover:bg-red-600"
                       : "bg-white/90 hover:bg-white"
                   )}
                 >
@@ -158,11 +158,11 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
                 {sparePart.name}
               </h3>
             </Link>
-            
+
             <p className="text-xs text-muted-foreground mb-2 font-mono">
               Part #: {sparePart.partNumber}
             </p>
-            
+
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
               {sparePart.description} {/* From products.ts */}
             </p>
@@ -189,11 +189,11 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
           </CardContent>
 
           <CardFooter className="p-4 pt-0">
-            <Button 
-              onClick={(e) => { 
-                e.stopPropagation(); 
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
                 e.preventDefault();
-                handleAddToCart(sparePart); 
+                handleAddToCart(sparePart);
               }}
               disabled={!sparePart.inStock}
               className="w-full bg-primary hover:bg-primary-hover group"

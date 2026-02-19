@@ -1,0 +1,24 @@
+
+-- Grant permissions for categories
+GRANT SELECT ON TABLE public.categories TO anon, authenticated;
+
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read categories" ON public.categories;
+CREATE POLICY "Public read categories" ON public.categories FOR SELECT USING (true);
+
+-- Grant permissions for inventory
+GRANT SELECT ON TABLE public.inventory TO anon, authenticated;
+
+ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read inventory" ON public.inventory;
+CREATE POLICY "Public read inventory" ON public.inventory FOR SELECT USING (true);
+
+-- Grant permissions for vendors (needed for products view usually)
+GRANT SELECT ON TABLE public.vendors TO anon, authenticated;
+
+ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read vendors" ON public.vendors;
+CREATE POLICY "Public read vendors" ON public.vendors FOR SELECT USING (true);

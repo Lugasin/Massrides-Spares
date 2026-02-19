@@ -17,6 +17,7 @@ import {
   BarChart,
   Wallet
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -160,12 +161,12 @@ const AdminDashboard: React.FC = () => {
         .channel('admin-dashboard-users')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchDashboardData)
         .subscribe(),
-      
+
       supabase
         .channel('admin-dashboard-orders')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchDashboardData)
         .subscribe(),
-      
+
       supabase
         .channel('admin-dashboard-activity')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, fetchDashboardData)

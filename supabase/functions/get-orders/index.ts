@@ -56,8 +56,11 @@ serve(async (req) => {
         order_items (
           id,
           quantity,
-          price,
-          title
+          unit_price,
+          products (
+            name,
+            main_image
+          )
         )
       `)
       .eq('user_id', user.id)

@@ -226,11 +226,34 @@ self.addEventListener('notificationclick', (event) => {
 // Helper functions for background sync
 async function syncCart() {
   try {
-    const cartData = localStorage.getItem('guest_cart');
-    if (cartData) {
-      // Sync cart data when online
-      log('Syncing cart data');
-      // Implementation would depend on your cart sync API
+    // Service workers don't have access to localStorage
+    // Use IndexedDB or Cache API instead
+    if ('indexedDB' in self) {
+      const dbRequest = indexedDB.open('CartSyncDB', 1);
+
+      dbRequest.onsuccess = function(event) {
+        const db = event.target.result;
+        const transaction = db.transaction(['cart'], 'readonly');
+        const store = transaction.objectStore('cart');
+        const getRequest = store.get('guest_cart');
+
+        getRequest.onsuccess = function() {
+          const cartData = getRequest.result;
+          if (cartData) {
+            log('Syncing cart data from IndexedDB');
+            // Implementation would depend on your cart sync API
+          }
+        };
+      };
+
+      dbRequest.onupgradeneeded = function(event) {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('cart')) {
+          db.createObjectStore('cart');
+        }
+      };
+    } else {
+      log('IndexedDB not available for cart sync');
     }
   } catch (err) {
     error('Cart sync failed', err);

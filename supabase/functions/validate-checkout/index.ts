@@ -102,81 +102,35 @@ serve(async (req) => {
 
     const { delivery_address, payment_method } = await req.json();
 
-    const { data: items, error: cartError } = await supabaseAdmin
-      .from("cart_items")
-      .select(
-        `
-        quantity,
-        product:products (
-          id,
-          name,
-          price,
-          main_image
-        )
-      `
-      )
-      .eq("user_id", user.id);
+    // Call RPC to create order (handles inventory, cart clearing, empty checks)
+    const { data: orderId, error: rpcError } = await supabaseAdmin.rpc("create_order_from_cart", {
+        _user_id: user.id,
+        _shipping_address: delivery_address ?? {},
+        _payment_method: payment_method ?? 'vesicash'
+    });
 
-    if (cartError) {
-      throw { reason: "CART_FETCH_FAILED", message: cartError.message };
+    if (rpcError) {
+        console.error("RPC Error:", JSON.stringify(rpcError));
+        // Pass through specific RPC errors like CART_EMPTY or OUT_OF_STOCK
+        const message = rpcError.message || "Checkout failed";
+        if (message.includes("CART_EMPTY")) throw { reason: "EMPTY_CART", message: "Your cart is empty." };
+        if (message.includes("OUT_OF_STOCK")) throw { reason: "OUT_OF_STOCK", message: message };
+        throw { reason: "CHECKOUT_RPC_FAILED", message: message };
     }
 
-    if (!items || items.length === 0) {
-      throw { reason: "EMPTY_CART", message: "Cart is empty" };
+    // Fetch the created order to get details (total_amount) for payment
+    const { data: order, error: fetchError } = await supabaseAdmin
+        .from("orders")
+        .select("*")
+        .eq("id", orderId)
+        .single();
+    
+    if (fetchError || !order) {
+         throw { reason: "ORDER_FETCH_FAILED", message: fetchError?.message || "Order not found" };
     }
-
-    const cartItems = items
-      .filter((i) => i.product && i.quantity > 0)
-      .map((i) => ({
-        product_id: i.product.id,
-        name: i.product.name,
-        price: Number(i.product.price),
-        quantity: i.quantity,
-        image: i.product.main_image ?? "",
-      }));
-
-    let subtotal = 0;
-    for (const item of cartItems) {
-      subtotal += item.price * item.quantity;
-    }
-    const totalUSD = subtotal;
-
-    //add more logging Right before the database insert, add this:
-    console.log("About to insert order with user_id:", user.id);
-    console.log("Using supabaseAdmin client");
-
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        total_amount: totalUSD,
-        status: "awaiting_payment",
-        shipping_address: delivery_address ?? {},
-      })
-      .select()
-      .single();
-
-    console.log("Order insert result:", { order, error: orderError });
-
-    if (orderError) {
-      console.error("FULL ORDER ERROR:", JSON.stringify(orderError, null, 2));
-      throw { reason: "ORDER_FAILED", message: orderError.message };
-    }
-
-    const orderItems = cartItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price_snapshot: item.price,
-    }));
-
-    const { error: itemsError } = await supabaseAdmin
-      .from("order_items")
-      .insert(orderItems);
-
-    if (itemsError) {
-      throw { reason: "ORDER_ITEMS_FAILED", message: itemsError.message };
-    }
+    
+    const totalUSD = order.total_amount;
+    const cartItemCount = "items"; // Placeholder since cart is cleared
 
     const reference = `ORD-${order.id}-${Date.now()}`;
     
@@ -221,7 +175,7 @@ serve(async (req) => {
           body: JSON.stringify({
             currency: "ZMW",
             country: "ZM",
-            narration: `Order #${order.id} - ${cartItems.length} items`,
+            narration: `Order #${order.id}`,
             method: "mobilemoney",  // or "card" - you can make this dynamic
             amount: totalZMW,
             webhook_url: webhookUrl,

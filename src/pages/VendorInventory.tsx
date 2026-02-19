@@ -70,27 +70,24 @@ const VendorInventory: React.FC = () => {
   const handleUpdateStock = async () => {
     if (!selectedPart) return;
     try {
-      const { data: vendorData } = await supabase
-        .from('vendors')
-        .select('id')
-        .eq('owner_id', user?.id)
-        .single();
+      // Use user.id as vendor_id directly since vendors table is obsolete/unified
+      const vendorId = user?.id;
 
-      if (!vendorData) {
-        toast.error("Could not find your vendor profile");
+      if (!vendorId) {
+        toast.error("User not found");
         return;
       }
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('inventory')
         .upsert({
           product_id: parseInt(selectedPart.id),
-          vendor_id: vendorData.id,
+          vendor_id: vendorId,
           quantity: newStock,
           last_restocked: new Date().toISOString()
-        } as any, { onConflict: 'product_id, vendor_id' });
+        } as any, { onConflict: 'product_id' }); // Conflict is on product_id primarily (1:1 constraint)
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       toast.success('Stock updated successfully');
       setStockDialogOpen(false);
@@ -150,7 +147,8 @@ const VendorInventory: React.FC = () => {
 
       const mappedParts: SparePart[] = (data || []).map((p: any) => {
         const attrs = p.attributes || {};
-        const totalStock = p.inventory?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+        // Fix: Inventory is 1:1 object
+        const totalStock = p.inventory?.quantity || 0;
         return {
           id: p.id.toString(),
           part_number: p.sku || '',
@@ -214,12 +212,12 @@ const VendorInventory: React.FC = () => {
 
   const handleToggleActive = async (partId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('products')
-        .update({ active: !currentStatus })
+        .update({ is_active: !currentStatus } as any)
         .eq('id', parseInt(partId));
 
-      if (error) throw error;
+      if (updateError) throw updateError;
       toast.success(`Part ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
       fetchVendorParts();
     } catch (error: any) {
