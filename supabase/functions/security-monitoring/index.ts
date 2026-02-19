@@ -103,7 +103,7 @@ serve(async (req) => {
 async function getSecurityMetrics(supabase: any, since: string, params: SecurityQueryParams) {
   // Security events summary
   const { data: eventsSummary } = await supabase
-    .from('payment_security_logs')
+    .from('tj_security_logs')
     .select('event_type, risk_score, blocked, created_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
@@ -142,7 +142,7 @@ async function getSecurityMetrics(supabase: any, since: string, params: Security
 
 async function getSecurityAlerts(supabase: any, since: string, riskThreshold: number) {
   const { data: alerts } = await supabase
-    .from('payment_security_logs')
+    .from('tj_security_logs')
     .select('*')
     .gte('created_at', since)
     .gte('risk_score', riskThreshold)

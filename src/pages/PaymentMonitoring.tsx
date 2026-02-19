@@ -115,7 +115,7 @@ const PaymentMonitoring = () => {
 
       // Fetch transactions
       const { data: transactionData, error: transactionError } = await supabase
-        .from('payment_transaction_logs')
+        .from('tj_transaction_logs')
         .select(`
           *,
           order:orders(
@@ -178,7 +178,7 @@ const PaymentMonitoring = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'payment_transaction_logs'
+          table: 'tj_transaction_logs'
         },
         () => {
           fetchData();
