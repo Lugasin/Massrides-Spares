@@ -161,7 +161,7 @@ serve(async (req) => {
         "/checkout/success";
 
       const webhookUrl =
-        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook";
+        Deno.env.get("VESICASH_WEBHOOK_URL") ?? `${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-vesicash-webhook`;
 
       const vesicashRes = await fetch(
         "https://api.mor.vesicash.com/v1/payment/init",  // ✅ Correct endpoint

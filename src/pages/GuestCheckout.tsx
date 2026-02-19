@@ -161,15 +161,8 @@ const GuestCheckout = () => {
       // Create Payment session (Vesicash via generic endpoint)
       const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-payment-session', {
         body: {
-          amount: order.total_amount,
-          currency: 'USD',
-          customer_email: email,
-          customer_name: name,
-          merchant_ref: order.order_number,
-          public_key: import.meta.env.VITE_VESICASH_PUBLIC_KEY,
-          success_url: `${window.location.origin}/checkout/success?order=${order.order_number}`,
-          cancel_url: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
-          webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
+          order_id: order.id,
+          return_url: `${window.location.origin}/checkout/success?order=${order.order_number}`
         }
       });
 
@@ -177,18 +170,15 @@ const GuestCheckout = () => {
 
       // Redirect to payment page
       // Handle both potential response formats (generic or direct)
-      const redirectUrl = paymentData.payment_url || paymentData.redirectUrl;
+      const redirectUrl = paymentData.checkout_url || paymentData.payment_url || paymentData.redirectUrl;
       if (redirectUrl) {
-        window.open(redirectUrl, '_blank');
+        window.location.href = redirectUrl;
       } else {
         throw new Error('No redirect URL received from payment provider');
       }
 
       // Clear local cart
       clearCart();
-
-      // Navigate to success page
-      navigate(`/checkout/success?order=${order.order_number}`);
 
     } catch (error: any) {
       console.error('Payment error:', error);

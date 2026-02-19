@@ -73,10 +73,10 @@ const PaymentMethods: React.FC = () => {
       if (error) throw error;
 
       if (data?.payment_url) {
-        // Open TJ HPP in new window
+        // Open Vesicash HPP in new window
         const popup = window.open(
           data.payment_url,
-          'tj-payment',
+          'vesicash-payment',
           'width=600,height=800,scrollbars=yes,resizable=yes'
         );
 

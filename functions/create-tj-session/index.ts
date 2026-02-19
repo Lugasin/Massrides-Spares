@@ -1,10 +1,10 @@
-// create-tj-session/index.ts
+// create-vesicash-session/index.ts
 import { serve } from "std/server";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TJ_API_KEY = Deno.env.get("TJ_API_KEY")!;
+const VESICASH_API_KEY = Deno.env.get("VESICASH_API_KEY")!;
 const APP_RETURN_URL = Deno.env.get("APP_RETURN_URL")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { fetch });
@@ -26,14 +26,14 @@ async function createTjHppSession(order: any) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${TJ_API_KEY}`
+      "Authorization": `Bearer ${VESICASH_API_KEY}`
     },
     body: JSON.stringify(payload)
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`TJ create session failed: ${res.status} ${text}`);
+    throw new Error(`Vesicash create session failed: ${res.status} ${text}`);
   }
 
   return res.json();
@@ -68,7 +68,7 @@ serve(async (req) => {
 
     const { data: payment, error: payErr } = await supabase
       .from("payments")
-      .insert([{ order_id: order.id, vendor_id: order.vendor_id, provider: "tj", provider_session_id: null, amount: order.total, currency: order.currency, status: "initiated", created_at: new Date().toISOString() }])
+      .insert([{ order_id: order.id, vendor_id: order.vendor_id, provider: "vesicash", provider_session_id: null, amount: order.total, currency: order.currency, status: "initiated", created_at: new Date().toISOString() }])
       .select("*")
       .single();
 
@@ -78,13 +78,13 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to create payment record" }), { status: 500, headers: { "Content-Type": "application/json" }});
     }
 
-    const tjResp = await createTjHppSession(order);
-    const hppUrl = tjResp.hpp_url || tjResp.redirect_url || tjResp.url;
-    const sessionId = tjResp.session_id || tjResp.id || null;
+    const vesicashResp = await createTjHppSession(order);
+    const hppUrl = vesicashResp.hpp_url || vesicashResp.redirect_url || vesicashResp.url;
+    const sessionId = vesicashResp.session_id || vesicashResp.id || null;
 
     await supabase
       .from("payments")
-      .update({ provider_session_id: sessionId, raw_payload: tjResp, updated_at: new Date().toISOString() })
+      .update({ provider_session_id: sessionId, raw_payload: vesicashResp, updated_at: new Date().toISOString() })
       .eq("id", payment.id);
 
     await supabase.from("orders").update({ status: "initiated", expires_at: new Date(Date.now() + 30*60*1000).toISOString(), updated_at: new Date().toISOString() }).eq("id", order.id);
@@ -92,7 +92,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ hpp_url: hppUrl }), { status: 200, headers: { "Content-Type": "application/json" }});
 
   } catch (err) {
-    console.error("create-tj-session error", err);
+    console.error("create-vesicash-session error", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json" }});
   }
 });

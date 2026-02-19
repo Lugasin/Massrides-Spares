@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-02-19T10:25:39.892Z",
+  "findings_count": 1,
+  "risk_score": 0,
+  "readiness": "GO",
+  "findings": [
+    {
+      "severity": "info",
+      "domain": "payments",
+      "title": "Verified webhook signature logic present in one handler",
+      "evidence": [
+        "supabase/functions/handle-vesicash-webhook/index.ts"
+      ],
+      "recommendation": "Consolidate all webhook traffic through this hardened pattern only."
+    }
+  ]
+}

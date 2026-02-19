@@ -84,7 +84,7 @@ const AdminDashboard: React.FC = () => {
         supabase.from('orders').select('total_amount').eq('payment_status', 'paid'),
         supabase.from('user_profiles').select('id', { count: 'exact' }).eq('role', 'vendor').eq('is_active', true),
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10),
-        // supabase.from('tj_security_logs').select('id', { count: 'exact' }).gte('risk_score', 7) // Table doesn't exist yet
+        // supabase.from('payment_security_logs').select('id', { count: 'exact' }).gte('risk_score', 7) // Table doesn't exist yet
         Promise.resolve({ count: 0, data: [] }) // Mock response
       ]);
 
