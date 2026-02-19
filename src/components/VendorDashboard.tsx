@@ -32,48 +32,92 @@ const VendorDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vendorId, setVendorId] = useState<string | null>(null);
 
   useEffect(() => {
     if (userRole === 'vendor' || userRole === 'super_admin' || userRole === 'admin') {
-      fetchDashboardData();
+      fetchVendorProfileAndData();
     }
   }, [userRole]);
 
-  const fetchDashboardData = async () => {
+  const fetchVendorProfileAndData = async () => {
     try {
       setLoading(true);
-      const sessionResp = await supabase.auth.getSession();
-      const session = sessionResp?.data?.session;
-      const token = session?.access_token;
 
-      const invokeOptions: Record<string, any> = {};
-      if (token) invokeOptions.headers = { Authorization: `Bearer ${token}` };
+      // 1. Get Vendor ID first (assuming user is owner or staff)
+      // If user is super_admin, they might want to see aggregated or specific vendor.
+      // For now, let's assume if it's a vendor user, we find their vendor entity.
 
-      const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data', invokeOptions);
+      let vId = null;
+      if (userRole === 'vendor') {
+         // Check 'vendors' table where owner_id = user.id
+         const { data: vendorData } = await supabase
+            .from('vendors')
+            .select('id')
+            .eq('owner_id', user!.id)
+            .maybeSingle();
 
-      if (error) {
-        console.error('Supabase function invocation error:', error);
-        throw new Error(error.message || 'Function invocation failed');
+         if (vendorData) {
+            vId = vendorData.id;
+         } else {
+             // Or check vendor_users if they are staff
+             const { data: staffData } = await supabase
+                .from('vendor_users')
+                .select('vendor_id')
+                .eq('user_id', user!.id)
+                .maybeSingle();
+             if (staffData) vId = staffData.vendor_id;
+         }
       }
 
-      setDashboardData(data?.dashboardData ?? null);
+      setVendorId(vId);
+
+      // 2. Fetch Data
+      // We can use a direct query since we have RLS setup
+
+      // Revenue & Orders
+      let revenueQuery = supabase.from('orders').select('total_amount, id, status, created_at, order_number');
+      let productsQuery = supabase.from('products').select('id, name, stock_quantity, min_stock_level');
+
+      if (vId) {
+          revenueQuery = revenueQuery.eq('vendor_id', vId);
+          productsQuery = productsQuery.eq('vendor_id', vId);
+      } else if (userRole === 'vendor' && !vId) {
+          // Vendor but no vendor record found?
+          console.warn("User is vendor role but no vendor record found.");
+      }
+
+      const [ordersRes, productsRes] = await Promise.all([
+          revenueQuery.order('created_at', { ascending: false }),
+          productsQuery
+      ]);
+
+      const orders = ordersRes.data || [];
+      const products = productsRes.data || [];
+
+      const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const totalOrders = orders.length;
+      const recentOrders = orders.slice(0, 5);
+      const lowStockProducts = products.filter(p => p.stock_quantity < (p.min_stock_level || 5));
+      const totalProducts = products.length;
+
+      setDashboardData({
+        totalRevenue,
+        totalOrders,
+        recentOrders,
+        lowStockProducts,
+        totalProducts
+      });
+
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      // Fallback to empty data to avoid crashing if function fails or CORS issues persist locally
-      setDashboardData({
-        totalRevenue: 0,
-        totalOrders: 0,
-        recentOrders: [],
-        lowStockProducts: [],
-        totalProducts: 0
-      });
-      // toast.error(`Failed to fetch dashboard data: ${error.message}`); 
+      toast.error(`Failed to fetch dashboard data`);
     } finally {
       setLoading(false);
     }
   };
 
-  const customMetrics = dashboardData ? [
+  const metrics = dashboardData ? [
     { label: "Your Products", value: dashboardData.totalProducts.toString(), icon: Package, change: "Active" },
     { label: "Total Orders", value: dashboardData.totalOrders.toString(), icon: ShoppingCart, change: "Total" },
     { label: "Total Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, change: "Gross" },
@@ -93,7 +137,7 @@ const VendorDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {customMetrics.map((metric, index) => (
+        {metrics.map((metric, index) => (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -171,18 +215,16 @@ const VendorDashboard: React.FC = () => {
                 <TableBody>
                   {dashboardData?.recentOrders.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell className="font-medium">{order.order_number || order.id.substring(0,8)}</TableCell>
                       <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <Badge variant={order.status === 'completed' ? 'default' : 'secondary'} className="capitalize">
                           {order.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>${order.total_amount.toLocaleString()}</TableCell>
+                      <TableCell>${Number(order.total_amount).toLocaleString()}</TableCell>
                       <TableCell>
-                        <Link to={`/orders/${order.id}`}>
-                          <Button variant="outline" size="sm">View</Button>
-                        </Link>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/orders`)}>View</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -219,9 +261,7 @@ const VendorDashboard: React.FC = () => {
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell className="text-red-500 font-bold">{product.stock_quantity}</TableCell>
                       <TableCell>
-                        <Link to={`/products/${product.id}`}>
-                          <Button variant="outline" size="sm">Manage</Button>
-                        </Link>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/vendor/inventory`)}>Manage</Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -267,6 +307,7 @@ const VendorDashboard: React.FC = () => {
           </Card>
         </TabsContent>
         <TabsContent value="payments">
+          {/* We pass the verified vendor ID if available, or let component handle it */}
           <VendorPaymentPanel />
         </TabsContent>
       </Tabs>
