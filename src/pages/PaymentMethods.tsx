@@ -42,7 +42,7 @@ const PaymentMethods: React.FC = () => {
   const fetchPaymentMethods = async () => {
     try {
       const { data, error } = await supabase
-        .from('payment_methods')
+        .from('tj_payment_methods')
         .select('*')
         .eq('user_id', profile?.id)
         .order('created_at', { ascending: false });
@@ -105,7 +105,7 @@ const PaymentMethods: React.FC = () => {
       setProcessingAction(methodId);
       
       const { error } = await supabase
-        .from('payment_methods')
+        .from('tj_payment_methods')
         .delete()
         .eq('id', methodId);
 
@@ -127,13 +127,13 @@ const PaymentMethods: React.FC = () => {
 
       // First, unset all other defaults
       await supabase
-        .from('payment_methods')
+        .from('tj_payment_methods')
         .update({ is_default: false })
         .eq('user_id', profile?.id);
 
       // Then set the selected one as default
       const { error } = await supabase
-        .from('payment_methods')
+        .from('tj_payment_methods')
         .update({ is_default: true })
         .eq('id', methodId);
 
