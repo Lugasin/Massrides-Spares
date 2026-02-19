@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('CORS_ORIGIN') ?? 'https://massridesspares.netlify.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -56,23 +56,33 @@ serve(async (req) => {
       log_source: 'system'
     })
 
-    // TODO: Send email notification if requested and email service is configured
     if (body.send_email) {
       try {
-        await supabase.functions.invoke('send-notification-email', {
-          body: {
-            to: body.user_id, // This would need to be resolved to email
-            subject: body.title,
-            type: body.type,
-            data: {
-              message: body.message,
-              action_url: body.action_url
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('email, full_name')
+          .eq('id', body.user_id)
+          .maybeSingle();
+
+        if (profile?.email) {
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              to: profile.email,
+              subject: body.title,
+              type: 'order_update',
+              data: {
+                customer_name: profile.full_name || profile.email,
+                message: body.message,
+                action_url: body.action_url,
+                updated_at: new Date().toISOString(),
+              }
             }
-          }
-        })
+          });
+        } else {
+          console.warn('Email notification skipped: no email found for user', body.user_id);
+        }
       } catch (emailError) {
         console.error('Failed to send email notification:', emailError)
-        // Don't fail the main notification if email fails
       }
     }
 

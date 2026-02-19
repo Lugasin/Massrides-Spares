@@ -42,7 +42,7 @@ const PaymentMethods: React.FC = () => {
   const fetchPaymentMethods = async () => {
     try {
       const { data, error } = await supabase
-        .from('tj_payment_methods')
+        .from('payment_methods')
         .select('*')
         .eq('user_id', profile?.id)
         .order('created_at', { ascending: false });
@@ -73,10 +73,10 @@ const PaymentMethods: React.FC = () => {
       if (error) throw error;
 
       if (data?.payment_url) {
-        // Open TJ HPP in new window
+        // Open Vesicash HPP in new window
         const popup = window.open(
           data.payment_url,
-          'tj-payment',
+          'vesicash-payment',
           'width=600,height=800,scrollbars=yes,resizable=yes'
         );
 
@@ -105,7 +105,7 @@ const PaymentMethods: React.FC = () => {
       setProcessingAction(methodId);
       
       const { error } = await supabase
-        .from('tj_payment_methods')
+        .from('payment_methods')
         .delete()
         .eq('id', methodId);
 
@@ -127,13 +127,13 @@ const PaymentMethods: React.FC = () => {
 
       // First, unset all other defaults
       await supabase
-        .from('tj_payment_methods')
+        .from('payment_methods')
         .update({ is_default: false })
         .eq('user_id', profile?.id);
 
       // Then set the selected one as default
       const { error } = await supabase
-        .from('tj_payment_methods')
+        .from('payment_methods')
         .update({ is_default: true })
         .eq('id', methodId);
 

@@ -85,7 +85,7 @@ export const SystemHealthMonitor: React.FC = () => {
       setHealth({
         database: dbError ? 'critical' : dbLatency > 500 ? 'warning' : 'healthy',
         realtime: realtimeStatus,
-        payments: 'operational', // This would check TJ connectivity
+        payments: 'operational', // This would check Vesicash connectivity
         storage: 'healthy', // This would check Supabase Storage
         functions: funcError ? 'critical' : funcLatency > 3000 ? 'warning' : 'healthy',
         overall: Math.max(0, overallHealth)

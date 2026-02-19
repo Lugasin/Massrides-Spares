@@ -29,7 +29,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-interface TJTransaction {
+interface VesicashTransaction {
   id: string;
   order_id: string;
   transaction_id: string;
@@ -55,7 +55,7 @@ interface Order {
   status: string;
   payment_status: string;
   total_amount: number;
-  tj: any;
+  payment_provider_ref?: string;
   created_at: string;
   user_profile?: {
     full_name: string;
@@ -74,7 +74,7 @@ interface PaymentMetrics {
 
 const PaymentMonitoring = () => {
   const { user, profile, userRole } = useAuth();
-  const [transactions, setTransactions] = useState<TJTransaction[]>([]);
+  const [transactions, setTransactions] = useState<VesicashTransaction[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<PaymentMetrics>({
     totalTransactions: 0,
@@ -87,7 +87,7 @@ const PaymentMonitoring = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedTransaction, setSelectedTransaction] = useState<TJTransaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<VesicashTransaction | null>(null);
   const [settlementDialog, setSettlementDialog] = useState<{
     isOpen: boolean;
     transactionId: string;
@@ -115,7 +115,7 @@ const PaymentMonitoring = () => {
 
       // Fetch transactions
       const { data: transactionData, error: transactionError } = await supabase
-        .from('tj_transaction_logs')
+        .from('payment_transaction_logs')
         .select(`
           *,
           order:orders(
@@ -178,7 +178,7 @@ const PaymentMonitoring = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'tj_transaction_logs'
+          table: 'payment_transaction_logs'
         },
         () => {
           fetchData();
@@ -202,7 +202,7 @@ const PaymentMonitoring = () => {
 
   const handleManualSettlement = async () => {
     try {
-      const response = await supabase.functions.invoke('tj-manual-settlement', {
+      const response = await supabase.functions.invoke('vesicash-manual-settlement', {
         body: {
           transactionId: settlementDialog.transactionId,
           action: settlementDialog.action,
@@ -225,7 +225,7 @@ const PaymentMonitoring = () => {
 
   const handleTransactionLookup = async (transactionId: string) => {
     try {
-      const response = await supabase.functions.invoke('tj-lookup', {
+      const response = await supabase.functions.invoke('vesicash-lookup', {
         body: { transactionId }
       });
 
@@ -314,7 +314,7 @@ const PaymentMonitoring = () => {
             <CreditCard className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-3xl font-bold">Payment Monitoring</h1>
-              <p className="text-muted-foreground">Monitor Transaction Junction payments and settlements</p>
+              <p className="text-muted-foreground">Monitor Vesicash payments and settlements</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -481,7 +481,7 @@ const PaymentMonitoring = () => {
                                     size="sm"
                                     onClick={() => setSettlementDialog({
                                       isOpen: true,
-                                      transactionId: order.tj?.transactionId || '',
+                                      transactionId: order.payment_provider_ref || '' || '',
                                       action: 'settle'
                                     })}
                                   >
@@ -492,7 +492,7 @@ const PaymentMonitoring = () => {
                                     size="sm"
                                     onClick={() => setSettlementDialog({
                                       isOpen: true,
-                                      transactionId: order.tj?.transactionId || '',
+                                      transactionId: order.payment_provider_ref || '' || '',
                                       action: 'reverse'
                                     })}
                                   >

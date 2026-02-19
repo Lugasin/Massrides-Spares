@@ -1,69 +1,66 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
-console.log("Vesicash Webhook Handler Started");
+// LEGACY_ALIAS_OK: retained only for backward compatibility while clients migrate to /handle-vesicash-webhook.
 
 serve(async (req) => {
   try {
-    // 1. Verify Secret (Optional but recommended security step)
-    // Vesicash sends a signature or you can check a custom header if configured.
-    // For now, we will trust the payload but log it for inspection.
-    
-    const payload = await req.json();
-    console.log("Webhook Payload Received:", JSON.stringify(payload));
+    const signature = req.headers.get("x-vesicash-signature");
+    const webhookSecret = Deno.env.get("VESICASH_WEBHOOK_SECRET");
 
-    // 2. Parse the Event
-    // Vesicash structure usually has: { event: 'payment.successful', data: { ... } }
-    const eventType = payload.event || payload.type;
-    const data = payload.data;
-
-    // Log even ignored events for debugging
-    if (eventType !== 'payment.successful' && eventType !== 'transaction.successful') {
-        console.log(`Event ignored: ${eventType}`);
-        return new Response('Event ignored', { status: 200 });
+    if (!signature || !webhookSecret) {
+      throw new Error("Missing signature or webhook secret");
     }
 
-    // 3. Setup Supabase Admin Client
-    // We use the Service Role Key because this function runs in the background, not by a user.
+    const body = await req.text();
+    const hash = createHmac("sha512", webhookSecret).update(body).digest("hex");
+
+    if (hash !== signature) {
+      throw new Error("Invalid webhook signature");
+    }
+
+    const payload = JSON.parse(body);
+    const eventType = payload.event || payload.type;
+    const data = payload.data ?? {};
+
+    if (eventType !== 'payment.successful' && eventType !== 'transaction.successful') {
+      return new Response('Event ignored', { status: 200 });
+    }
+
+    const paymentReference = data.reference;
+    if (!paymentReference) {
+      throw new Error("No payment reference found in webhook payload");
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 4. Extract Order ID
-    // We sent "order_id" in the metadata during checkout. Vesicash sends it back here.
-    const orderId = data.metadata?.order_id;
-    const paymentReference = data.reference;
+    const { data: payment, error: paymentError } = await supabaseAdmin
+      .from('payments')
+      .update({ status: 'paid', updated_at: new Date().toISOString() })
+      .eq('vesicash_transaction_id', paymentReference)
+      .select('*')
+      .single();
 
-    if (!orderId) {
-        throw new Error("No Order ID found in webhook metadata");
+    if (paymentError || !payment) {
+      throw new Error(`Failed to update payment status for reference: ${paymentReference}`);
     }
 
-    // 5. Update Order Status in Database
-    const { error } = await supabaseAdmin
+    const { error: orderError } = await supabaseAdmin
       .from('orders')
-      .update({ 
-        status: 'processing', // Match 'status' column in orders table
-        payment_status: 'paid',
-        payment_intent_id: paymentReference, // Store ref in payment_intent_id or similar
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderId);
+      .update({ status: 'paid', payment_status: 'paid', updated_at: new Date().toISOString() })
+      .eq('id', payment.order_id);
 
-    if (error) {
-        console.error("Failed to update order:", error);
-        throw error;
-    }
-
-    console.log(`Order ${orderId} marked as PAID via Webhook.`);
+    if (orderError) throw orderError;
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { "Content-Type": "application/json" },
       status: 200,
     });
-
-  } catch (err: any) {
-    console.error("Webhook Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 400 });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), { status: 400 });
   }
 });

@@ -1,10 +1,10 @@
-// tj-webhook/index.ts
+// vesicash-webhook/index.ts
 import { serve } from "std/server";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TJ_WEBHOOK_SECRET = Deno.env.get("TJ_WEBHOOK_SECRET")!;
+const VESICASH_WEBHOOK_SECRET = Deno.env.get("VESICASH_WEBHOOK_SECRET")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { fetch });
 
 async function computeHmacHex(message: string, secret: string) {
@@ -28,9 +28,9 @@ serve(async (req) => {
   try {
     if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
     const raw = await req.text();
-    const signature = req.headers.get("x-tj-signature") || "";
+    const signature = req.headers.get("x-vesicash-signature") || "";
 
-    const computed = await computeHmacHex(raw, TJ_WEBHOOK_SECRET);
+    const computed = await computeHmacHex(raw, VESICASH_WEBHOOK_SECRET);
     if (!timingSafeEqual(computed, signature)) {
       console.warn("Invalid signature: computed", computed, "header", signature);
       return new Response("invalid signature", { status: 400 });
@@ -38,7 +38,7 @@ serve(async (req) => {
 
     const payload = JSON.parse(raw);
 
-    await supabase.from("webhooks_log").insert([{ provider: "tj", event_type: payload.event || payload.type || "unknown", payload, received_at: new Date().toISOString() }]);
+    await supabase.from("webhooks_log").insert([{ provider: "vesicash", event_type: payload.event || payload.type || "unknown", payload, received_at: new Date().toISOString() }]);
 
     const sessionId = payload.data?.session_id || payload.data?.provider_session_id || payload.data?.reference || payload.data?.order_reference;
     const paymentId = payload.data?.payment_id || payload.data?.id;
@@ -62,10 +62,10 @@ serve(async (req) => {
     }
 
     const payment = payments[0];
-    const tjStatus = payload.data?.status || payload.status || payload.event;
+    const providerStatus = payload.data?.status || payload.status || payload.event;
     let localStatus = "initiated";
-    if (["success", "succeeded", "paid", "completed"].includes(String(tjStatus).toLowerCase())) localStatus = "succeeded";
-    if (["failed", "declined", "cancelled"].includes(String(tjStatus).toLowerCase())) localStatus = "failed";
+    if (["success", "succeeded", "paid", "completed"].includes(String(providerStatus).toLowerCase())) localStatus = "succeeded";
+    if (["failed", "declined", "cancelled"].includes(String(providerStatus).toLowerCase())) localStatus = "failed";
 
     await supabase.from("payments").update({ status: localStatus, provider_payment_id: paymentId || payment.provider_payment_id, raw_payload: payload, updated_at: new Date().toISOString() }).eq("id", payment.id);
 
@@ -96,7 +96,7 @@ serve(async (req) => {
     return new Response("ok", { status: 200 });
 
   } catch (err) {
-    console.error("tj-webhook error", err);
+    console.error("vesicash-webhook error", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json" }});
   }
 });

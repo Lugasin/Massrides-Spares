@@ -35,8 +35,9 @@ const UserManagement: React.FC = () => {
     toast.info(`Updating role for user ${userId}...`);
 
     try {
-      // @ts-ignore: Suppress type error due to generated types mismatch
-      const { error } = await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId);
+      const { error } = await supabase.functions.invoke('update-user-role', {
+        body: { userId, newRole }
+      });
 
       if (error) throw error;
 

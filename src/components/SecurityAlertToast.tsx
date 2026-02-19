@@ -26,7 +26,7 @@ const SecurityAlertToast = () => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'tj_security_logs'
+          table: 'payment_security_logs'
         },
         (payload) => {
           const alert = payload.new as SecurityAlert;
