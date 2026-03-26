@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertCircle, CheckCircle, Clock, Search, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { VesicashPaymentMonitoringPanel } from "@/components/admin/VesicashPaymentMonitoring";
 
 interface PaymentEvent {
     id: string;
@@ -36,6 +37,8 @@ interface PaymentTransaction {
 }
 
 export const PaymentMonitoringPanel = () => {
+    return <VesicashPaymentMonitoringPanel />;
+
     const [alerts, setAlerts] = useState<AdminAlert[]>([]);
     const [recentEvents, setRecentEvents] = useState<PaymentEvent[]>([]);
     const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);

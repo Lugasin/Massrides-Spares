@@ -259,8 +259,10 @@ const Checkout = () => {
       // Explicit Payload (Auth Only - SDK will inject JWT automatically)
       const payload = {
         delivery_address: useShippingAddress ? shippingInfo : customerInfo,
+        customer_details: customerInfo,
         notes: null,
-        payment_method: 'vesicash'
+        payment_method: 'vesicash',
+        send_receipt: sendReceipt
       };
 
       console.log('Sending Checkout Payload:', payload);

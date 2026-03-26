@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-// Create a Supabase client with the Auth context of the user that called the function.
-// This client is used to verify the user's JWT.
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
   Deno.env.get("SUPABASE_ANON_KEY") ?? ""
 );
 
-// Create a Supabase admin client to perform database operations.
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -22,6 +19,25 @@ function getCorsHeaders(origin: string | null) {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
+}
+
+function getNameParts(fullName?: string | null) {
+  const trimmed = fullName?.trim() ?? "";
+  if (!trimmed) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const [firstName, ...rest] = trimmed.split(/\s+/);
+  return {
+    firstName,
+    lastName: rest.join(" "),
+  };
+}
+
+function asObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 serve(async (req) => {
@@ -45,67 +61,50 @@ serve(async (req) => {
   }
 
   try {
-    /* ----------------------------------
-       DIAGNOSTICS
-    ----------------------------------- */
-    console.log("--- DEBUG START: validate-checkout ---");
-    console.log("SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
-    console.log("ANON_KEY exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
-    console.log("SERVICE_ROLE exists:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
-
-    // Log headers safely
-    const headers: Record<string, string> = {};
-    req.headers.forEach((v, k) => {
-        if (k.toLowerCase() === 'authorization') {
-            headers[k] = v.substring(0, 15) + "...";
-        } else {
-            headers[k] = v;
-        }
-    });
-    console.log("Request Headers:", JSON.stringify(headers));
-
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       throw { reason: "NO_AUTH", message: "Missing Authorization header" };
     }
 
     const token = authHeader.replace("Bearer ", "");
-    console.log("Token length:", token.length);
-    console.log("Token starts with:", token.substring(0, 20) + "...");
-
-    // Try to decode JWT payload for debugging
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      console.log("JWT Payload:", {
-        iss: payload.iss,
-        aud: payload.aud,
-        exp: payload.exp,
-        iat: payload.iat,
-        sub: payload.sub?.substring(0, 8) + "...",
-      });
-    } catch (e) {
-      console.log("Failed to decode JWT:", e);
-    }
-
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      console.error("Auth Error Details:", JSON.stringify(authError, null, 2));
-      console.error("User object:", user);
-      console.error("Supabase URL:", Deno.env.get("SUPABASE_URL"));
-      console.error("Anon Key exists:", !!Deno.env.get("SUPABASE_ANON_KEY"));
       throw { reason: "INVALID_JWT", message: `Invalid or expired token: ${authError?.message || 'Unknown error'}` };
     }
 
-    console.log("Auth Success for user:", user.email);
-    console.log("--- DEBUG END: validate-checkout ---");
+    const { delivery_address, customer_details, payment_method, send_receipt } = await req.json();
+    const shippingAddress = asObject(delivery_address);
+    const customerDetails = asObject(customer_details);
 
-    const { delivery_address, payment_method } = await req.json();
+    const { data: profile } = await supabaseAdmin
+      .from("user_profiles")
+      .select("full_name, email, phone, company_name, address, city, state, country, zip_code")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const profileName = getNameParts(profile?.full_name);
+    const customerName = `${customerDetails.firstName ?? ""} ${customerDetails.lastName ?? ""}`.trim();
+    const providedName = getNameParts(customerName);
+
+    const resolvedCustomer = {
+      first_name: String(customerDetails.firstName ?? providedName.firstName ?? profileName.firstName ?? "").trim(),
+      last_name: String(customerDetails.lastName ?? providedName.lastName ?? profileName.lastName ?? "").trim(),
+      full_name: String(customerName || profile?.full_name || "").trim(),
+      email: String(customerDetails.email ?? profile?.email ?? user.email ?? "").trim(),
+      phone: String(customerDetails.phone ?? profile?.phone ?? "").trim(),
+      company_name: String(customerDetails.company ?? profile?.company_name ?? "").trim(),
+      address: String(customerDetails.address ?? shippingAddress.address ?? profile?.address ?? "").trim(),
+      city: String(customerDetails.city ?? shippingAddress.city ?? profile?.city ?? "").trim(),
+      state: String(customerDetails.state ?? shippingAddress.state ?? profile?.state ?? "").trim(),
+      zip_code: String(customerDetails.zipCode ?? shippingAddress.zipCode ?? profile?.zip_code ?? "").trim(),
+      country: String(customerDetails.country ?? shippingAddress.country ?? profile?.country ?? "Zambia").trim(),
+    };
 
     // Call RPC to create order (handles inventory, cart clearing, empty checks)
     const { data: orderId, error: rpcError } = await supabaseAdmin.rpc("create_order_from_cart", {
         _user_id: user.id,
-        _shipping_address: delivery_address ?? {},
+        _shipping_address: shippingAddress,
         _payment_method: payment_method ?? 'vesicash'
     });
 
@@ -129,16 +128,45 @@ serve(async (req) => {
          throw { reason: "ORDER_FETCH_FAILED", message: fetchError?.message || "Order not found" };
     }
     
-    const totalUSD = order.total_amount;
-    const cartItemCount = "items"; // Placeholder since cart is cleared
-
+    const totalUSD = Number(order.total_amount ?? 0);
+    const exchangeRate = parseFloat(Deno.env.get("EXCHANGE_RATE") ?? "28.5");
+    const totalZMW = Math.ceil(totalUSD * exchangeRate);
     const reference = `ORD-${order.id}-${Date.now()}`;
-    
-    await supabaseAdmin.from("payments").insert({
-      order_id: order.id,
-      provider: "vesicash",
-      vesicash_transaction_id: reference,
-      status: "pending"
+
+    const { data: paymentRecord, error: paymentInsertError } = await supabaseAdmin
+      .from("payments")
+      .insert({
+        order_id: order.id,
+        provider: "vesicash",
+        vesicash_transaction_id: reference,
+        status: "pending"
+      })
+      .select("id")
+      .single();
+
+    if (paymentInsertError || !paymentRecord) {
+      throw {
+        reason: "PAYMENT_RECORD_FAILED",
+        message: paymentInsertError?.message || "Unable to create payment record",
+      };
+    }
+
+    await supabaseAdmin.from("financial_audit_logs").insert({
+      event_type: "payment_checkout_created",
+      entity_type: "payment",
+      entity_id: String(paymentRecord.id),
+      amount: totalZMW,
+      metadata: {
+        order_id: order.id,
+        order_number: order.order_number,
+        provider: "vesicash",
+        customer: resolvedCustomer,
+        exchange_rate: exchangeRate,
+        order_amount_usd: totalUSD,
+        payment_amount_zmw: totalZMW,
+        send_receipt: !!send_receipt,
+        reference,
+      },
     });
 
     let payment_link: string | null = null;
@@ -153,15 +181,48 @@ serve(async (req) => {
         };
       }
 
-      const EXCHANGE_RATE = parseFloat(Deno.env.get("EXCHANGE_RATE") ?? "28.5");
-      const totalZMW = Math.ceil(totalUSD * EXCHANGE_RATE);
-
       const callbackUrl =
         (origin ?? "https://massridesspares.netlify.app") +
         "/checkout/success";
 
       const webhookUrl =
-        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook";
+        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-vesicash-webhook";
+
+      const vesicashPayload = {
+        currency: "ZMW",
+        country: "ZM",
+        narration: `Order ${order.order_number ?? order.id}`,
+        method: "mobilemoney",
+        amount: totalZMW,
+        webhook_url: webhookUrl,
+        redirect_url: callbackUrl,
+        email: resolvedCustomer.email,
+        phone_number: resolvedCustomer.phone || undefined,
+        first_name: resolvedCustomer.first_name || undefined,
+        last_name: resolvedCustomer.last_name || undefined,
+        customer: {
+          email: resolvedCustomer.email,
+          phone_number: resolvedCustomer.phone || undefined,
+          first_name: resolvedCustomer.first_name || undefined,
+          last_name: resolvedCustomer.last_name || undefined,
+          full_name: resolvedCustomer.full_name || undefined,
+          company_name: resolvedCustomer.company_name || undefined,
+          address: resolvedCustomer.address || undefined,
+          city: resolvedCustomer.city || undefined,
+          state: resolvedCustomer.state || undefined,
+          country: resolvedCustomer.country || undefined,
+          zip_code: resolvedCustomer.zip_code || undefined,
+        },
+        metadata: {
+          order_id: order.id,
+          order_number: order.order_number,
+          user_id: user.id,
+          customer_email: resolvedCustomer.email,
+          customer_phone: resolvedCustomer.phone || null,
+          source: "massrides_checkout",
+          reference,
+        },
+      };
 
       const vesicashRes = await fetch(
         "https://api.mor.vesicash.com/v1/payment/init",  // ✅ Correct endpoint
@@ -172,15 +233,7 @@ serve(async (req) => {
             "secret-key": privateKey,  // ✅ Changed from "v-private-key"
             "public-key": publicKey,   // ✅ Changed from "v-public-key"
           },
-          body: JSON.stringify({
-            currency: "ZMW",
-            country: "ZM",
-            narration: `Order #${order.id}`,
-            method: "mobilemoney",  // or "card" - you can make this dynamic
-            amount: totalZMW,
-            webhook_url: webhookUrl,
-            redirect_url: callbackUrl,
-          }),
+          body: JSON.stringify(vesicashPayload),
         }
       );
 
@@ -190,22 +243,57 @@ serve(async (req) => {
       console.log("Vesicash Response:", JSON.stringify(vData, null, 2));
 
       if (!vesicashRes.ok || vData.status !== "success") {
+        await supabaseAdmin
+          .from("payments")
+          .update({ status: "failed" })
+          .eq("id", paymentRecord.id);
+
+        await supabaseAdmin.from("financial_audit_logs").insert({
+          event_type: "payment_initialization_failed",
+          entity_type: "payment",
+          entity_id: String(paymentRecord.id),
+          amount: totalZMW,
+          metadata: {
+            order_id: order.id,
+            provider: "vesicash",
+            reference,
+            error: vData?.message ?? "Payment initialization failed",
+            response: vData,
+          },
+        });
+
         throw {
           reason: "VESICASH_ERROR",
           message: vData?.message ?? "Payment initialization failed",
         };
       }
 
-      payment_link = vData.data?.payment_link;
+      payment_link = vData.data?.payment_link ?? null;
+      const providerReference = vData.data?.reference || reference;
 
       // Optional: Store the payment reference
       await supabaseAdmin
         .from("payments")
         .update({
-          vesicash_transaction_id: vData.data?.reference || reference,
+          vesicash_transaction_id: providerReference,
           vesicash_payment_id: vData.data?.payment_id,
+          status: "pending",
         })
-        .eq("order_id", order.id);
+        .eq("id", paymentRecord.id);
+
+      await supabaseAdmin.from("financial_audit_logs").insert({
+        event_type: "payment_initialized",
+        entity_type: "payment",
+        entity_id: String(paymentRecord.id),
+        amount: totalZMW,
+        metadata: {
+          order_id: order.id,
+          provider: "vesicash",
+          reference: providerReference,
+          payment_id: vData.data?.payment_id ?? null,
+          customer: resolvedCustomer,
+        },
+      });
     }
 
     return new Response(
@@ -224,12 +312,13 @@ serve(async (req) => {
       }
     );
   } catch (error: unknown) {
-    console.error("CHECKOUT ERROR:", error);
+    const checkoutError = error as { message?: string; reason?: string };
+    console.error("CHECKOUT ERROR:", checkoutError);
     return new Response(
       JSON.stringify({
         error: "CHECKOUT_FAILED",
-        reason: error.reason ?? "UNKNOWN",
-        message: error.message ?? String(error),
+        reason: checkoutError.reason ?? "UNKNOWN",
+        message: checkoutError.message ?? String(error),
       }),
       {
         status: 400,

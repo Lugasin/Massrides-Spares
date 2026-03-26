@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const AdminProfile: React.FC = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
 
   if (userRole !== 'admin' && userRole !== 'super_admin') {
     return (
@@ -47,6 +48,12 @@ const AdminProfile: React.FC = () => {
       title: 'Analytics & Reports',
       description: 'View detailed analytics and generate reports',
       action: 'View Analytics'
+    },
+    {
+      icon: Bell,
+      title: 'Financial Audits',
+      description: 'Track Vesicash payments and audit trail events',
+      action: 'Payment Monitor'
     },
     {
       icon: Bell,
@@ -113,7 +120,16 @@ const AdminProfile: React.FC = () => {
                     <p className="text-muted-foreground text-sm mb-4">
                       {capability.description}
                     </p>
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (capability.action === 'Manage Users') navigate('/user-management');
+                        if (capability.action === 'System Settings') navigate('/system-health');
+                        if (capability.action === 'View Analytics') navigate('/analytics');
+                        if (capability.action === 'Payment Monitor') navigate('/payment-monitoring');
+                      }}
+                    >
                       {capability.action}
                     </Button>
                   </div>

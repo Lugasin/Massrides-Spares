@@ -4,6 +4,29 @@ import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
 console.log("Vesicash Webhook Handler Started");
 
+function normalisePaymentStatus(eventType: string, providerStatus?: string | null) {
+  const status = `${providerStatus ?? ""}`.toLowerCase();
+  const event = `${eventType}`.toLowerCase();
+
+  if (event.includes("success") || status === "success" || status === "successful" || status === "paid") {
+    return "paid";
+  }
+
+  if (event.includes("fail") || status === "failed") {
+    return "failed";
+  }
+
+  if (event.includes("cancel") || status === "cancelled") {
+    return "cancelled";
+  }
+
+  if (event.includes("author") || status === "authorised" || status === "authorized") {
+    return "authorised";
+  }
+
+  return "pending";
+}
+
 serve(async (req) => {
   try {
     const signature = req.headers.get("x-vesicash-signature");
@@ -26,19 +49,16 @@ serve(async (req) => {
     console.log("Webhook Payload Received and Verified:", JSON.stringify(payload));
 
     const eventType = payload.event || payload.type;
-    const data = payload.data;
-
-    if (eventType !== 'payment.successful' && eventType !== 'transaction.successful') {
-        console.log(`Event ignored: ${eventType}`);
-        return new Response('Event ignored', { status: 200 });
-    }
+    const data = payload.data || {};
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const paymentReference = data.reference;
+    const paymentReference = data.reference || data.tx_ref || data.transaction_reference;
+    const normalisedStatus = normalisePaymentStatus(eventType, data.status);
+    const completedAt = normalisedStatus === "paid" ? new Date().toISOString() : null;
 
     if (!paymentReference) {
         throw new Error("No payment reference found in webhook payload");
@@ -46,7 +66,11 @@ serve(async (req) => {
 
     const { data: payment, error: pError } = await supabaseAdmin
       .from('payments')
-      .update({ status: 'paid' })
+      .update({
+        status: normalisedStatus,
+        completed_at: completedAt,
+        vesicash_payment_id: data.payment_id ?? null,
+      })
       .eq('vesicash_transaction_id', paymentReference)
       .select()
       .single();
@@ -57,7 +81,10 @@ serve(async (req) => {
 
     const { error: oError } = await supabaseAdmin
       .from('orders')
-      .update({ status: 'paid' })
+      .update({
+        status: normalisedStatus === 'paid' ? 'processing' : normalisedStatus === 'cancelled' ? 'cancelled' : 'pending',
+        payment_status: normalisedStatus,
+      })
       .eq('id', payment.order_id);
 
     if (oError) {
@@ -65,7 +92,22 @@ serve(async (req) => {
         throw oError;
     }
 
-    console.log(`Order ${payment.order_id} marked as PAID via Webhook.`);
+    await supabaseAdmin.from('financial_audit_logs').insert({
+      event_type: `payment_${normalisedStatus}`,
+      entity_type: 'payment',
+      entity_id: String(payment.id),
+      amount: Number(data.amount ?? 0) || null,
+      metadata: {
+        order_id: payment.order_id,
+        provider: 'vesicash',
+        reference: paymentReference,
+        provider_status: data.status ?? null,
+        event_type: eventType,
+        payload,
+      },
+    });
+
+    console.log(`Order ${payment.order_id} updated to ${normalisedStatus} via webhook.`);
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { "Content-Type": "application/json" },
