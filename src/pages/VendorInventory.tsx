@@ -137,7 +137,11 @@ const VendorInventory: React.FC = () => {
 
       if (userRole === 'vendor') {
         if (profile?.id) {
-          // Basic filtering logic if needed later
+          query = query.eq('vendor_id', profile.id);
+        } else {
+          setParts([]);
+          setLoading(false);
+          return;
         }
       }
 
@@ -147,23 +151,23 @@ const VendorInventory: React.FC = () => {
 
       const mappedParts: SparePart[] = (data || []).map((p: any) => {
         const attrs = p.attributes || {};
-        // Fix: Inventory is 1:1 object
-        const totalStock = p.inventory?.quantity || 0;
+        const inventory = Array.isArray(p.inventory) ? p.inventory[0] : p.inventory;
+        const totalStock = inventory?.quantity ?? p.stock_quantity ?? 0;
         return {
           id: p.id.toString(),
           part_number: p.sku || '',
-          name: p.title,
+          name: p.name,
           description: p.description || '',
           price: p.price,
           brand: attrs.brand || '',
           condition: attrs.condition || 'new',
-          availability_status: totalStock > 0 ? 'in_stock' : 'out_of_stock',
+          availability_status: attrs.availability_status || (totalStock > 0 ? 'in_stock' : 'out_of_stock'),
           stock_quantity: totalStock,
-          min_stock_level: attrs.min_stock || 5,
+          min_stock_level: attrs.min_stock_level || 5,
           featured: attrs.featured === true,
           category: { name: p.category?.name || 'Uncategorized' },
           created_at: p.created_at,
-          is_active: p.active,
+          is_active: p.is_active ?? true,
           main_image: p.main_image
         };
       });

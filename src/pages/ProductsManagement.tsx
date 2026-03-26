@@ -43,8 +43,8 @@ interface Product {
   is_active: boolean;
   images: string[];
   created_at: string;
-  category: { name: string };
-  vendor: { full_name: string; email: string; company_name?: string };
+  category: { name: string } | null;
+  vendor: { full_name: string | null; email: string | null; company_name?: string | null } | null;
 }
 
 const ProductsManagement = () => {
@@ -72,10 +72,7 @@ const ProductsManagement = () => {
         .from('products')
         .select(`
           *,
-          name,
-          sku,
           category:categories!category_id(name),
-          vendor:profiles!vendor_id(full_name, email),
           inventory(quantity)
         `)
         .order('created_at', { ascending: false });
@@ -96,15 +93,55 @@ const ProductsManagement = () => {
 
       if (error) throw error;
 
-      const mappedData = data.map((p: any) => ({
-        ...p,
-        name: p.title,
-        part_number: p.sku || '',
-        stock_quantity: p.inventory?.quantity || 0,
-        images: p.main_image ? [p.main_image] : [],
-      }));
+      const vendorIds = Array.from(
+        new Set((data || []).map((product: any) => product.vendor_id).filter(Boolean))
+      );
 
-      setProducts(mappedData || []);
+      const vendorMap = new Map<string, { full_name: string | null; email: string | null; company_name?: string | null }>();
+
+      if (vendorIds.length > 0) {
+        const { data: vendors, error: vendorsError } = await supabase
+          .from('user_profiles')
+          .select('id, full_name, email, company_name')
+          .in('id', vendorIds);
+
+        if (vendorsError) throw vendorsError;
+
+        for (const vendor of vendors || []) {
+          vendorMap.set(vendor.id, {
+            full_name: vendor.full_name,
+            email: vendor.email,
+            company_name: (vendor as any).company_name ?? null,
+          });
+        }
+      }
+
+      const mappedData = (data || []).map((p: any) => {
+        const attrs = typeof p.attributes === 'object' && p.attributes ? p.attributes : {};
+        const inventory = Array.isArray(p.inventory) ? p.inventory[0] : p.inventory;
+        const stockQuantity = inventory?.quantity ?? p.stock_quantity ?? 0;
+
+        return {
+          id: p.id,
+          part_number: p.sku || '',
+          name: p.name,
+          description: p.description || '',
+          price: p.price,
+          brand: attrs.brand || '',
+          condition: attrs.condition || 'new',
+          availability_status: attrs.availability_status || (stockQuantity > 0 ? 'in_stock' : 'out_of_stock'),
+          stock_quantity: stockQuantity,
+          min_stock_level: attrs.min_stock_level || 5,
+          featured: attrs.featured === true,
+          is_active: p.is_active ?? true,
+          images: p.main_image ? [p.main_image] : [],
+          created_at: p.created_at,
+          category: p.category || null,
+          vendor: vendorMap.get(p.vendor_id) || null,
+        };
+      });
+
+      setProducts(mappedData);
     } catch (error: any) {
       console.error('Error fetching products:', error);
       toast.error('Failed to load products');
@@ -155,7 +192,7 @@ const ProductsManagement = () => {
     try {
       const { error } = await supabase
         .from('products')
-        .update({ active: !currentStatus } as any)
+        .update({ is_active: !currentStatus } as any)
         .eq('id', productId);
 
       if (error) throw error;
