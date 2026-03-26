@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => ({
             if (id.includes('@tanstack/react-query')) {
               return 'query-vendor';
             }
-            if (id.includes('@supabase/supabase-js')) {
+            if (id.includes('@supabase')) {
               return 'supabase-vendor';
             }
             if (id.includes('sonner')) {
