@@ -20,6 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { mergeGuestCart } from "@/lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -109,26 +110,15 @@ const Checkout = () => {
     // Guest Authentication Flow
     try {
       setIsProcessing(true);
-
-      // 1. Check if user already exists
-      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-email', {
-        body: { email: customerInfo.email }
-      });
-
-      if (checkError) throw checkError;
-
-      if (checkData?.exists) {
-        toast.info("You already have an account! Please log in.");
-        // Redirect to login with email pre-filled and return URL
-        navigate(`/login?email=${encodeURIComponent(customerInfo.email)}&returnUrl=/checkout`);
-        return;
-      }
-
-      // 2. If new user, send OTP
       const { error } = await supabase.auth.signInWithOtp({
         email: customerInfo.email,
         options: {
-          shouldCreateUser: true, // Only create if not exists (redundant check but safe)
+          shouldCreateUser: true,
+          data: {
+            full_name: `${customerInfo.firstName} ${customerInfo.lastName}`.trim(),
+            phone: customerInfo.phone,
+            company_name: customerInfo.company,
+          }
         }
       });
 
@@ -186,6 +176,11 @@ const Checkout = () => {
       if (error) throw error;
 
       toast.success("Authenticated successfully!");
+      try {
+        await mergeGuestCart();
+      } catch (mergeError) {
+        console.error('Cart merge failed after OTP verification:', mergeError);
+      }
       setIsAuthModalOpen(false);
       localStorage.removeItem('otp_lockout_until'); // Clear any lockout
       setStep(2); // Proceed to Payment Step
@@ -778,7 +773,7 @@ const Checkout = () => {
 
           <div className="flex flex-col items-center justify-center space-y-6 py-4">
             <InputOTP
-              maxLength={6}
+              maxLength={8}
               value={otpCode}
               onChange={(value) => setOtpCode(value)}
               disabled={isVerifyingOtp}
@@ -790,13 +785,15 @@ const Checkout = () => {
                 <InputOTPSlot index={3} />
                 <InputOTPSlot index={4} />
                 <InputOTPSlot index={5} />
+                <InputOTPSlot index={6} />
+                <InputOTPSlot index={7} />
               </InputOTPGroup>
             </InputOTP>
 
             <div className="flex flex-col w-full gap-3">
               <Button
                 onClick={handleVerifyOtp}
-                disabled={isVerifyingOtp || otpCode.length < 6}
+                disabled={isVerifyingOtp || otpCode.length < 6 || otpCode.length > 8}
                 className="w-full"
               >
                 {isVerifyingOtp ? (

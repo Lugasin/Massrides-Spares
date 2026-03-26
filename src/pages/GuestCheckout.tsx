@@ -26,8 +26,6 @@ import { useNavigate, Link } from 'react-router-dom';
 const GuestCheckout = () => {
   const { items, total, itemCount, clearCart } = useQuote();
   const navigate = useNavigate(); // Hook must be first
-  // Initialize from localStorage immediately
-  const [sessionId] = useState(() => localStorage.getItem('guest_session_id') || '');
   const [step, setStep] = useState(1); // 1: Email, 2: Verification, 3: Payment
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -75,8 +73,8 @@ const GuestCheckout = () => {
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!verificationCode) {
-      toast.error('Please enter the verification code');
+    if (verificationCode.length < 6 || verificationCode.length > 8) {
+      toast.error('Please enter a valid verification code (6-8 characters)');
       return;
     }
 
@@ -128,67 +126,57 @@ const GuestCheckout = () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
-      // Use state variable which persists even if localStorage is cleared by mergeGuestCart
-      const currentSessionId = sessionId; // Use state
+      await mergeGuestCart();
 
-      // If not logged in and no guest session, we can't proceed
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !currentSessionId) {
-        throw new Error("Session not found. Please start checkout again.");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        throw new Error('Session not found. Please verify your email again.');
       }
 
-      // Create order using Edge Function
-      const { data: orderData, error: orderError } = await supabase.functions.invoke('create-order', {
+      const [firstName, ...rest] = name.trim().split(/\s+/);
+      const lastName = rest.join(' ');
+
+      const validationResponse = await supabase.functions.invoke('validate-checkout', {
         body: {
-          guest_session_id: currentSessionId,
-          customer_info: {
+          delivery_address: {
+            firstName: firstName || '',
+            lastName,
             email,
-            firstName: name.split(' ')[0],
-            lastName: name.split(' ').slice(1).join(' '),
-            address: 'Guest Address', // Minimal info for guest checkout
-            city: 'Guest City',
-            state: 'Guest State',
-            zipCode: '00000',
             country: 'Zambia',
           },
-          send_receipt: sendReceipt
+          customer_details: {
+            firstName: firstName || '',
+            lastName,
+            email,
+            country: 'Zambia',
+          },
+          payment_method: 'vesicash',
+          send_receipt: sendReceipt,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
-      if (orderError) throw new Error(orderError.message);
-      const { order } = orderData;
-
-      // Create Payment session (Vesicash via generic endpoint)
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke('create-payment-session', {
-        body: {
-          amount: order.total_amount,
-          currency: 'USD',
-          customer_email: email,
-          customer_name: name,
-          merchant_ref: order.order_number,
-          public_key: import.meta.env.VITE_VESICASH_PUBLIC_KEY,
-          success_url: `${window.location.origin}/checkout/success?order=${order.order_number}`,
-          cancel_url: `${window.location.origin}/checkout/cancel?order=${order.order_number}`,
-          webhook_url: `https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-payment-webhook`
-        }
-      });
-
-      if (paymentError) throw new Error(paymentError.message);
-
-      // Redirect to payment page
-      // Handle both potential response formats (generic or direct)
-      const redirectUrl = paymentData.payment_url || paymentData.redirectUrl;
-      if (redirectUrl) {
-        window.open(redirectUrl, '_blank');
-      } else {
-        throw new Error('No redirect URL received from payment provider');
+      if (validationResponse.error) {
+        const errorBody =
+          await validationResponse.error.context?.json?.().catch(() => validationResponse.error.context?.body) ||
+          validationResponse.error;
+        const reason =
+          (errorBody as { reason?: string; error?: string })?.reason ||
+          (errorBody as { reason?: string; error?: string })?.error ||
+          validationResponse.error.message;
+        throw new Error(`Checkout failed: ${reason}`);
       }
 
-      // Clear local cart
-      clearCart();
+      const { payment_link } = validationResponse.data || {};
 
-      // Navigate to success page
-      navigate(`/checkout/success?order=${order.order_number}`);
+      if (!payment_link) {
+        throw new Error('No payment link generated by secure checkout.');
+      }
+
+      await clearCart();
+      window.location.href = payment_link;
 
     } catch (error: any) {
       console.error('Payment error:', error);
@@ -347,27 +335,30 @@ const GuestCheckout = () => {
                   Verify Your Email
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-center mb-6">
-                  <p className="text-muted-foreground">
-                    We've sent a 6-digit verification code to:
-                  </p>
-                  <p className="font-medium text-primary">{email}</p>
-                </div>
+                <CardContent>
+                  <div className="text-center mb-6">
+                    <p className="text-muted-foreground">
+                      We've sent a verification code to:
+                    </p>
+                    <p className="font-medium text-primary">{email}</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Enter the 6-8 character code from your email.
+                    </p>
+                  </div>
 
-                <form onSubmit={handleVerifyCode} className="space-y-4">
-                  <div>
-                    <Label htmlFor="code">Verification Code</Label>
+                  <form onSubmit={handleVerifyCode} className="space-y-4">
+                    <div>
+                      <Label htmlFor="code">Verification Code</Label>
                     <Input
-                      id="code"
-                      type="text"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                      maxLength={6}
-                      className="text-center text-lg tracking-widest"
-                      required
-                    />
+                        id="code"
+                        type="text"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.trim())}
+                        placeholder="Enter verification code"
+                        maxLength={8}
+                        className="text-center text-lg tracking-widest"
+                        required
+                      />
                   </div>
 
                   <Button

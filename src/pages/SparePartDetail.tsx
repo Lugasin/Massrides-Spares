@@ -137,85 +137,14 @@ const SparePartDetail = () => {
     if (!sparePart) return;
 
     try {
-      // Add to cart via Supabase
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // User is logged in
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (profile) {
-          // Get or create cart
-          let { data: cart } = await supabase
-            .from('user_carts')
-            .select('id')
-            .eq('user_id', profile.id)
-            .single();
-
-          if (!cart) {
-            const { data: newCart } = await supabase
-              .from('user_carts')
-              .insert({ user_id: profile.id })
-              .select('id')
-              .maybeSingle();
-            cart = newCart;
-          }
-
-          // Add item to cart
-          const { error } = await supabase
-            .from('cart_items')
-            .upsert({
-              cart_id: cart!.id,
-              spare_part_id: sparePart.id,
-              quantity: quantity
-            });
-
-          if (error) throw error;
-        }
-      } else {
-        // Guest user
-        const sessionId = localStorage.getItem('guest_session_id') || crypto.randomUUID();
-        localStorage.setItem('guest_session_id', sessionId);
-
-        let { data: guestCart } = await supabase
-          .from('guest_carts')
-          .select('id')
-          .eq('session_id', sessionId)
-          .maybeSingle();
-
-        if (!guestCart) {
-          const { data: newGuestCart } = await supabase
-            .from('guest_carts')
-            .insert({ session_id: sessionId })
-            .select('id')
-            .maybeSingle();
-          guestCart = newGuestCart;
-        }
-
-        const { error } = await supabase
-          .from('guest_cart_items')
-          .upsert({
-            guest_cart_id: guestCart!.id,
-            spare_part_id: sparePart.id,
-            quantity: quantity
-          });
-
-        if (error) throw error;
-      }
-
-      // Also add to local cart context for immediate UI update
-      addItem({
+      await addItem({
         id: sparePart.id, // This is a string (UUID) from the database
         name: sparePart.name,
         price: sparePart.price,
         image: sparePart.images[0] || '',
         specs: sparePart.tags,
         category: sparePart.category.name
-      });
+      }, quantity);
 
       toast.success(`${sparePart.name} added to cart!`);
     } catch (error: any) {

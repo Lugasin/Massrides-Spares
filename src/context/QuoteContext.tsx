@@ -14,7 +14,7 @@ export interface CartItem {
 interface QuoteContextType {
   items: CartItem[];
   total: number;
-  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -83,7 +83,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     loadCart();
   }, []);
 
-  const addItem = async (item: Omit<CartItem, 'quantity'>) => {
+  const addItem = async (item: Omit<CartItem, 'quantity'>, quantity: number = 1) => {
     // The incoming 'item.id' is typically the Product ID from the UI/Catalog
     const incomingProductId = item.id;
 
@@ -99,19 +99,19 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
         return prev.map(i =>
           // match by Row ID if we found it, or fallback to checking product_id again
           (i.id === existingItem.id)
-            ? { ...i, quantity: i.quantity + 1 }
+            ? { ...i, quantity: i.quantity + quantity }
             : i
         );
       }
       // For new optimistic items, we temporarily use Product ID as 'id' until reload
-      return [...prev, { ...item, id: incomingProductId, product_id: incomingProductId, quantity: 1 }];
+      return [...prev, { ...item, id: incomingProductId, product_id: incomingProductId, quantity }];
     });
 
     // Sync with DB
     try {
       const { addToCart } = await import('@/lib/supabase');
       // Pass the Product ID to addToCart
-      await addToCart(incomingProductId, 1);
+      await addToCart(incomingProductId, quantity);
       // Reload to replace the temporary optimistic item with the real DB row (UUID)
       await loadCart();
     } catch (error) {
