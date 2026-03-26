@@ -1,7 +1,7 @@
 // Massrides PWA Service Worker - Enhanced Version
-const CACHE_NAME = 'massrides-v2';
-const STATIC_CACHE = 'massrides-static-v2';
-const DYNAMIC_CACHE = 'massrides-dynamic-v2';
+const CACHE_NAME = 'massrides-v3';
+const STATIC_CACHE = 'massrides-static-v3';
+const DYNAMIC_CACHE = 'massrides-dynamic-v3';
 
 // Logging helper - only log in development
 const isDev = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
@@ -10,7 +10,7 @@ const error = (...args) => console.error('[SW]', ...args);
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
-  '/',
+  '/index.html',
   '/manifest.json',
   '/tractor.ico',
   '/tractor-192x192.png',
@@ -45,10 +45,11 @@ self.addEventListener('activate', (event) => {
 
   event.waitUntil(
     Promise.all([
+      self.registration.navigationPreload?.enable(),
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+            if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
               log('Deleting old cache', cacheName);
               return caches.delete(cacheName);
             }
@@ -83,6 +84,29 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     (async () => {
       try {
+        // Strategy 0: HTML navigation - always prefer network so deploys pick up fresh chunk hashes
+        if (request.mode === 'navigate') {
+          try {
+            const preloadResponse = await event.preloadResponse;
+            if (preloadResponse) {
+              return preloadResponse;
+            }
+
+            const networkResponse = await fetch(request);
+            if (networkResponse.ok) {
+              const cache = await caches.open(STATIC_CACHE);
+              cache.put('/index.html', networkResponse.clone());
+            }
+            return networkResponse;
+          } catch (error) {
+            const cachedResponse = await caches.match('/index.html');
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            throw error;
+          }
+        }
+
         // Strategy 1: Static assets - Cache First
         if (STATIC_ASSETS.some(asset => url.pathname === asset)) {
           const cachedResponse = await caches.match(request);
