@@ -90,3 +90,18 @@ entrypoint = "./functions/validate-checkout/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/validate-checkout/*.html" ]
+
+[functions.get-push-public-key]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-push-public-key/index.ts"
+
+[functions.manage-push-subscription]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/manage-push-subscription/index.ts"
+
+[functions.send-push-notification]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-push-notification/index.ts"

@@ -8,11 +8,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Define the type for an activity log entry
 type ActivityLog = {
-  id: number;
+  id: string;
   created_at: string;
-  activity_type: string;
-  user_id: string;
-  additional_details: {
+  action: string;
+  user_id: string | null;
+  metadata: {
     email?: string;
     provider?: string;
   };
@@ -23,7 +23,7 @@ const fetchActivityLogs = async () => {
   const { data, error } = await supabase
     .from('activity_logs')
     .select('*')
-    .eq('activity_type', 'user_signup') // We only care about signups for this component
+    .eq('action', 'signup')
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -44,12 +44,12 @@ const AuthActivityMonitor = () => {
       .channel('auth-activity-log-changes')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: 'activity_type=eq.user_signup' },
+        { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: 'action=eq.signup' },
         (payload) => {
           const newLog = payload.new as ActivityLog;
           
           // Show a real-time notification toast
-          toast.info(`New User Signup: ${newLog.additional_details?.email || 'Unknown'}`, {
+          toast.info(`New User Signup: ${newLog.metadata?.email || 'Unknown'}`, {
             icon: <UserPlus className="h-4 w-4" />,
           });
 
@@ -79,11 +79,11 @@ const AuthActivityMonitor = () => {
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 text-primary p-2 rounded-full"><UserPlus className="h-5 w-5" /></div>
                   <div>
-                    <p className="font-medium text-sm">New Signup: <span className="font-mono text-primary">{log.additional_details?.email || 'N/A'}</span></p>
+                    <p className="font-medium text-sm">New Signup: <span className="font-mono text-primary">{log.metadata?.email || 'N/A'}</span></p>
                     <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="capitalize">{log.additional_details?.provider || 'email'}</Badge>
+                <Badge variant="outline" className="capitalize">{log.metadata?.provider || 'email'}</Badge>
               </li>
             ))}
           </ul>

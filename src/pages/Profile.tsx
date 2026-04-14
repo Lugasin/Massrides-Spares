@@ -52,7 +52,6 @@ const Profile: React.FC = () => {
   const { user, profile, loading: authLoading, updateProfile, userRole, signOut } = useAuth();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
-  const [showPaymentSection, setShowPaymentSection] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -435,35 +434,24 @@ const Profile: React.FC = () => {
           </CardContent>
 
           <CardFooter className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-6">
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')} className="flex-1 sm:flex-none">
+            <div className="flex flex-wrap gap-2 justify-start">
+              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
                 Back to Dashboard
               </Button>
-              <Button size="sm" className="bg-primary hover:bg-primary-hover flex-1 sm:flex-none" onClick={() => navigate('/catalog')}>
-                Go to Shop
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/orders')} className="flex-1 sm:flex-none">
-                Manage Orders
-              </Button>
-              {(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') && (
-                <Button size="sm" className="bg-secondary hover:bg-secondary-hover flex-1 sm:flex-none" onClick={() => navigate('/vendor/inventory')}>
-                  Update Inventory
-                </Button>
-              )}
               {userRole === 'super_admin' && (
-                <Button size="sm" className="bg-destructive hover:bg-destructive/90 flex-1 sm:flex-none" onClick={() => navigate('/profile/super-admin')}>
+                <Button size="sm" className="bg-destructive hover:bg-destructive/90" onClick={() => navigate('/profile/super-admin')}>
                   <Shield className="h-4 w-4 mr-2" />
                   Super Panel
                 </Button>
               )}
               {userRole === 'admin' && (
-                <Button variant="outline" size="sm" onClick={() => navigate('/profile/admin')} className="flex-1 sm:flex-none">
+                <Button variant="outline" size="sm" onClick={() => navigate('/profile/admin')}>
                   <Shield className="h-4 w-4 mr-2" />
                   Admin Panel
                 </Button>
               )}
               {userRole === 'vendor' && (
-                <Button variant="outline" size="sm" onClick={() => navigate('/profile/vendor')} className="flex-1 sm:flex-none">
+                <Button variant="outline" size="sm" onClick={() => navigate('/profile/vendor')}>
                   <Store className="h-4 w-4 mr-2" />
                   Vendor Panel
                 </Button>
@@ -498,10 +486,10 @@ const Profile: React.FC = () => {
                 Manage your saved payment methods for faster checkout.
               </p>
               <Button
-                onClick={() => setShowPaymentSection(true)}
+                onClick={() => navigate('/payment-methods')}
                 className="bg-primary hover:bg-primary-hover"
               >
-                Add Payment Method
+                Manage Payment Methods
               </Button>
             </div>
           </CardContent>

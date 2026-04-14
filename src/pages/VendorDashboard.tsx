@@ -7,7 +7,7 @@ import VendorDashboardContent from '@/components/VendorDashboard';
 const VendorDashboard: React.FC = () => {
   const { user, profile, userRole } = useAuth();
 
-  if (userRole !== 'vendor' && userRole !== 'super_admin' && userRole !== 'admin') {
+  if (userRole !== 'vendor') {
     return (
       <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
         <div className="p-6 text-center">

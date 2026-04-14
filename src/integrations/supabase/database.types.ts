@@ -573,6 +573,48 @@ export type Database = {
         }
         Relationships: []
       }
+      fx_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          expires_at: string | null
+          fetched_at: string
+          id: number
+          provider: string
+          quote_currency: string
+          rate: number
+          rate_date: string | null
+          source_payload: Json | null
+          updated_at: string
+        }
+        Insert: {
+          base_currency: string
+          created_at?: string
+          expires_at?: string | null
+          fetched_at?: string
+          id?: number
+          provider: string
+          quote_currency: string
+          rate: number
+          rate_date?: string | null
+          source_payload?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          expires_at?: string | null
+          fetched_at?: string
+          id?: number
+          provider?: string
+          quote_currency?: string
+          rate?: number
+          rate_date?: string | null
+          source_payload?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       guest_cart_items: {
         Row: {
           added_at: string | null
@@ -913,30 +955,60 @@ export type Database = {
       }
       payments: {
         Row: {
+          amount_usd: number | null
+          amount_zmw: number | null
+          base_currency: string | null
           completed_at: string | null
           created_at: string | null
+          exchange_rate: number | null
+          fx_rate_fetched_at: string | null
+          fx_rate_locked_at: string | null
+          fx_rate_payload: Json | null
+          fx_rate_provider: string | null
+          fx_rate_source: string | null
           id: number
           order_id: number
+          quote_currency: string | null
           provider: string
           status: string
           vesicash_payment_id: string | null
           vesicash_transaction_id: string | null
         }
         Insert: {
+          amount_usd?: number | null
+          amount_zmw?: number | null
+          base_currency?: string | null
           completed_at?: string | null
           created_at?: string | null
+          exchange_rate?: number | null
+          fx_rate_fetched_at?: string | null
+          fx_rate_locked_at?: string | null
+          fx_rate_payload?: Json | null
+          fx_rate_provider?: string | null
+          fx_rate_source?: string | null
           id?: number
           order_id: number
+          quote_currency?: string | null
           provider?: string
           status?: string
           vesicash_payment_id?: string | null
           vesicash_transaction_id?: string | null
         }
         Update: {
+          amount_usd?: number | null
+          amount_zmw?: number | null
+          base_currency?: string | null
           completed_at?: string | null
           created_at?: string | null
+          exchange_rate?: number | null
+          fx_rate_fetched_at?: string | null
+          fx_rate_locked_at?: string | null
+          fx_rate_payload?: Json | null
+          fx_rate_provider?: string | null
+          fx_rate_source?: string | null
           id?: number
           order_id?: number
+          quote_currency?: string | null
           provider?: string
           status?: string
           vesicash_payment_id?: string | null

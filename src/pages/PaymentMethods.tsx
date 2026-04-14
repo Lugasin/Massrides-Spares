@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 
 interface PaymentMethod {
   id: string;
@@ -29,70 +30,185 @@ interface PaymentMethod {
 
 const PaymentMethods: React.FC = () => {
   const { user, profile, userRole } = useAuth();
+  const [searchParams] = useSearchParams();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const popupWindowRef = useRef<Window | null>(null);
+  const popupPollRef = useRef<number | null>(null);
+  const popupCallbackHandledRef = useRef(false);
+  const isPopupCallback = searchParams.get('popup') === '1';
+  const popupStatus = searchParams.get('status') || 'unknown';
+  const layoutRole =
+    userRole === 'super_admin' ||
+    userRole === 'admin' ||
+    userRole === 'vendor' ||
+    userRole === 'customer'
+      ? userRole
+      : 'guest';
+
+  const clearPopupTracking = useCallback((closePopup = true) => {
+    if (popupPollRef.current !== null) {
+      window.clearInterval(popupPollRef.current);
+      popupPollRef.current = null;
+    }
+
+    if (closePopup && popupWindowRef.current && !popupWindowRef.current.closed) {
+      try {
+        popupWindowRef.current.close();
+      } catch {
+        // Ignore popup shutdown errors.
+      }
+    }
+
+    popupWindowRef.current = null;
+    setProcessingAction(null);
+  }, []);
 
   useEffect(() => {
-    if (user && profile) {
-      fetchPaymentMethods();
-    }
-  }, [user, profile]);
+    return () => {
+      if (popupPollRef.current !== null) {
+        window.clearInterval(popupPollRef.current);
+        popupPollRef.current = null;
+      }
 
-  const fetchPaymentMethods = async () => {
+      if (popupWindowRef.current && !popupWindowRef.current.closed) {
+        try {
+          popupWindowRef.current.close();
+        } catch {
+          // Ignore cleanup failures on navigation/unmount.
+        }
+      }
+    };
+  }, []);
+
+  const fetchPaymentMethods = useCallback(async () => {
     try {
+      const ownerId = profile?.id || user?.id;
+      if (!ownerId) {
+        throw new Error('Unable to resolve payment method owner.');
+      }
+
       const { data, error } = await supabase
         .from('tj_payment_methods')
         .select('*')
-        .eq('user_id', profile?.id)
+        .eq('user_id', ownerId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setPaymentMethods(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching payment methods:', error);
       toast.error('Failed to load payment methods');
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.id, user?.id]);
+
+  useEffect(() => {
+    if (user && profile) {
+      void fetchPaymentMethods();
+    }
+  }, [fetchPaymentMethods, profile, user]);
+
+  useEffect(() => {
+    if (isPopupCallback && typeof window !== 'undefined' && window.opener && !popupCallbackHandledRef.current) {
+      popupCallbackHandledRef.current = true;
+
+      try {
+        window.opener.postMessage(
+          {
+            type: 'massrides-payment-method-return',
+            status: popupStatus,
+          },
+          window.location.origin,
+        );
+      } catch (postMessageError) {
+        console.error('Failed to notify opener about payment method return:', postMessageError);
+      }
+
+      const closeTimer = window.setTimeout(() => {
+        try {
+          window.close();
+        } catch {
+          // Some mobile browsers refuse scripted closes after redirects.
+        }
+      }, 600);
+
+      return () => window.clearTimeout(closeTimer);
+    }
+
+    return undefined;
+  }, [isPopupCallback, popupStatus]);
+
+  useEffect(() => {
+    if (isPopupCallback || typeof window === 'undefined') {
+      return;
+    }
+
+    const handlePaymentMethodReturn = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      if (event.data?.type === 'massrides-payment-method-return') {
+        clearPopupTracking();
+        void fetchPaymentMethods();
+      }
+    };
+
+    window.addEventListener('message', handlePaymentMethodReturn);
+    return () => window.removeEventListener('message', handlePaymentMethodReturn);
+  }, [clearPopupTracking, fetchPaymentMethods, isPopupCallback]);
 
   const handleAddPaymentMethod = async () => {
     try {
+      clearPopupTracking(false);
+      popupCallbackHandledRef.current = false;
       setProcessingAction('add');
       
-      const { data, error } = await supabase.functions.invoke('create-payment-session', {
+      const { data, error } = await supabase.functions.invoke('create-payment-method-session', {
         body: {
           purpose: 'tokenize',
           currency: 'USD',
-          return_url: `${window.location.origin}/profile/payment-methods?status=success`,
-          cancel_url: `${window.location.origin}/profile/payment-methods?status=cancelled`
+          return_url: `${window.location.origin}/payment-methods?status=success&popup=1`,
+          cancel_url: `${window.location.origin}/payment-methods?status=cancelled&popup=1`
         }
       });
 
       if (error) throw error;
 
-      if (data?.payment_url) {
-        // Open TJ HPP in new window
-        const popup = window.open(
-          data.payment_url,
-          'tj-payment',
-          'width=600,height=800,scrollbars=yes,resizable=yes'
-        );
+      const paymentUrl = data?.payment_url || data?.checkout_url;
 
-        // Listen for popup close or success
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed);
-            fetchPaymentMethods(); // Refresh payment methods
-            setProcessingAction(null);
-          }
-        }, 1000);
+      if (!paymentUrl) {
+        throw new Error('No payment URL returned by the payment method session.');
       }
-    } catch (error: any) {
+
+      const popup = window.open(
+        paymentUrl,
+        'tj-payment',
+        'width=600,height=800,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        window.location.assign(paymentUrl);
+        return;
+      }
+
+      popupWindowRef.current = popup;
+      popup.focus();
+
+      popupPollRef.current = window.setInterval(() => {
+        const currentPopup = popupWindowRef.current;
+        if (!currentPopup || currentPopup.closed) {
+          clearPopupTracking(false);
+          void fetchPaymentMethods();
+        }
+      }, 1000);
+    } catch (error: unknown) {
       console.error('Error adding payment method:', error);
       toast.error('Failed to add payment method');
-      setProcessingAction(null);
+      clearPopupTracking();
     }
   };
 
@@ -113,7 +229,7 @@ const PaymentMethods: React.FC = () => {
 
       toast.success('Payment method deleted successfully');
       fetchPaymentMethods();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting payment method:', error);
       toast.error('Failed to delete payment method');
     } finally {
@@ -124,12 +240,13 @@ const PaymentMethods: React.FC = () => {
   const handleSetDefault = async (methodId: string) => {
     try {
       setProcessingAction(methodId);
+      const ownerId = profile?.id || user?.id;
 
       // First, unset all other defaults
       await supabase
         .from('tj_payment_methods')
         .update({ is_default: false })
-        .eq('user_id', profile?.id);
+        .eq('user_id', ownerId);
 
       // Then set the selected one as default
       const { error } = await supabase
@@ -141,7 +258,7 @@ const PaymentMethods: React.FC = () => {
 
       toast.success('Default payment method updated');
       fetchPaymentMethods();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error setting default payment method:', error);
       toast.error('Failed to update default payment method');
     } finally {
@@ -162,7 +279,7 @@ const PaymentMethods: React.FC = () => {
   }
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+    <DashboardLayout userRole={layoutRole} userName={profile?.full_name || user?.email || 'User'}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

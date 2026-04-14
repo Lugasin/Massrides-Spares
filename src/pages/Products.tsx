@@ -9,6 +9,7 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table';
+import { useCurrency } from '@/context/CurrencyContext';
 import type { Database } from '@/integrations/supabase/database.types';
 
 type Product = Database['public']['Tables']['products']['Row'];
@@ -17,6 +18,7 @@ const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { formatPrice } = useCurrency();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -69,7 +71,7 @@ const Products: React.FC = () => {
               {products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
+                  <TableCell>{formatPrice(product.price)}</TableCell>
                   <TableCell>{product.vendor_id || 'N/A'}</TableCell>
                   {/* Render other cell data */}
                 </TableRow>

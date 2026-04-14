@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { loadVesicashConfig } from "../_shared/vesicash.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    const vesicash = await loadVesicashConfig(supabase)
 
     const { order_id, trigger } = await req.json()
 
@@ -73,14 +75,15 @@ serve(async (req) => {
     // 4. Release Encrow (Vesicash API)
     // Moves funds from Escrow -> Main Wallet
     const idempotencyKey = `escrow_${order_id}_${Date.now()}`;
-    const vesicashApiKey = Deno.env.get('VESICASH_API_KEY');
-    const vesicashUrl = Deno.env.get('VESICASH_API_URL') || 'https://api.vesicash.com/v1'; // Default or Env
+    if (!vesicash.apiKey) {
+        throw new Error('Vesicash API key is not configured.');
+    }
 
     // Note: Vesicash Release endpoint usually requires transaction_id
-    const releaseRes = await fetch(`${vesicashUrl}/escrow/release`, {
+    const releaseRes = await fetch(`${vesicash.apiBaseUrl}/escrow/release`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${vesicashApiKey}`,
+            'Authorization': `Bearer ${vesicash.apiKey}`,
             'Content-Type': 'application/json',
             'Idempotency-Key': idempotencyKey
         },
@@ -97,7 +100,7 @@ serve(async (req) => {
         throw new Error(`Vesicash release failed: ${errorText}`);
     }
 
-    const vesicashData = await releaseRes.json();
+    const vesicashData: Record<string, any> = await releaseRes.json();
 
     // 5. Record Release in DB
     const { data: release, error: releaseDbError } = await supabase

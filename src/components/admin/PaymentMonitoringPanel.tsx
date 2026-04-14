@@ -1,44 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, CheckCircle, Clock, Search, RefreshCw, AlertTriangle, ArrowRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import React from 'react';
 import { VesicashPaymentMonitoringPanel } from "@/components/admin/VesicashPaymentMonitoring";
-
-interface PaymentEvent {
-    id: string;
-    payment_id: string;
-    event_type: string;
-    new_status: string;
-    created_at: string;
-    source: string;
-}
-
-interface AdminAlert {
-    id: string;
-    title: string;
-    message: string;
-    type: 'info' | 'warning' | 'critical';
-    created_at: string;
-    is_resolved: boolean;
-}
-
-interface PaymentTransaction {
-    id: string;
-    merchant_reference: string;
-    amount: number;
-    currency: string;
-    status: string;
-    created_at: string;
-    provider_reference: string | null;
-}
 
 export const PaymentMonitoringPanel = () => {
     return <VesicashPaymentMonitoringPanel />;
-
+    /*
     const [alerts, setAlerts] = useState<AdminAlert[]>([]);
     const [recentEvents, setRecentEvents] = useState<PaymentEvent[]>([]);
     const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
@@ -94,7 +59,7 @@ export const PaymentMonitoringPanel = () => {
     return (
         <div className="space-y-6">
 
-            {/* 1. Critical Alerts Section */}
+            // 1. Critical Alerts Section
             {alerts.length > 0 && (
                 <Card className="border-red-200 bg-red-50/20">
                     <CardHeader>
@@ -122,7 +87,7 @@ export const PaymentMonitoringPanel = () => {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 2. Recent Transactions */}
+                // 2. Recent Transactions
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
@@ -165,7 +130,7 @@ export const PaymentMonitoringPanel = () => {
                     </CardContent>
                 </Card>
 
-                {/* 3. Event Timeline */}
+                // 3. Event Timeline
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
@@ -198,4 +163,5 @@ export const PaymentMonitoringPanel = () => {
             </div>
         </div>
     );
+    */
 };

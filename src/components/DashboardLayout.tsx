@@ -126,7 +126,8 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
     { label: "User Management", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
     { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
     { label: "Activity Log", icon: BarChart3, href: "/activity-log", roles: ["super_admin", "admin"] },
-    { label: "Payment Monitor", icon: DollarSign, href: "/payment-monitoring", roles: ["admin", "super_admin"] },
+    { label: "Payment Monitor", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin"] },
+    { label: "Security Dashboard", icon: Shield, href: "/security-dashboard", roles: ["super_admin"] },
     { label: "System Health", icon: Activity, href: "/system-health", roles: ["admin", "super_admin"] },
     { label: "Settings", icon: Settings, href: "/settings" }
   ];

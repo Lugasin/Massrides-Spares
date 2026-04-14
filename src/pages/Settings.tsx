@@ -39,7 +39,7 @@ interface UserSettings {
 
 const Settings = () => {
   const { user, profile, userRole } = useAuth();
-  const { settings, loading, updateSetting } = useSettings();
+  const { settings, loading, pushSupported, updateSetting } = useSettings();
 
   const handleDeleteAccount = async () => {
     if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
@@ -119,12 +119,15 @@ const Settings = () => {
                   <div>
                     <Label htmlFor="push-notifications">Push Notifications</Label>
                     <p className="text-sm text-muted-foreground">
-                      Receive browser notifications for important updates
+                      {pushSupported
+                        ? 'Receive browser notifications for important updates'
+                        : 'Push notifications are not supported in this browser'}
                     </p>
                   </div>
                   <Switch
                     id="push-notifications"
                     checked={settings?.push_notifications || false}
+                    disabled={!pushSupported}
                     onCheckedChange={(checked) => updateSetting('push_notifications', checked)}
                   />
                 </div>

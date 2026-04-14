@@ -33,6 +33,14 @@ interface CreateOrderRequest {
   send_receipt?: boolean;
 }
 
+type CartItemRow = {
+  product: {
+    id: number;
+    price: number;
+  };
+  quantity: number;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -41,7 +49,7 @@ serve(async (req) => {
     // Variables declared outside try block for scope access
     let user = null
     let profile = null
-    let cartItems: any[] = []
+    let cartItems: CartItemRow[] = []
     let sourceCartId: string | null = null;
     let sourceIsGuest = false;
 
@@ -168,6 +176,9 @@ serve(async (req) => {
       total_amount: totalAmount,
       
       shipping_address: {
+        full_name: `${shipping_info?.firstName || customer_info.firstName} ${shipping_info?.lastName || customer_info.lastName}`.trim(),
+        email: customer_info.email,
+        phone: customer_info.phone,
         firstName: shipping_info?.firstName || customer_info.firstName,
         lastName: shipping_info?.lastName || customer_info.lastName,
         company: shipping_info?.company || customer_info.company,
@@ -179,6 +190,7 @@ serve(async (req) => {
       },
       
       billing_address: {
+        full_name: `${customer_info.firstName} ${customer_info.lastName}`.trim(),
         firstName: customer_info.firstName,
         lastName: customer_info.lastName,
         company: customer_info.company,

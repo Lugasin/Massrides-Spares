@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { toast } from 'sonner';
+import { isPushSupported, syncPushSubscription } from '@/lib/pushNotifications';
 
 interface UserSettings {
     id: string;
@@ -18,19 +20,25 @@ interface UserSettings {
 interface SettingsContextType {
     settings: UserSettings | null;
     loading: boolean;
+    pushSupported: boolean;
     updateSetting: (key: keyof UserSettings, value: any) => Promise<void>;
     formatCurrency: (amount: number) => string;
 }
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user } = useAuth();
+    const { user, session, ready } = useAuth();
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [loading, setLoading] = useState(true);
+    const pushSupported = isPushSupported();
 
     useEffect(() => {
-        if (user) {
+        if (!ready) {
+            return;
+        }
+
+        if (user && session?.access_token) {
             fetchSettings();
             const channel = supabase
                 .channel('user_settings_global')
@@ -53,7 +61,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setLoading(false);
             setSettings(null);
         }
-    }, [user]);
+    }, [ready, session?.access_token, user]);
 
     // Apply Theme Side-Effect
     useEffect(() => {
@@ -74,8 +82,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             setLoading(true);
 
-            const { data: { session } } = await supabase.auth.getSession();
             const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+
+            if (!headers) {
+                setSettings({
+                    id: 'temp',
+                    user_id: user?.id || 'temp',
+                    theme: 'light',
+                    currency: 'ZMW',
+                    email_notifications: true,
+                    push_notifications: true,
+                    marketing_emails: false,
+                    order_updates: true,
+                    language: 'en',
+                    timezone: 'Africa/Lusaka'
+                } as UserSettings);
+                return;
+            }
 
             const { data, error } = await supabase.functions.invoke('get-user-settings', {
                 headers
@@ -120,20 +143,61 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updateSetting = async (key: keyof UserSettings, value: any) => {
+        const previousSettings = settings;
+
         // Optimistic update
         setSettings(prev => prev ? { ...prev, [key]: value } : null);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            if (key === 'push_notifications') {
+                if (value && !pushSupported) {
+                    throw new Error('This browser does not support push notifications.');
+                }
+
+                if (!session?.access_token) {
+                    throw new Error('You must be signed in to update settings.');
+                }
+
+                await syncPushSubscription(Boolean(value), {
+                    authToken: session.access_token,
+                    promptForPermission: true,
+                    requireAuth: true,
+                });
+            }
+
             const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
 
-            await supabase.functions.invoke('update-user-settings', {
+            if (!headers) {
+                throw new Error('You must be signed in to update settings.');
+            }
+
+            const { error } = await supabase.functions.invoke('update-user-settings', {
                 body: { [key]: value },
                 headers
             });
+
+            if (error) {
+                throw error;
+            }
+
+            if (key === 'push_notifications') {
+                toast.success(value ? 'Push notifications enabled' : 'Push notifications disabled');
+            }
         } catch (error) {
             console.error("Failed to update setting", error);
-            fetchSettings(); // Revert on error
+            setSettings(previousSettings);
+
+            if (key === 'push_notifications') {
+                void syncPushSubscription(Boolean(previousSettings?.push_notifications), {
+                    authToken: session?.access_token,
+                    promptForPermission: false,
+                    requireAuth: false,
+                }).catch((pushError) => {
+                    console.warn('Failed to restore push subscription state:', pushError);
+                });
+            }
+
+            toast.error(error instanceof Error ? error.message : 'Failed to update setting');
         }
     };
 
@@ -147,7 +211,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     return (
-        <SettingsContext.Provider value={{ settings, loading, updateSetting, formatCurrency }}>
+        <SettingsContext.Provider value={{ settings, loading, pushSupported, updateSetting, formatCurrency }}>
             {children}
         </SettingsContext.Provider>
     );

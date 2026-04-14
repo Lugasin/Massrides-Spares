@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import {
-  Users,
-  Package,
-  ShoppingCart,
   DollarSign,
-  TrendingUp,
   Activity,
   Shield,
   AlertTriangle,
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  TrendingUp,
+  Users,
+  RefreshCw,
+  Edit3
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -34,16 +35,80 @@ interface AdminMetrics {
 }
 
 interface RecentActivity {
-  id: number;
+  id: string;
   activity_type: string;
-  user_email: string;
+  user_email: string | null;
   created_at: string;
-  additional_details: any;
+  additional_details: Record<string, unknown> | null;
 }
 
 const AdminDashboard: React.FC = () => {
-  const { user, profile, userRole } = useAuth();
+  const { profile, userRole, session, ready } = useAuth();
   const navigate = useNavigate();
+  const { currency, exchangeRate, setCurrency, setExchangeRate, formatPrice } = useCurrency();
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [displayCurrency, setDisplayCurrency] = useState<'ZMW' | 'USD'>(currency);
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInput, setRateInput] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
+
+  const formatCurrency = (amount: number, curr: 'ZMW' | 'USD') => {
+    if (curr === 'ZMW') {
+      return `K ${(amount * exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    }
+    return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const fetchFxRate = async () => {
+    // Rate is fetched in CurrencyContext
+  };
+
+  const toggleCurrency = () => {
+    const newCurrency = displayCurrency === 'ZMW' ? 'USD' : 'ZMW';
+    setDisplayCurrency(newCurrency);
+    setCurrency(newCurrency);
+  };
+
+  const handleSaveRate = async () => {
+    const newRate = Number(rateInput);
+    if (isNaN(newRate) || newRate <= 0) {
+      toast.error('Please enter a valid exchange rate');
+      return;
+    }
+
+    setSavingRate(true);
+    try {
+      const { error } = await supabase
+        .from('fx_rates')
+        .upsert({
+          base_currency: 'USD',
+          quote_currency: 'ZMW',
+          provider: 'manual_admin',
+          rate: newRate,
+          rate_date: new Date().toISOString().split('T')[0],
+          fetched_at: new Date().toISOString(),
+          expires_at: null,
+          source_payload: { manually_set: true }
+        }, { onConflict: 'base_currency,quote_currency' });
+
+      if (error) throw error;
+
+      setExchangeRate(newRate);
+      setEditingRate(false);
+      toast.success(`Exchange rate updated to ${newRate}`);
+    } catch (err) {
+      console.error('Failed to save rate:', err);
+      toast.error('Failed to update exchange rate');
+    } finally {
+      setSavingRate(false);
+    }
+  };
+
+  const startEditRate = () => {
+    setRateInput(String(exchangeRate));
+    setEditingRate(true);
+  };
+
   const [metrics, setMetrics] = useState<AdminMetrics>({
     totalUsers: 0,
     totalProducts: 0,
@@ -54,66 +119,91 @@ const AdminDashboard: React.FC = () => {
     systemHealth: 100,
     securityAlerts: 0
   });
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [loading, setLoading] = useState(true);
 
+  // Sync display currency with context
   useEffect(() => {
-    if (userRole === 'admin' || userRole === 'super_admin') {
-      fetchDashboardData();
-      subscribeToUpdates();
-    }
-  }, [userRole]);
+    setDisplayCurrency(currency);
+  }, [currency]);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch metrics in parallel
-      const [
-        usersResult,
-        productsResult,
-        ordersResult,
-        revenueResult,
-        vendorsResult,
-        activityResult,
-        securityResult
-      ] = await Promise.all([
-        supabase.from('user_profiles').select('id', { count: 'exact' }),
-        supabase.from('products').select('id', { count: 'exact' }),
-        supabase.from('orders').select('id, status, total_amount'),
-        supabase.from('orders').select('total_amount').eq('payment_status', 'paid'),
-        supabase.from('user_profiles').select('id', { count: 'exact' }).eq('role', 'vendor').eq('is_active', true),
-        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10),
-        // supabase.from('tj_security_logs').select('id', { count: 'exact' }).gte('risk_score', 7) // Table doesn't exist yet
-        Promise.resolve({ count: 0, data: [] }) // Mock response
-      ]);
-
-      // Calculate metrics
-      const totalRevenue = revenueResult.data?.reduce((sum, order) => sum + order.total_amount, 0) || 0;
-      const pendingOrders = ordersResult.data?.filter(o => o.status === 'pending').length || 0;
-
-      setMetrics({
-        totalUsers: usersResult.count || 0,
-        totalProducts: productsResult.count || 0,
-        totalOrders: ordersResult.count || 0,
-        totalRevenue,
-        pendingOrders,
-        activeVendors: vendorsResult.count || 0,
-        systemHealth: 98, // This would come from actual health checks
-        securityAlerts: securityResult.count || 0
-      });
-
-      setRecentActivity(activityResult.data || []);
-
-    } catch (error: any) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+  // Calculate real system health based on metrics
+  const calculateSystemHealth = () => {
+    let health = 100;
+    if (metrics.securityAlerts > 5) health -= 20;
+    if (metrics.pendingOrders > 20) health -= 10;
+    if (metrics.totalUsers === 0) health -= 5;
+    if (metrics.totalProducts === 0) health -= 10;
+    return Math.max(health, 0);
   };
 
-  const subscribeToUpdates = () => {
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      if (!session?.access_token) {
+        throw new Error('No active session available for admin dashboard');
+      }
+
+      // Fetch dashboard data directly
+      const [usersRes, productsRes, ordersRes, activityRes, securityRes] = await Promise.all([
+        supabase.from('user_profiles').select('id', { count: 'exact' }),
+        supabase.from('products').select('id, vendor_id', { count: 'exact' }),
+        supabase.from('orders').select('id, total_amount, status, payment_status'),
+        supabase.from('activity_logs').select('id, action, created_at').order('created_at', { ascending: false }).limit(10),
+        supabase.from('activity_logs').select('id', { count: 'exact' }).eq('action', 'security_alert')
+      ]);
+
+      if (usersRes.error || productsRes.error || ordersRes.error) {
+        console.error('Dashboard fetch error:', usersRes.error || productsRes.error || ordersRes.error);
+        toast.error('Failed to load dashboard data');
+        return;
+      }
+
+      const orders = ordersRes.data || [];
+      const totalRevenue = orders.reduce((sum: number, o: any) => 
+        o.payment_status === 'paid' ? sum + (o.total_amount || 0) : sum, 0
+      );
+      const pendingOrders = orders.filter((o: any) => 
+        o.status === 'pending' || o.status === 'pending_payment'
+      ).length;
+      
+      const productVendors = new Set((productsRes.data || []).map((p: any) => p.vendor_id));
+      const activeVendors = productVendors.size;
+      const securityAlerts = securityRes.count || 0;
+
+      const formattedActivity = (activityRes.data || []).map((a: any) => ({
+        id: a.id,
+        activity_type: a.action || 'system',
+        user_email: null,
+        created_at: a.created_at,
+        additional_details: null
+      }));
+
+      setMetrics({
+        totalUsers: usersRes.count || 0,
+        totalProducts: productsRes.count || 0,
+        totalOrders: orders.length,
+        totalRevenue: totalRevenue,
+        pendingOrders: pendingOrders,
+        activeVendors: activeVendors,
+        systemHealth: 0, // Will be calculated after setting metrics
+        securityAlerts: securityAlerts
+      });
+
+      // Calculate system health after metrics are set
+      setTimeout(() => {
+        setMetrics(prev => ({
+          ...prev,
+          systemHealth: calculateSystemHealth()
+        }));
+      }, 0);
+
+      setRecentActivity(formattedActivity);
+
+    } catch (error: unknown) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }, [session?.access_token]);
+
+  const subscribeToUpdates = useCallback(() => {
     const channels = [
       supabase
         .channel('admin-dashboard-users')
@@ -134,7 +224,18 @@ const AdminDashboard: React.FC = () => {
     return () => {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
-  };
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    if ((userRole === 'admin' || userRole === 'super_admin') && session?.access_token && profile) {
+      fetchDashboardData();
+      return subscribeToUpdates();
+    }
+  }, [fetchDashboardData, profile, ready, session?.access_token, subscribeToUpdates, userRole]);
 
   const getHealthColor = (health: number) => {
     if (health >= 95) return 'text-green-500';
@@ -148,13 +249,15 @@ const AdminDashboard: React.FC = () => {
     return <XCircle className="h-8 w-8 text-red-500" />;
   };
 
+  // Quick actions are now primarily in the sidebar - keeping minimal shortcuts here
   const quickActions = [
-    { label: 'User Management', icon: Users, href: '/user-management', color: 'bg-blue-500' },
-    { label: 'Product Management', icon: Package, href: '/products-management', color: 'bg-green-500' },
-    { label: 'Payment Monitoring', icon: DollarSign, href: '/payment-monitoring', color: 'bg-yellow-500' },
-    { label: 'Security Dashboard', icon: Shield, href: '/security-dashboard', color: 'bg-red-500', roles: ['super_admin'] },
-    { label: 'Activity Logs', icon: Activity, href: '/activity-log', color: 'bg-purple-500' },
-    { label: 'Analytics', icon: TrendingUp, href: '/analytics', color: 'bg-indigo-500' }
+    {
+      label: 'Payment Monitoring',
+      icon: DollarSign,
+      href: '/payment-monitoring',
+      color: 'bg-yellow-500',
+      roles: ['super_admin'],
+    },
   ];
 
   const visibleActions = quickActions.filter(action =>
@@ -183,9 +286,66 @@ const AdminDashboard: React.FC = () => {
             {userRole === 'super_admin' ? 'Super Administrator' : 'Administrator'} Dashboard
           </p>
         </div>
-        <Badge variant={userRole === 'super_admin' ? 'destructive' : 'default'} className="text-sm">
-          {userRole === 'super_admin' ? 'SUPER ADMIN' : 'ADMIN'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          {/* Exchange Rate Editor */}
+          {userRole === 'super_admin' && (
+            <div className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+              {editingRate ? (
+                <>
+                  <Input
+                    type="number"
+                    value={rateInput}
+                    onChange={(e) => setRateInput(e.target.value)}
+                    className="w-20 h-7 text-sm"
+                    placeholder="Rate"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleSaveRate}
+                    disabled={savingRate}
+                    className="h-7 px-2"
+                  >
+                    {savingRate ? '...' : '✓'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditingRate(false)}
+                    className="h-7 px-2"
+                  >
+                    ✕
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm font-medium">1 USD = {exchangeRate} ZMW</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={startEditRate}
+                    className="h-7 px-1"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+          {/* Currency Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleCurrency}
+            className="flex items-center gap-2"
+          >
+            <span className="font-medium">{displayCurrency === 'ZMW' ? 'K' : '$'}</span>
+            <span>{displayCurrency}</span>
+          </Button>
+          <Badge variant={userRole === 'super_admin' ? 'destructive' : 'default'} className="text-sm">
+            {userRole === 'super_admin' ? 'SUPER ADMIN' : 'ADMIN'}
+          </Badge>
+        </div>
       </div>
 
       {/* Key Metrics */}
@@ -209,7 +369,7 @@ const AdminDashboard: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${metrics.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(metrics.totalRevenue, displayCurrency)}</div>
             <p className="text-xs text-muted-foreground">
               {metrics.totalOrders} total orders
             </p>

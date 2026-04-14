@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { assertAdminOrSuperAdmin } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,51 +7,36 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get user from Authorization header.
-    const authHeader = req.headers.get('Authorization')!
-    const userSupabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-    const { data: { user } } = await userSupabase.auth.getUser();
-
-    if (!user) {
+    // Authenticate and authorize user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401,
-        }
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check if the user is an admin or super_admin
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-    if (profileError || !['admin', 'super_admin'].includes(profile.role)) {
-        return new Response(
-            JSON.stringify({ error: 'Forbidden' }),
-            {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 403,
-            }
-        )
+    let authResult
+    try {
+      authResult = await assertAdminOrSuperAdmin(authHeader, supabaseUrl, supabaseKey)
+    } catch (authError) {
+      console.error('Auth error:', authError)
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     let query = supabase
       .from('user_profiles')
@@ -59,14 +44,15 @@ serve(async (req) => {
       .order('created_at', { ascending: false });
 
     // Regular admins can't see super_admins
-    if (profile.role === 'admin') {
+    if (authResult.role === 'admin') {
       query = query.neq('role', 'super_admin');
     }
 
     const { data: users, error } = await query;
 
     if (error) {
-      throw error;
+      console.error('Database error:', error)
+      throw new Error('Failed to fetch users')
     }
 
     return new Response(
@@ -77,11 +63,15 @@ serve(async (req) => {
       }
     )
   } catch (error) {
+    console.error('Get users error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: 'Internal server error',
+        details: error.message
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }

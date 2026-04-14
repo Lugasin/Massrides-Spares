@@ -14,17 +14,12 @@ import {
   Mail,
   Menu,
   MessageSquare,
-  Package,
   Search,
   Settings,
   ShoppingCart,
   User,
-  UserPlus,
-  Users,
-  LogIn,
   X,
 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/context/AuthContext';
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -38,7 +33,6 @@ interface HeaderProps {
 
 export const Header = ({
   cartItemsCount = 0,
-  onAuthClick,
   searchTerm,
   onSearchChange
 }: HeaderProps) => {
@@ -61,6 +55,24 @@ export const Header = ({
     { label: "Contact", href: "/contact" }
   ];
 
+  const mobileNavItems = navItems.filter((item) => item.label !== "Dashboard");
+  const mobileAccountItems = user
+    ? [
+        { label: "Profile", href: "/profile" },
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Settings", href: "/settings" },
+        { label: "Messages", href: "/messages" },
+      ]
+    : [];
+  const mobileManagementItems = [
+    ...(userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin'
+      ? [{ label: "Product Management", href: "/products-management" }]
+      : []),
+    ...(userRole === 'admin' || userRole === 'super_admin'
+      ? [{ label: "User Management", href: "/user-management" }]
+      : []),
+  ];
+
   // Handle navigation for hash links and routes
   const handleNavLinkClick = (href: string) => {
     if (href.startsWith('/#')) {
@@ -70,6 +82,11 @@ export const Header = ({
       // Handle route navigation
       navigate(href);
     }
+  };
+
+  const handleMobileNavClick = (href: string) => {
+    handleNavLinkClick(href);
+    setIsMobileMenuOpen(false);
   };
 
   // Navigate to catalog page on Shop Now click
@@ -131,7 +148,7 @@ export const Header = ({
                   type="text"
                   placeholder="Search spare parts..."
                   className="pl-10 pr-3 py-2 rounded-md w-48 xl:w-64"
-                  value={searchTerm}
+                  value={searchTerm ?? ""}
                   onChange={handleInputChange}
                 />
               </div>
@@ -189,7 +206,7 @@ export const Header = ({
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
+                  <Button variant="outline" size="sm" className="hidden gap-1 lg:flex">
                     <User className="h-4 w-4" />
                     <span className="hidden sm:inline text-xs lg:text-sm">Account</span>
                   </Button>
@@ -234,6 +251,21 @@ export const Header = ({
               </div>
             )}
 
+            {cartItemsCount > 0 && (
+              <Button asChild variant="ghost" size="icon" className="relative lg:hidden">
+                <Link
+                  to="/cart"
+                  aria-label={`Cart with ${cartItemsCount} items`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] bg-primary text-primary-foreground">
+                    {cartItemsCount}
+                  </Badge>
+                </Link>
+              </Button>
+            )}
+
             {/* Mobile menu toggle */}
             <Button variant="ghost" size="sm" className="lg:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -243,55 +275,94 @@ export const Header = ({
 
         {/* Mobile Navigation */}
         <div className={cn(
-          "lg:hidden bg-background/95 backdrop-blur-md border-t border-border",
+          "lg:hidden border-t border-border bg-background/95 backdrop-blur-md",
           isMobileMenuOpen ? "block animate-slide-down" : "hidden"
         )}>
-          <nav className="flex flex-col px-4 py-3 gap-1">
-            {/* Search on mobile */}
+          <nav className="space-y-4 px-4 py-4">
             {!isCatalogPage && (
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="Search spare parts..."
-                  className="pl-10 pr-3 py-2 rounded-md h-10"
-                  value={searchTerm}
+                  className="h-11 rounded-xl pl-10 pr-3"
+                  value={searchTerm ?? ""}
                   onChange={handleInputChange}
                 />
               </div>
             )}
 
-            {navItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNavLinkClick(item.href);
-                  setIsMobileMenuOpen(false);
-                }}
-                className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50"
-              >
-                {item.label}
-              </a>
-            ))}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Explore
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {mobileNavItems.map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleMobileNavClick(item.href);
+                    }}
+                    className="rounded-xl border border-border/60 bg-background px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+            </div>
 
-            {/* Mobile user menu */}
-            <div className="border-t border-border mt-2 pt-2">
-              {user ? (
-                <div className="flex flex-col gap-1">
-                  {/* Secondary Desktop actions moved to primary Mobile links */}
-                  <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      Cart
+            {user && (
+              <>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Account
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mobileAccountItems.map((item) => (
+                      <a
+                        key={item.label}
+                        href={item.href}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleMobileNavClick(item.href);
+                        }}
+                        className="rounded-xl border border-border/60 bg-background px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                {mobileManagementItems.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Management
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {mobileManagementItems.map((item) => (
+                        <a
+                          key={item.label}
+                          href={item.href}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleMobileNavClick(item.href);
+                          }}
+                          className="rounded-xl border border-border/60 bg-background px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                        >
+                          {item.label}
+                        </a>
+                      ))}
                     </div>
-                    {cartItemsCount > 0 && <Badge className="bg-primary text-primary-foreground">{cartItemsCount}</Badge>}
-                  </Link>
+                  </div>
+                )}
 
+                <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
                   <Button
                     variant="ghost"
-                    className="justify-start px-2 py-3 h-auto font-medium hover:bg-muted/50 text-foreground"
+                    className="h-auto w-full justify-start px-2 py-3 font-medium text-foreground hover:bg-muted/50"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       setIsNotificationsOpen(true);
@@ -301,46 +372,12 @@ export const Header = ({
                     Notifications
                     {unreadCount > 0 && <Badge className="ml-auto bg-primary text-primary-foreground">{unreadCount}</Badge>}
                   </Button>
+                </div>
 
-                  <Link to="/messages" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Messages
-                  </Link>
-
-                  <Separator className="my-1" />
-
-                  <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                  <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                    Dashboard
-                  </Link>
-
-                  {/* Role-based links */}
-                  {(userRole === 'vendor' || userRole === 'admin') && (
-                    <Link to="/products-management" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
-                      <Package className="mr-2 h-4 w-4" />
-                      Product Management
-                    </Link>
-                  )}
-
-                  {(userRole === 'admin' || userRole === 'super_admin') && (
-                    <Link to="/user-management" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
-                      <Users className="mr-2 h-4 w-4" />
-                      User Management
-                    </Link>
-                  )}
-
-                  <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-
-                  <Separator className="my-1" />
-
-                  <Button variant="ghost" className="justify-start px-2 py-3 h-auto text-destructive hover:text-destructive hover:bg-destructive/10" onClick={async () => {
+                <Button
+                  variant="ghost"
+                  className="h-auto w-full justify-start px-2 py-3 font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={async () => {
                     const { error } = await signOut();
                     if (error) {
                       toast.error(`Sign out failed: ${error.message}`);
@@ -348,34 +385,21 @@ export const Header = ({
                       window.location.href = '/';
                     }
                     setIsMobileMenuOpen(false);
-                  }}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {localStorage.getItem('guest_session_id') && (
-                    <div className="px-2 py-1">
-                      <Badge variant="secondary" className="text-xs">Guest User</Badge>
-                    </div>
-                  )}
+                  }}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
+              </>
+            )}
 
-                  {/* Cart, Notifications, Messages for mobile when logged out */}
-                  <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)} className="text-foreground hover:text-primary transition-colors font-medium py-3 px-2 rounded-md hover:bg-muted/50 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      Cart
-                    </div>
-                    {cartItemsCount > 0 && <Badge className="bg-primary text-primary-foreground">{cartItemsCount}</Badge>}
-                  </Link>
+            {!user && localStorage.getItem('guest_session_id') && (
+              <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
+                Guest browsing is active.
+              </div>
+            )}
 
-                  {/* Auth buttons hidden in mobile menu */}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 py-2 px-2 text-sm text-muted-foreground border-t border-border mt-2 pt-3">
+            <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
               <Mail className="h-4 w-4" />
               <span>info@massrides.co.zm</span>
             </div>

@@ -18,33 +18,19 @@ export const logActivity = async ({
   riskScore = 0
 }: LogActivityParams) => {
   try {
-    // Get client info
-    const userAgent = navigator.userAgent;
-    
-    // Get IP address (simplified - in production you'd use a service)
-    let ipAddress = 'unknown';
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      ipAddress = data.ip;
-    } catch (error) {
-      console.warn('Could not fetch IP address:', error);
-    }
-
     const { error } = await supabase
       .from('activity_logs')
       .insert({
         user_id: userId,
         action: actionType,
-        entity_type: resourceType || 'user_activity',
-        entity_id: resourceId ? String(resourceId) : null,
-        details: { 
+        metadata: {
           ...actionDetails, 
+          entity_type: resourceType || 'user_activity',
+          entity_id: resourceId ? String(resourceId) : null,
           risk_score: riskScore, 
           log_source: 'client_action',
+          user_agent: navigator.userAgent,
         },
-        ip_address: ipAddress,
-        user_agent: userAgent
       });
 
     if (error) {

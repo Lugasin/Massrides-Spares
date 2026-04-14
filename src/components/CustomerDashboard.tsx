@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Heart, RefreshCw, Star } from 'lucide-react';
 
 const CustomerDashboard = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [wishlist, setWishlist] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -19,12 +19,13 @@ const CustomerDashboard = () => {
 
       try {
         setLoading(true);
+        const ownerIds = Array.from(new Set([profile?.id, user.id].filter(Boolean))) as string[];
 
         // 1. Fetch recent orders
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
-          .select('id, created_at, total_amount, status')
-          .eq('user_id', user.id)
+          .select('id, order_number, created_at, total_amount, status')
+          .in('user_id', ownerIds)
           .order('created_at', { ascending: false })
           .limit(3);
         if (ordersError) throw ordersError;
@@ -54,10 +55,10 @@ const CustomerDashboard = () => {
           // Map to flat structure for UI
           const formattedWishlist = wishlistData.map((item: any) => ({
             id: item.id,
-            product_id: item.product.id,
-            name: item.product.title,
-            image: item.product.main_image,
-            price: item.product.price
+            product_id: item.product?.id,
+            name: item.product?.name || 'Saved item',
+            image: item.product?.main_image,
+            price: item.product?.price || 0
           }));
           setWishlist(formattedWishlist);
         }
@@ -115,7 +116,7 @@ const CustomerDashboard = () => {
                 {recentOrders.map(order => (
                   <li key={order.id} className="flex justify-between items-center">
                     <div>
-                      <p className="font-semibold">Order #{String(order.id).slice(0, 8)}</p>
+                      <p className="font-semibold">{order.order_number || `Order #${String(order.id).slice(0, 8)}`}</p>
                       <p className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">

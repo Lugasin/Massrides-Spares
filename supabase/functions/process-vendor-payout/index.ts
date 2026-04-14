@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { loadVesicashConfig } from "../_shared/vesicash.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    const vesicash = await loadVesicashConfig(supabase)
 
     const { payout_id } = await req.json()
 
@@ -24,7 +26,7 @@ serve(async (req) => {
     // 1. Get Payout Record
     const { data: payout, error: payoutError } = await supabase
       .from('vendor_payouts')
-      .select('*')
+      .select('*, vendor:user_profiles!vendor_id(full_name, metadata)')
       .eq('id', payout_id)
       .single();
 
@@ -33,80 +35,121 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: false, message: 'Payout not pending' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 2. Get Vendor Banking/Vesicash Info
-    // Assuming vendor has 'metadata' or separate table with 'vesicash_recipient_id'
-    // or 'bank_details'. 
-    // For now, check 'metadata.vesicash_recipient_id' in profiles.
-    const { data: vendor } = await supabase
-      .from('user_profiles')
-      .select('metadata')
-      .eq('id', payout.vendor_id)
-      .single();
-    
-    // Check key depending on how we stored it onboard
-    const recipientId = vendor?.metadata?.vesicash_recipient_id;
+    // 2. Get Vendor Payout Details from metadata
+    const vendorMetadata = payout.vendor?.metadata || {};
+    const payoutMethod = vendorMetadata.payout_method || 'bank';
+    const bankAccount = vendorMetadata.bank_account;
+    const mobileMoneyPhone = vendorMetadata.mobile_money_phone;
 
-    if (!recipientId) {
-        // Mark On Hold
+    // Validate payout details exist
+    if (payoutMethod === 'bank') {
+      if (!bankAccount?.account_number || !bankAccount?.bank_id) {
         await supabase.from('vendor_payouts').update({
-            status: 'on_hold',
-            failure_reason: 'Missing Vesicash Recipient ID'
+          status: 'on_hold',
+          failure_reason: 'Missing bank account details'
         }).eq('id', payout_id);
-        throw new Error('Vendor not onboarded (Missing Recipient ID)');
+        throw new Error('Vendor bank account details missing');
+      }
+    } else if (payoutMethod === 'mobile_money') {
+      if (!mobileMoneyPhone) {
+        await supabase.from('vendor_payouts').update({
+          status: 'on_hold',
+          failure_reason: 'Missing mobile money number'
+        }).eq('id', payout_id);
+        throw new Error('Vendor mobile money number missing');
+      }
     }
 
-    // 3. Initiate Payout via Vesicash
-    const vesicashApiKey = Deno.env.get('VESICASH_API_KEY');
-    const vesicashUrl = Deno.env.get('VESICASH_API_URL') || 'https://api.vesicash.com/v1';
+    // 3. Get Vesicash Config
+    if (!vesicash.secretKey || !vesicash.publicKey) {
+      throw new Error('Vesicash API keys are not configured.');
+    }
 
-    const payoutPayload = {
+    const countryId = vesicash.countryId;
+    if (!countryId) {
+      throw new Error('Vesicash Country ID not configured.');
+    }
+
+    // 4. Build Payout Payload based on method
+    let payoutPayload: Record<string, unknown>;
+    
+    if (payoutMethod === 'mobile_money') {
+      // Format phone to E.164 (remove + if present)
+      const phoneNumber = mobileMoneyPhone.replace(/^\+/, '').replace(/\s/g, '');
+      payoutPayload = {
         amount: payout.amount,
-        recipient_id: recipientId,
-        currency: 'ZMW', // Or USD, depends on order? Assuming standard currency.
-        debit_currency: 'ZMW'
-    };
+        countryId: countryId,
+        transfer_to: 'mobile_number',
+        momo_phone_number: phoneNumber
+      };
+    } else {
+      // Bank transfer
+      payoutPayload = {
+        amount: payout.amount,
+        countryId: countryId,
+        transfer_to: 'bank',
+        bank_id: bankAccount.bank_id,
+        account_number: bankAccount.account_number
+      };
+    }
 
-    const payoutRes = await fetch(`${vesicashUrl}/payment/payout`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${vesicashApiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payoutPayload)
+    // 5. Call Vesicash Payout API with correct headers
+    const payoutEndpoint = `${vesicash.apiBaseUrl}/payment/payout/process`;
+    console.log('Calling Vesicash payout endpoint:', payoutEndpoint);
+    console.log('Payout payload:', JSON.stringify(payoutPayload));
+
+    const payoutRes = await fetch(payoutEndpoint, {
+      method: 'POST',
+      headers: {
+        'V-PRIVATE-KEY': vesicash.secretKey,
+        'V-PUBLIC-KEY': vesicash.publicKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payoutPayload)
     });
 
-    if (!payoutRes.ok) {
-        const errorText = await payoutRes.text();
-         await supabase.from('vendor_payouts').update({
-            status: 'failed',
-            failure_reason: `Vesicash API Error: ${errorText}`
-        }).eq('id', payout_id);
-        throw new Error(`Vesicash payout failed: ${errorText}`);
+    const payoutData: Record<string, any> = await payoutRes.json();
+    console.log('Vesicash response:', JSON.stringify(payoutData));
+
+    if (!payoutRes.ok || payoutData.status === 'error') {
+      const errorMsg = payoutData.message || payoutData.error || 'Unknown error';
+      await supabase.from('vendor_payouts').update({
+        status: 'failed',
+        failure_reason: `Vesicash API Error: ${errorMsg}`
+      }).eq('id', payout_id);
+      throw new Error(`Vesicash payout failed: ${errorMsg}`);
     }
 
-    const payoutData = await payoutRes.json();
-    // Assuming payoutData contains a reference ID
-
-    // 4. Update Status to Processing (or Completed if synchronous?)
-    // Usually Payouts are async, so set to 'processing' and wait for webhook.
-    // If Vesicash returns 'success' immediately:
+    // 6. Update Status to Processing
     await supabase.from('vendor_payouts').update({
-        status: 'processing', // waiting for webhook
-        payout_reference: payoutData.reference || payoutData.id,
-        metadata: { vesicash_response: payoutData }
+      status: 'processing',
+      payout_reference: payoutData.data?.reference || payoutData.data?.id || payoutData.reference,
+      metadata: { 
+        vesicash_response: payoutData,
+        payout_method: payoutMethod,
+        bankAccount: payoutMethod === 'bank' ? { last4: bankAccount.account_number?.slice(-4) } : null,
+        mobile_phone: payoutMethod === 'mobile_money' ? mobileMoneyPhone : null
+      }
     }).eq('id', payout_id);
 
-    // 5. Audit
+    // 7. Audit Log
     await supabase.from('financial_audit_logs').insert({
-        event_type: 'payout_initiated',
-        entity_type: 'vendor_payout',
-        entity_id: payout_id,
-        amount: payout.amount,
-        metadata: { recipient_id: recipientId }
+      event_type: 'payout_initiated',
+      entity_type: 'vendor_payout',
+      entity_id: payout_id,
+      amount: payout.amount,
+      metadata: { 
+        payout_method: payoutMethod,
+        reference: payoutData.data?.reference 
+      }
     });
 
     return new Response(
-      JSON.stringify({ success: true, reference: payoutData.reference }),
+      JSON.stringify({ 
+        success: true, 
+        reference: payoutData.data?.reference,
+        status: payoutData.data?.status || 'processing'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

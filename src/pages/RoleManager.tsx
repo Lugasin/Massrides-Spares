@@ -165,36 +165,36 @@ const RoleManager = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map(user => (
-                    <TableRow key={user.id}>
+                  {users.map((userRecord) => (
+                    <TableRow key={userRecord.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getRoleColor(user.role)}`}>
-                            {user.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getRoleColor(userRecord.role)}`}>
+                            {userRecord.full_name?.charAt(0)?.toUpperCase() || userRecord.email?.charAt(0)?.toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium">{user.full_name || 'Unnamed User'}</p>
+                            <p className="font-medium">{userRecord.full_name || 'Unnamed User'}</p>
                             <p className="text-sm text-muted-foreground">
-                              {user.company_name && `${user.company_name} • `}
-                              Member since {new Date(user.created_at).toLocaleDateString()}
+                              {userRecord.company_name ? `${userRecord.company_name} - ` : ''}
+                              Member since {new Date(userRecord.created_at).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{userRecord.email}</TableCell>
                       <TableCell>
                         <Badge 
                           variant="outline" 
-                          className={`${getRoleColor(user.role)} text-white border-transparent`}
+                          className={`${getRoleColor(userRecord.role)} text-white border-transparent`}
                         >
-                          {roles.find(r => r.value === user.role)?.label || user.role}
+                          {roles.find(r => r.value === userRecord.role)?.label || userRecord.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Select
-                          value={pendingChanges[user.id] || user.role}
-                          onValueChange={(value) => handleRoleChange(user.id, value)}
-                          disabled={user.id === profile?.id} // Can't change own role
+                          value={pendingChanges[userRecord.id] || userRecord.role}
+                          onValueChange={(value) => handleRoleChange(userRecord.id, value)}
+                          disabled={userRecord.user_id === user?.id}
                         >
                           <SelectTrigger className="w-40">
                             <SelectValue />
@@ -218,17 +218,17 @@ const RoleManager = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        {pendingChanges[user.id] && pendingChanges[user.id] !== user.role && (
+                        {pendingChanges[userRecord.id] && pendingChanges[userRecord.id] !== userRecord.role && (
                           <Button
                             size="sm"
-                            onClick={() => applyRoleChange(user.id)}
+                            onClick={() => applyRoleChange(userRecord.id)}
                             className="flex items-center gap-1"
                           >
                             <Save className="h-3 w-3" />
                             Apply
                           </Button>
                         )}
-                        {user.id === profile?.id && (
+                        {userRecord.user_id === user?.id && (
                           <Badge variant="outline" className="text-xs">
                             Current User
                           </Badge>

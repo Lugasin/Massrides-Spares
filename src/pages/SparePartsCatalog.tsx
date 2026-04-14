@@ -109,7 +109,18 @@ const SparePartsCatalog = () => {
     try {
       setLoading(true);
 
-      // Construct Query
+      // First, get category ID if filtering by category
+      let categoryId: number | null = null;
+      if (selectedCategory && selectedCategory !== 'All') {
+        const { data: categoryData } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('name', selectedCategory)
+          .single();
+        categoryId = categoryData?.id || null;
+      }
+
+      // Construct Query - optimized with direct category_id
       let query = supabase
         .from('products')
         .select(`
@@ -124,10 +135,9 @@ const SparePartsCatalog = () => {
         query = query.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
       }
 
-      // 2. Category Filter (Filter locally on the joined table)
-      // Note: 'categories!inner(name)' in select ensures we can filter by 'categories.name'
-      if (selectedCategory && selectedCategory !== 'All') {
-        query = query.eq('categories.name', selectedCategory);
+      // 2. Category Filter - use category_id directly (much faster)
+      if (categoryId) {
+        query = query.eq('category_id', categoryId);
       }
 
       // 3. Brand Filter (JSONB Containment)
@@ -150,7 +160,6 @@ const SparePartsCatalog = () => {
       } else if (sortBy === 'price-high') {
         query = query.order('price', { ascending: false });
       } else {
-        // Default: Name (name)
         query = query.order('name', { ascending: true });
       }
 

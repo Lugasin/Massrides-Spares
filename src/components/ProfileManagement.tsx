@@ -122,8 +122,8 @@ const ProfileManagement = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      <Card>
+    <div className="container mx-auto px-4 py-8 space-y-8 overflow-x-hidden">
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><User /> Personal Information</CardTitle>
           <CardDescription>Update your name and email address.</CardDescription>

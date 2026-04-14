@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface CartItem {
   id: string; // Database Row ID (UUID)
@@ -51,37 +52,68 @@ interface QuoteProviderProps {
   children: ReactNode;
 }
 
+const mapContextItems = (savedItems: any[]): CartItem[] => savedItems.map((i: any) => ({
+  id: i.id, // Correctly use the Row UUID for deletions/updates
+  product_id: i.spare_part_id || i.product_id, // Store Product ID for lookups
+  name: i.spare_part?.name || 'Unknown Part',
+  price: i.spare_part?.price || 0,
+  quantity: i.quantity,
+  image: i.spare_part?.images?.[0] || '',
+  specs: [],
+  category: 'Spare Parts'
+}));
+
 export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadCart = async () => {
+  const loadCart = React.useCallback(async () => {
     try {
       setLoading(true);
       const savedItems = await import('@/lib/supabase').then(m => m.getCartItems());
-      const ContextItems = savedItems.map((i: any) => ({
-        id: i.id, // Correctly use the Row UUID for deletions/updates
-        product_id: i.spare_part_id || i.product_id, // Store Product ID for lookups
-        name: i.spare_part?.name || 'Unknown Part',
-        price: i.spare_part?.price || 0,
-        quantity: i.quantity,
-        image: i.spare_part?.images?.[0] || '',
-        specs: [],
-        category: 'Spare Parts'
-      }));
-      setItems(ContextItems);
+      setItems(mapContextItems(savedItems));
     } catch (error) {
       console.error("Failed to load cart", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const syncCartForSession = React.useCallback(async (hasAuthenticatedUser: boolean) => {
+    try {
+      setLoading(true);
+      const cartModule = await import('@/lib/supabase');
+
+      if (hasAuthenticatedUser) {
+        await cartModule.mergeGuestCart();
+      }
+
+      const savedItems = await cartModule.getCartItems();
+      setItems(mapContextItems(savedItems));
+    } catch (error) {
+      console.error("Failed to sync cart after auth change", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Load initial state
   React.useEffect(() => {
-    loadCart();
-  }, []);
+    void loadCart();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT'].includes(event)) {
+        return;
+      }
+
+      void syncCartForSession(Boolean(session?.user));
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loadCart, syncCartForSession]);
 
   const addItem = async (item: Omit<CartItem, 'quantity'>, quantity: number = 1) => {
     // The incoming 'item.id' is typically the Product ID from the UI/Catalog

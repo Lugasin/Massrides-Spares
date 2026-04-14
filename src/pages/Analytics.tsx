@@ -7,46 +7,112 @@ import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { supabase } from '@/integrations/supabase/client';
 
+type VendorDashboardData = {
+  kind: 'vendor';
+  totalRevenue?: number;
+  totalOrders?: number;
+  totalProducts?: number;
+  lowStockProducts?: Array<unknown>;
+};
+
+type AdminDashboardData = {
+  kind: 'admin';
+  stats?: {
+    totalRevenue?: number;
+    totalUsers?: number;
+    totalOrders?: number;
+    pendingOrders?: number;
+    totalProducts?: number;
+    activeVendors?: number;
+  };
+};
+
+type DashboardData = VendorDashboardData | AdminDashboardData | null;
+
 const Analytics = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, profile, userRole, session, ready } = useAuth();
   const { formatCurrency } = useSettings();
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<DashboardData>(null);
+  const layoutRole =
+    userRole === 'super_admin' ||
+    userRole === 'admin' ||
+    userRole === 'vendor' ||
+    userRole === 'customer'
+      ? userRole
+      : 'guest';
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        setLoading(true);
-        if (userRole === 'vendor') {
-          const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data');
-          if (error) throw error;
-          setDashboardData(data.dashboardData);
+        if (!ready) {
+          return;
         }
-        // Future: Add Admin analytics fetch here
-      } catch (error) {
+
+        if (!session?.access_token) {
+          setDashboardData(null);
+          return;
+        }
+
+        if (!profile) {
+          return;
+        }
+
+        if (userRole === 'vendor' && profile) {
+          const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data', {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
+          });
+          if (error) throw error;
+          setDashboardData({ kind: 'vendor', ...data.dashboardData } as VendorDashboardData);
+          return;
+        }
+
+        if ((userRole === 'admin' || userRole === 'super_admin') && profile) {
+          const { data, error } = await supabase.functions.invoke('get-admin-dashboard-data', {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
+          });
+          if (error) throw error;
+          setDashboardData({ kind: 'admin', ...data.dashboardData } as AdminDashboardData);
+          return;
+        }
+
+        setDashboardData(null);
+      } catch (error: unknown) {
         console.error('Error fetching analytics:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchAnalytics();
-  }, [userRole]);
+  }, [profile, ready, session?.access_token, userRole]);
 
   const viewData = useMemo(() => {
-    if (userRole === 'vendor' && dashboardData) {
+    if (dashboardData?.kind === 'vendor' && userRole === 'vendor') {
       return {
         title: "Vendor Analytics",
         cards: [
           { title: "Sales Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, change: "Gross", icon: DollarSign },
           { title: "Total Orders", value: dashboardData.totalOrders?.toString() || "0", change: "Total", icon: ShoppingCart },
           { title: "Active Products", value: dashboardData.totalProducts?.toString() || "0", change: "Live", icon: Package },
-          { title: "Low Stock", value: dashboardData.lowStockProducts?.length.toString() || "0", change: "Alerts", icon: BarChart3 }
+          { title: "Low Stock", value: (dashboardData.lowStockProducts?.length ?? 0).toString(), change: "Alerts", icon: BarChart3 }
         ]
       };
     }
 
-    // Default fallback (e.g. for Admin until implemented)
+    if (dashboardData?.kind === 'admin' && (userRole === 'admin' || userRole === 'super_admin')) {
+      return {
+        title: userRole === 'super_admin' ? "Super Admin Analytics" : "Admin Analytics",
+        cards: [
+          { title: "Total Revenue", value: formatCurrency(dashboardData.stats?.totalRevenue || 0), change: "Paid Orders", icon: DollarSign },
+          { title: "Users", value: `${dashboardData.stats?.totalUsers || 0}`, change: "Registered", icon: Users },
+          { title: "Orders", value: `${dashboardData.stats?.totalOrders || 0}`, change: `${dashboardData.stats?.pendingOrders || 0} pending`, icon: ShoppingCart },
+          { title: "Products", value: `${dashboardData.stats?.totalProducts || 0}`, change: `${dashboardData.stats?.activeVendors || 0} active vendors`, icon: Package }
+        ]
+      };
+    }
+
     return {
       title: "System Analytics",
       cards: [
@@ -56,10 +122,10 @@ const Analytics = () => {
         { title: "Products", value: "0", change: "-", icon: Package }
       ]
     };
-  }, [userRole, dashboardData]);
+  }, [dashboardData, formatCurrency, userRole]);
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
+    <DashboardLayout userRole={layoutRole} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DateRange } from 'react-day-picker';
@@ -23,17 +22,17 @@ interface Log {
     full_name: string | null;
     email: string | null;
   } | null;
-  additional_details: any;
+  additional_details: unknown;
   ip_address: string | null;
 }
 
 const activityTypes = [
-  'user_signup', 'user_login', 'guest_login', 'password_reset', 
-  'profile_update', 'order_created', 'payment_processed', 'error_occurred', 
-  'unhandled_promise_rejection'
+  'signup', 'login', 'guest_login', 'password_reset',
+  'profile_updated', 'user_role_updated', 'order_created', 'order_status_updated',
+  'payment_processed', 'payment_admin_action', 'error_occurred'
 ];
 
-const superAdminActivityTypes = [...activityTypes, 'security_event', 'manual_settlement'];
+const superAdminActivityTypes = [...activityTypes, 'suspicious_activity', 'failed_login_attempt', 'unauthorized_access', 'data_breach_attempt'];
 
 const ActivityLogPage = () => {
   const { userRole, profile } = useAuth();
@@ -67,14 +66,16 @@ const ActivityLogPage = () => {
     enabled: !!profile && (userRole === 'admin' || userRole === 'super_admin'),
   });
 
-  if (isError) {
-    toast.error(`Failed to fetch logs: ${error.message}`);
-  }
+  useEffect(() => {
+    if (isError) {
+      toast.error(`Failed to fetch logs: ${error.message}`);
+    }
+  }, [error, isError]);
 
   const currentActivityTypes = userRole === 'super_admin' ? superAdminActivityTypes : activityTypes;
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || 'Admin'}>
+    <DashboardLayout userRole={userRole ?? 'guest'} userName={profile?.full_name || 'Admin'}>
       <div className="space-y-6">
         <Card>
           <CardHeader>

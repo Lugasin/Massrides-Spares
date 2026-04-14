@@ -36,11 +36,60 @@ serve(async (req) => {
       )
     }
 
-    const { orderId, status } = await req.json();
+    const { data: actorProfile, error: actorProfileError } = await supabase
+      .from('user_profiles')
+      .select('id, role')
+      .eq('user_id', user.id)
+      .single();
 
-    const { data: order, error } = await supabase
+    if (actorProfileError || !actorProfile) {
+      throw new Error(actorProfileError?.message || 'User profile not found');
+    }
+
+    const { orderId, status } = await req.json();
+    const requestedStatus = String(status ?? '').trim().toLowerCase();
+    const nextStatus = requestedStatus === 'completed' ? 'delivered' : requestedStatus;
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'failed'];
+
+    if (!validStatuses.includes(nextStatus)) {
+      throw new Error('Invalid order status');
+    }
+
+    const { data: order, error: orderLookupError } = await supabase
       .from('orders')
-      .update({ status })
+      .select('id, order_number, status, payment_status, user_id, vendor_id')
+      .eq('id', orderId)
+      .single();
+
+    if (orderLookupError || !order) {
+      throw new Error(orderLookupError?.message || 'Order not found');
+    }
+
+    const actorRole = actorProfile.role;
+
+    if (actorRole !== 'super_admin') {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        }
+      )
+    }
+
+    if (order.status === nextStatus || (order.status === 'completed' && nextStatus === 'delivered')) {
+      return new Response(
+        JSON.stringify({ order }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    const { data: updatedOrder, error } = await supabase
+      .from('orders')
+      .update({ status: nextStatus })
       .eq('id', orderId)
       .select()
       .single();
@@ -49,21 +98,30 @@ serve(async (req) => {
       throw error;
     }
 
-    // Send notification to the customer
+    await supabase.from('activity_logs').insert({
+      user_id: user.id,
+      action: 'order_status_updated',
+      metadata: {
+        order_id: order.id,
+        order_number: order.order_number,
+        actor_role: actorRole,
+        previous_status: order.status,
+        next_status: nextStatus,
+      },
+    });
+
     if (order.user_id) {
-      await supabase.functions.invoke('real-time-notifications', {
-        body: {
-          user_id: order.user_id,
-          title: `Order #${order.order_number} Updated`,
-          message: `Your order status has been updated to: ${status}`,
-          type: 'order',
-          action_url: `/orders/${order.id}`
-        }
+      await supabase.from('notifications').insert({
+        user_id: order.user_id,
+        title: `Order ${order.order_number} updated`,
+        message: `Your order status is now ${nextStatus}.`,
+        type: 'order',
+        link: '/orders',
       });
     }
 
     return new Response(
-      JSON.stringify({ order }),
+      JSON.stringify({ order: updatedOrder }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

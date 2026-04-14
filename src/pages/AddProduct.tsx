@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -59,6 +59,7 @@ const AddProduct: React.FC = () => {
   const navigate = useNavigate();
   const { productId } = useParams<{ productId: string }>();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productVendorId, setProductVendorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isEditMode = !!productId;
 
@@ -86,14 +87,7 @@ const AddProduct: React.FC = () => {
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, watch } = form;
 
-  useEffect(() => {
-    fetchCategories();
-    if (isEditMode) {
-      fetchProduct();
-    }
-  }, [isEditMode]);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -107,16 +101,16 @@ const AddProduct: React.FC = () => {
       console.error('Error fetching categories:', error);
       toast.error('Failed to load categories');
     }
-  };
+  }, []);
 
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     if (!productId) return;
     try {
       setLoading(true);
       // Join inventory to get quantity
       const { data, error } = await supabase
         .from('products')
-        .select('*, inventory(quantity)')
+        .select('*, inventory(quantity, threshold, last_restocked, vendor_id)')
         .eq('id', Number(productId))
         .single<any>();
 
@@ -124,8 +118,12 @@ const AddProduct: React.FC = () => {
 
       if (data) {
         // Map DB fields to form
-        const inv = data.inventory && Array.isArray(data.inventory) && data.inventory.length > 0 ? data.inventory[0] : { quantity: 0 };
+        const inv = Array.isArray(data.inventory)
+          ? (data.inventory[0] || { quantity: 0, threshold: 5 })
+          : (data.inventory || { quantity: 0, threshold: 5 });
         const attributes = typeof data.attributes === 'object' ? data.attributes : {};
+
+        setProductVendorId(data.vendor_id ? String(data.vendor_id) : profile?.id ?? null);
 
         reset({
           name: data.name,
@@ -135,6 +133,7 @@ const AddProduct: React.FC = () => {
           category_id: data.category_id?.toString() || '',
           main_image: data.main_image || '',
           stock_quantity: inv.quantity || 0,
+          min_stock_level: Number(inv.threshold ?? (attributes as any)?.min_stock_level ?? 5),
           // Map stored attributes back to form fields
           brand: (attributes as any)?.brand || '',
           condition: (attributes as any)?.condition || 'new',
@@ -142,7 +141,7 @@ const AddProduct: React.FC = () => {
           aftermarket_part_number: (attributes as any)?.aftermarket_part_number || '',
           warranty: (attributes as any)?.warranty || '',
           compatibility: (attributes as any)?.compatibility || '',
-          featured: data.active,
+          featured: (attributes as any)?.featured === true,
           availability_status: inv.quantity > 0 ? 'in_stock' : 'out_of_stock'
         });
       }
@@ -153,11 +152,27 @@ const AddProduct: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate, productId, profile?.id, reset]);
+
+  useEffect(() => {
+    void fetchCategories();
+
+    if (isEditMode) {
+      void fetchProduct();
+    } else {
+      setProductVendorId(null);
+    }
+  }, [fetchCategories, fetchProduct, isEditMode]);
 
   const onSubmit = async (values: ProductFormValues) => {
     if (!profile?.id) {
       toast.error('User profile not found');
+      return;
+    }
+
+    const resolvedVendorId = productVendorId || profile.id;
+    if (!resolvedVendorId) {
+      toast.error('Product owner could not be determined.');
       return;
     }
 
@@ -174,7 +189,8 @@ const AddProduct: React.FC = () => {
         aftermarket_part_number: values.aftermarket_part_number,
         warranty: values.warranty,
         compatibility: values.compatibility,
-        availability_status: values.availability_status
+        availability_status: values.availability_status,
+        featured: values.featured === true
       };
 
       const productData = {
@@ -183,7 +199,7 @@ const AddProduct: React.FC = () => {
         price: values.price,
         sku: sku,
         category_id: values.category_id ? Number(values.category_id) : null,
-        vendor_id: profile.id, // Now a UUID
+        vendor_id: resolvedVendorId,
         attributes: attributes,
         is_active: true, // Renamed from active
         stock_quantity: values.stock_quantity, // Added required field
@@ -215,21 +231,21 @@ const AddProduct: React.FC = () => {
 
       // Update Inventory
       if (currentProductId) {
-        // Find existing inventory
-        const { data: existingInv } = await supabase.from('inventory').select('id').eq('product_id', currentProductId).maybeSingle();
-
         const inventoryData = {
           product_id: currentProductId,
-          vendor_id: profile.id, // UUID
+          vendor_id: resolvedVendorId,
           quantity: values.stock_quantity,
-          location: 'Main Warehouse', // Default
-          updated_at: new Date().toISOString()
+          threshold: values.min_stock_level,
+          location: 'Main Warehouse',
+          last_restocked: new Date().toISOString()
         };
 
-        if (existingInv) {
-          await supabase.from('inventory').update(inventoryData).eq('id', existingInv.id);
-        } else {
-          await supabase.from('inventory').insert([inventoryData]);
+        const { error: inventoryError } = await supabase
+          .from('inventory')
+          .upsert(inventoryData as any, { onConflict: 'product_id' });
+
+        if (inventoryError) {
+          throw inventoryError;
         }
       }
 
@@ -254,7 +270,7 @@ const AddProduct: React.FC = () => {
         <div className="p-6 text-center">
           <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Permission Denied</h2>
-          <p className="text-muted-foreground">You need vendor privileges to add spare parts.</p>
+          <p className="text-muted-foreground">You need administrative access to manage products.</p>
         </div>
       </DashboardLayout>
     );
@@ -477,7 +493,7 @@ const AddProduct: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="featured"
-                  checked={watch('featured')}
+                  checked={!!watch('featured')}
                   onCheckedChange={(checked) => setValue('featured', !!checked)}
                 />
                 <Label htmlFor="featured">Featured Product</Label>

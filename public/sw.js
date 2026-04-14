@@ -167,9 +167,23 @@ self.addEventListener('fetch', (event) => {
           if (offlineResponse) {
             return offlineResponse;
           }
+          return new Response(
+            '<!doctype html><html><head><title>Massrides</title></head><body><p>Offline. Please reconnect and retry.</p></body></html>',
+            {
+              status: 503,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            }
+          );
         }
 
-        throw err;
+        return new Response(
+          '',
+          {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          }
+        );
       }
     })()
   );
@@ -190,13 +204,24 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('push', (event) => {
   log('Push received');
 
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch (err) {
+      error('Error parsing push data:', err);
+    }
+  }
+
+  const title = payload.title || 'Massrides';
   const options = {
-    body: 'You have a new notification!',
+    body: payload.message || payload.body || 'You have a new notification!',
     icon: '/tractor-192x192.png',
     badge: '/tractor-192x192.png',
-    tag: 'massrides-notification',
+    tag: payload.tag || 'massrides-notification',
     data: {
-      url: '/',
+      url: payload.url || '/',
+      type: payload.type || 'info',
     },
     actions: [
       {
@@ -211,18 +236,8 @@ self.addEventListener('push', (event) => {
     ]
   };
 
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      options.body = data.message || options.body;
-      options.data.url = data.url || options.data.url;
-    } catch (err) {
-      error('Error parsing push data:', err);
-    }
-  }
-
   event.waitUntil(
-    self.registration.showNotification('Massrides', options)
+    self.registration.showNotification(title, options)
   );
 });
 
@@ -286,12 +301,9 @@ async function syncCart() {
 
 async function syncActivityLogs() {
   try {
-    const pendingLogs = localStorage.getItem('pending_activity_logs');
-    if (pendingLogs) {
-      // Sync activity logs when online
-      log('Syncing activity logs');
-      // Implementation would depend on your activity logging API
-    }
+    // Background sync for activity logs is intentionally a no-op until we
+    // persist queued events in IndexedDB. Avoid touching window-only storage.
+    log('Activity log sync requested');
   } catch (err) {
     error('Activity log sync failed', err);
   }

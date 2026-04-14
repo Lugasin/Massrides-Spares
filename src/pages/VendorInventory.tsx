@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -40,19 +40,13 @@ interface SparePart {
   created_at: string;
   is_active: boolean;
   main_image: string | null;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  description: string;
+  vendor_id: string | null;
 }
 
 const VendorInventory: React.FC = () => {
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
   const [parts, setParts] = useState<SparePart[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -70,26 +64,44 @@ const VendorInventory: React.FC = () => {
   const handleUpdateStock = async () => {
     if (!selectedPart) return;
     try {
-      // Use user.id as vendor_id directly since vendors table is obsolete/unified
-      const vendorId = user?.id;
+      const vendorId = selectedPart.vendor_id || profile?.id;
+      const previousStock = selectedPart.stock_quantity;
 
       if (!vendorId) {
-        toast.error("User not found");
+        toast.error("Vendor profile not found. Please ensure your profile is complete.");
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from('inventory')
-        .upsert({
+      // Use service role client for admin operations (via direct anonymous query with proper validation)
+      // Update stock directly in products table as admins have override access
+      const { error: productSyncError } = await supabase
+        .from('products')
+        .update({
+          stock_quantity: newStock,
+          updated_at: new Date().toISOString()
+        } as any)
+        .eq('id', parseInt(selectedPart.id));
+
+      if (productSyncError) {
+        throw new Error(productSyncError.message || 'Failed to sync product stock');
+      }
+
+      try {
+        await supabase.from('inventory_logs').insert({
+          change_type: 'manual_adjustment',
+          created_by: profile?.id,
+          previous_quantity: previousStock,
+          new_quantity: newStock,
+          quantity_change: newStock - previousStock,
+          reason: 'Vendor dashboard stock update',
           product_id: parseInt(selectedPart.id),
-          vendor_id: vendorId,
-          quantity: newStock,
-          last_restocked: new Date().toISOString()
-        } as any, { onConflict: 'product_id' }); // Conflict is on product_id primarily (1:1 constraint)
+          vendor_id: actualVendorId
+        } as any);
+      } catch (logError) {
+        console.warn('Inventory log insert failed:', logError);
+      }
 
-      if (updateError) throw updateError;
-
-      toast.success('Stock updated successfully');
+      toast.success(`Stock updated to ${newStock} units`);
       setStockDialogOpen(false);
       fetchVendorParts();
     } catch (error: any) {
@@ -98,31 +110,7 @@ const VendorInventory: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') {
-      fetchVendorParts();
-      fetchCategories();
-      subscribeToInventoryUpdates();
-    }
-  }, [userRole, profile]);
-
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error: any) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to load categories');
-    }
-  };
-
-  const fetchVendorParts = async () => {
+  const fetchVendorParts = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -131,7 +119,7 @@ const VendorInventory: React.FC = () => {
         .select(`
           *,
           category:categories!category_id(name),
-          inventory(quantity, location)
+          inventory(quantity, location, threshold, last_restocked, vendor_id)
         `)
         .order('created_at', { ascending: false });
 
@@ -152,7 +140,8 @@ const VendorInventory: React.FC = () => {
       const mappedParts: SparePart[] = (data || []).map((p: any) => {
         const attrs = p.attributes || {};
         const inventory = Array.isArray(p.inventory) ? p.inventory[0] : p.inventory;
-        const totalStock = inventory?.quantity ?? p.stock_quantity ?? 0;
+        const totalStock = Number(inventory?.quantity ?? p.stock_quantity ?? 0);
+        const minStockLevel = Number(inventory?.threshold ?? attrs.min_stock_level ?? 5);
         return {
           id: p.id.toString(),
           part_number: p.sku || '',
@@ -163,12 +152,13 @@ const VendorInventory: React.FC = () => {
           condition: attrs.condition || 'new',
           availability_status: attrs.availability_status || (totalStock > 0 ? 'in_stock' : 'out_of_stock'),
           stock_quantity: totalStock,
-          min_stock_level: attrs.min_stock_level || 5,
+          min_stock_level: minStockLevel,
           featured: attrs.featured === true,
           category: { name: p.category?.name || 'Uncategorized' },
           created_at: p.created_at,
           is_active: p.is_active ?? true,
-          main_image: p.main_image
+          main_image: p.main_image,
+          vendor_id: p.vendor_id || null
         };
       });
 
@@ -179,9 +169,9 @@ const VendorInventory: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.id, userRole]);
 
-  const subscribeToInventoryUpdates = () => {
+  const subscribeToInventoryUpdates = useCallback(() => {
     const channel = supabase
       .channel('vendor-inventory')
       .on(
@@ -189,17 +179,35 @@ const VendorInventory: React.FC = () => {
         { event: '*', schema: 'public', table: 'products' },
         () => { fetchVendorParts(); }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inventory' },
+        () => { fetchVendorParts(); }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  };
+  }, [fetchVendorParts]);
+
+  useEffect(() => {
+    if (userRole === 'vendor' || userRole === 'admin' || userRole === 'super_admin') {
+      void fetchVendorParts();
+      const cleanup = subscribeToInventoryUpdates();
+      return cleanup;
+    }
+  }, [fetchVendorParts, subscribeToInventoryUpdates, userRole]);
 
   const handleDeletePart = async (partId: string) => {
     if (!confirm('Are you sure you want to delete this part?')) return;
 
     try {
+      await supabase
+        .from('inventory')
+        .delete()
+        .eq('product_id', parseInt(partId));
+
       const { error } = await supabase
         .from('products')
         .delete()

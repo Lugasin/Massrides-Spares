@@ -28,46 +28,48 @@ interface DashboardData {
 }
 
 const VendorDashboard: React.FC = () => {
-  const { user, profile, userRole } = useAuth();
+  const { user, profile, userRole, session } = useAuth();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userRole === 'vendor' || userRole === 'super_admin' || userRole === 'admin') {
+    if (session?.access_token && userRole === 'vendor') {
       fetchDashboardData();
+    } else if (!session?.access_token) {
+      setLoading(false);
+    } else {
+      setDashboardData(null);
+      setLoading(false);
     }
-  }, [userRole]);
+  }, [session?.access_token, userRole]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const sessionResp = await supabase.auth.getSession();
-      const session = sessionResp?.data?.session;
-      const token = session?.access_token;
+      if (!session?.access_token) {
+        throw new Error('No active session available for dashboard request');
+      }
 
-      const invokeOptions: Record<string, any> = {};
-      if (token) invokeOptions.headers = { Authorization: `Bearer ${token}` };
-
-      const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data', invokeOptions);
+      const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (error) {
         console.error('Supabase function invocation error:', error);
         throw new Error(error.message || 'Function invocation failed');
       }
 
+      setError(null);
       setDashboardData(data?.dashboardData ?? null);
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      // Fallback to empty data to avoid crashing if function fails or CORS issues persist locally
-      setDashboardData({
-        totalRevenue: 0,
-        totalOrders: 0,
-        recentOrders: [],
-        lowStockProducts: [],
-        totalProducts: 0
-      });
-      // toast.error(`Failed to fetch dashboard data: ${error.message}`); 
+      setDashboardData(null);
+      setError(error.message || 'Failed to fetch vendor dashboard data');
+      toast.error(`Failed to fetch dashboard data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -78,12 +80,7 @@ const VendorDashboard: React.FC = () => {
     { label: "Total Orders", value: dashboardData.totalOrders.toString(), icon: ShoppingCart, change: "Total" },
     { label: "Total Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, change: "Gross" },
     { label: "Low Stock Alerts", value: dashboardData.lowStockProducts.length.toString(), icon: AlertTriangle, change: dashboardData.lowStockProducts.length > 0 ? "Action Needed" : "Good" }
-  ] : [
-    { label: "Your Products", value: "0", icon: Package, change: "Active" },
-    { label: "Total Orders", value: "0", icon: ShoppingCart, change: "Total" },
-    { label: "Total Revenue", value: "$0", icon: DollarSign, change: "Gross" },
-    { label: "Low Stock Alerts", value: "0", icon: AlertTriangle, change: "Good" }
-  ];
+  ] : [];
 
   if (loading) {
     return <div className="p-6 text-center">Loading vendor dashboard...</div>;
@@ -91,8 +88,26 @@ const VendorDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Vendor dashboard unavailable</p>
+                <p className="text-sm text-muted-foreground">{error}</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={loading}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {customMetrics.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {customMetrics.map((metric, index) => (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -109,7 +124,8 @@ const VendorDashboard: React.FC = () => {
             </CardContent>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
@@ -188,7 +204,11 @@ const VendorDashboard: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
-              {dashboardData?.recentOrders.length === 0 && (
+              {error ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Unable to load recent orders until the dashboard data service recovers.
+                </div>
+              ) : dashboardData?.recentOrders.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No recent orders.
                 </div>
@@ -227,7 +247,11 @@ const VendorDashboard: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
-              {dashboardData?.lowStockProducts.length === 0 && (
+              {error ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Unable to load low stock products until the dashboard data service recovers.
+                </div>
+              ) : dashboardData?.lowStockProducts.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No products with low stock.
                 </div>
@@ -250,9 +274,9 @@ const VendorDashboard: React.FC = () => {
                   <Package className="h-6 w-6" />
                   Add New Part
                 </Button>
-                <Button className="h-20 flex-col gap-2" variant="secondary" onClick={() => navigate('/user-management')}>
-                  <Users className="h-6 w-6" />
-                  Manage Users
+                <Button className="h-20 flex-col gap-2" variant="secondary" onClick={() => navigate('/orders')}>
+                  <ShoppingCart className="h-6 w-6" />
+                  View Orders
                 </Button>
                 <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate('/analytics')}>
                   <TrendingUp className="h-6 w-6" />

@@ -4,13 +4,17 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import RealTimeMetrics from '@/components/RealTimeMetrics';
 import { 
-  Shield, 
-  Users, 
-  Settings, 
+  Shield,
+  Users,
+  Settings,
   Database,
   Activity,
-  Bell
+  Bell,
+  Package,
+  ShoppingCart,
+  CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
@@ -35,31 +39,43 @@ const AdminProfile: React.FC = () => {
       icon: Users,
       title: 'User Management',
       description: 'Manage user accounts, roles, and permissions',
-      action: 'Manage Users'
+      action: 'Manage Users',
+      route: '/user-management'
+    },
+    {
+      icon: ShoppingCart,
+      title: 'Order Operations',
+      description: 'Review orders, payment states, and fulfillment progress',
+      action: 'View Orders',
+      route: '/orders'
+    },
+    {
+      icon: Package,
+      title: 'Inventory Control',
+      description: 'Manage products, stock levels, and vendor inventory',
+      action: 'Manage Products',
+      route: '/products-management'
+    },
+    ...[{ 
+      icon: CreditCard,
+      title: 'Financial Audits',
+      description: 'Track Vesicash payments, reconciliations, and audit trail events',
+      action: 'Payment Monitor',
+      route: '/payment-monitoring'
+    }],
+    {
+      icon: Activity,
+      title: 'Activity Logs',
+      description: 'Review user actions, order events, and admin changes',
+      action: 'View Activity',
+      route: '/activity-log'
     },
     {
       icon: Database,
-      title: 'System Configuration',
-      description: 'Configure system settings and parameters',
-      action: 'System Settings'
-    },
-    {
-      icon: Activity,
-      title: 'Analytics & Reports',
-      description: 'View detailed analytics and generate reports',
-      action: 'View Analytics'
-    },
-    {
-      icon: Bell,
-      title: 'Financial Audits',
-      description: 'Track Vesicash payments and audit trail events',
-      action: 'Payment Monitor'
-    },
-    {
-      icon: Bell,
-      title: 'Notifications',
-      description: 'Manage system notifications and alerts',
-      action: 'Notifications'
+      title: 'System Health',
+      description: 'Inspect platform health, stock alerts, and operational status',
+      action: 'System Health',
+      route: '/system-health'
     }
   ];
 
@@ -123,12 +139,7 @@ const AdminProfile: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        if (capability.action === 'Manage Users') navigate('/user-management');
-                        if (capability.action === 'System Settings') navigate('/system-health');
-                        if (capability.action === 'View Analytics') navigate('/analytics');
-                        if (capability.action === 'Payment Monitor') navigate('/payment-monitoring');
-                      }}
+                      onClick={() => navigate(capability.route)}
                     >
                       {capability.action}
                     </Button>
@@ -139,26 +150,13 @@ const AdminProfile: React.FC = () => {
           ))}
         </div>
 
-        {/* System Status */}
+        {/* Live System Status */}
         <Card>
           <CardHeader>
-            <CardTitle>System Status</CardTitle>
+            <CardTitle>Live System Metrics</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-success/10 rounded-lg">
-                <div className="text-2xl font-bold text-success">99.9%</div>
-                <div className="text-sm text-muted-foreground">System Uptime</div>
-              </div>
-              <div className="text-center p-4 bg-primary/10 rounded-lg">
-                <div className="text-2xl font-bold text-primary">1,234</div>
-                <div className="text-sm text-muted-foreground">Active Users</div>
-              </div>
-              <div className="text-center p-4 bg-secondary/10 rounded-lg">
-                <div className="text-2xl font-bold text-secondary">567</div>
-                <div className="text-sm text-muted-foreground">Products Listed</div>
-              </div>
-            </div>
+            <RealTimeMetrics userRole={userRole as string} />
           </CardContent>
         </Card>
       </div>

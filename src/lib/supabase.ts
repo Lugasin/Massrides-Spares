@@ -70,12 +70,35 @@ export interface UserProfile {
   updated_at: string
 }
 
+const CART_MERGE_STATE_KEY = 'cart_merge_done'
+
+const clearCartMergeState = () => {
+  localStorage.removeItem(CART_MERGE_STATE_KEY)
+}
+
+const getCartMergeFingerprint = (userId: string, guestSessionId: string) =>
+  `${userId}:${guestSessionId}`
+
+const getStoredCartMergeFingerprint = () => {
+  const storedValue = localStorage.getItem(CART_MERGE_STATE_KEY)
+
+  if (!storedValue || storedValue === 'true') {
+    if (storedValue === 'true') {
+      clearCartMergeState()
+    }
+    return null
+  }
+
+  return storedValue
+}
+
 // Session management for guest carts
 export const getOrCreateSessionId = (): string => {
   let sessionId = localStorage.getItem('guest_session_id')
   if (!sessionId) {
     sessionId = uuidv4()
     localStorage.setItem('guest_session_id', sessionId)
+    clearCartMergeState()
   }
   return sessionId
 }
@@ -97,7 +120,7 @@ const getOrCreateGuestCart = async (sessionId: string) => {
 
   const { data: newCart, error: insertError } = await supabase
     .from('guest_carts')
-    .insert({ session_id: sessionId })
+    .upsert({ session_id: sessionId }, { onConflict: 'session_id' })
     .select('id, session_id')
     .maybeSingle();
 
@@ -374,13 +397,17 @@ export const clearCart = async () => {
 // Merge guest cart with user cart on login
 export const mergeGuestCart = async () => {
   try {
-    if (localStorage.getItem('cart_merge_done') === 'true') return;
-
     const guestSessionId = localStorage.getItem('guest_session_id');
-    if (!guestSessionId) return;
+    if (!guestSessionId) {
+      clearCartMergeState();
+      return;
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    const mergeFingerprint = getCartMergeFingerprint(user.id, guestSessionId);
+    if (getStoredCartMergeFingerprint() === mergeFingerprint) return;
 
     // Get or create user cart
     let { data: userCart } = await supabase
@@ -400,16 +427,36 @@ export const mergeGuestCart = async () => {
       userCart = newCart;
     }
 
-    const guestCart = await getOrCreateGuestCart(guestSessionId);
+    const { data: guestCart, error: guestCartError } = await supabase
+      .from('guest_carts')
+      .select('id')
+      .eq('session_id', guestSessionId)
+      .maybeSingle();
+
+    if (guestCartError) throw guestCartError;
+
+    if (!guestCart) {
+      localStorage.removeItem('guest_session_id');
+      clearCartMergeState();
+      return;
+    }
 
     // 1. Fetch Guest Items
-    const { data: guestItems } = await supabase
+    const { data: guestItems, error: guestItemsError } = await supabase
       .from('guest_cart_items')
       .select('product_id, quantity')
       .eq('guest_cart_id', guestCart.id);
 
+    if (guestItemsError) throw guestItemsError;
+
     if (!guestItems || guestItems.length === 0) {
+      await supabase
+        .from('guest_carts')
+        .delete()
+        .eq('id', guestCart.id);
+
       localStorage.removeItem('guest_session_id');
+      clearCartMergeState();
       return;
     }
 
@@ -450,9 +497,10 @@ export const mergeGuestCart = async () => {
       .eq('id', guestCart.id);
 
     localStorage.removeItem('guest_session_id');
-    localStorage.setItem('cart_merge_done', 'true');
+    localStorage.setItem(CART_MERGE_STATE_KEY, mergeFingerprint);
 
   } catch (error) {
+    clearCartMergeState();
     console.error('MergeGuestCart: Unexpected error:', error);
   }
 }

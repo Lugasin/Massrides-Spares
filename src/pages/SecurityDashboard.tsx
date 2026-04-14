@@ -27,6 +27,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 interface SecurityAlert {
   id: string;
@@ -55,7 +56,7 @@ interface PaymentMetrics {
   recent_activity: any[];
   problematic_payments?: {
     id: string;
-    id: string; // Used as order identifier
+    order_number: string;
     customer_email: string;
     amount: number;
     status: string;
@@ -81,6 +82,7 @@ interface SystemHealth {
 
 const SecurityDashboard = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
   const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics | null>(null);
@@ -332,13 +334,13 @@ const SecurityDashboard = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button variant="outline" size="icon" className="h-8 w-8">
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate('/activity-log')}>
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => toast.info(`Blocking user associated with event ${alert.id}`)}>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate('/user-management')}>
                                 <UserX className="h-4 w-4" />
                               </Button>
-                              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => toast.warning(`Initiating high-priority investigation for ${alert.id}`)}>
+                              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => navigate('/security-dashboard')}>
                                 <AlertTriangle className="h-4 w-4" />
                               </Button>
                             </div>
@@ -430,8 +432,7 @@ const SecurityDashboard = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button variant="outline" size="sm" onClick={() => toast.info(`Retrying payment for ${payment.order_number}`)}>Retry</Button>
-                            <Button variant="destructive" size="sm" onClick={() => toast.error(`Refunding payment for ${payment.order_number}`)}>Refund</Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate('/payment-monitoring')}>Open Monitor</Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -473,8 +474,7 @@ const SecurityDashboard = () => {
                         <TableCell>{item.min_stock_level}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button variant="outline" size="sm" onClick={() => toast.info(`Notifying ${item.vendor_name} about low stock.`)}>Notify Vendor</Button>
-                            <Button variant="secondary" size="sm" onClick={() => toast.info(`Opening stock adjustment for ${item.name}`)}>Adjust Stock</Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate('/products-management')}>Open Inventory</Button>
                           </div>
                         </TableCell>
                       </TableRow>

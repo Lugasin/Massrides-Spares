@@ -18,7 +18,7 @@ serve(async (req) => {
     )
 
     // Get user from Authorization header.
-    const authHeader = req.headers.get('Authorization')
+    const authHeader = req.headers.get('Authorization') ?? req.headers.get('authorization')
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
@@ -33,11 +33,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     )
-    const { data: { user } } = await userSupabase.auth.getUser();
+    const { data: { user }, error: userError } = await userSupabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: userError?.message || 'Unauthorized' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 401,
@@ -45,38 +45,54 @@ serve(async (req) => {
       )
     }
 
-    // Check user role from 'profiles' (was user_profiles)
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    
-    const isSuperAdmin = userProfile?.role === 'super_admin' || userProfile?.role === 'admin';
-    const isVendor = userProfile?.role === 'vendor';
+    const { data: userProfileByUserId, error: userProfileByUserIdError } = await supabase
+      .from('user_profiles')
+      .select('id, role')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (!isVendor && !isSuperAdmin) {
+    if (userProfileByUserIdError) throw userProfileByUserIdError;
+
+    let userProfile = userProfileByUserId;
+
+    if (!userProfile) {
+      const { data: userProfileById, error: userProfileByIdError } = await supabase
+        .from('user_profiles')
+        .select('id, role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (userProfileByIdError) throw userProfileByIdError;
+      userProfile = userProfileById;
+    }
+
+    if (!userProfile) {
+      return new Response(
+        JSON.stringify({ error: 'Vendor profile not found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    const isVendor = userProfile.role === 'vendor';
+
+    if (!isVendor) {
        return new Response(
          JSON.stringify({ error: 'Forbidden: Vendor access required' }),
          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
        );
     }
 
-    let vendorId = user.id;
-    
-    // If super admin wants to view a specific vendor dashboard, they might pass a param, 
-    // but for now let's assume they view their own or the system's if they are one.
-    // Use the user's ID as the vendor ID since we unified vendors into auth.users + profiles.
-    
+    const vendorIds = [...new Set([userProfile.id, user.id].filter(Boolean))];
+
     // 1. Get vendor's products from 'products' table
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('id')
-      .eq('vendor_id', vendorId);
+      .in('vendor_id', vendorIds);
 
     if (productsError) throw productsError;
 
-    const productIds = products.map(p => p.id);
+    const productIds = (products || []).map(p => p.id);
 
     // 2. Get orders containing vendor's products
     // Use 'product_id' instead of 'spare_part_id'
@@ -86,12 +102,12 @@ serve(async (req) => {
     if (productIds.length > 0) {
         const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select('*, order:orders(*)')
+        .select('quantity, price_snapshot, order:orders(*)')
         .in('product_id', productIds);
 
         if (orderItemsError) throw orderItemsError;
 
-        const validItems = orderItems.filter(item => item.order);
+        const validItems = (orderItems || []).filter(item => item.order);
         uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
         
         // 3. Calculate total revenue (price * quantity)
@@ -105,21 +121,27 @@ serve(async (req) => {
       .slice(0, 5);
 
     // 5. Get low stock products from 'inventory'
-    const { data: lowStockInv, error: lowStockError } = await supabase
+    const { data: inventoryRows, error: lowStockError } = await supabase
       .from('inventory')
-      .select('quantity, product:products(id, name)') // Note: 'name' not 'title' in products table based on seed.sql
-      .eq('vendor_id', vendorId)
-      .lt('quantity', 10)
+      .select('quantity, threshold, product:products(id, name, sku, attributes)')
+      .in('vendor_id', vendorIds)
       .order('quantity', { ascending: true });
 
     if (lowStockError) throw lowStockError;
-    
-    // Map to expected format
-    const lowStockProducts = lowStockInv.map(inv => ({
-      id: inv.product?.id,
-      name: inv.product?.name,
-      stock_quantity: inv.quantity
-    }));
+
+    const lowStockProducts = (inventoryRows || [])
+      .filter((row: any) => {
+        const attrs = row.product?.attributes && typeof row.product.attributes === 'object'
+          ? row.product.attributes
+          : {};
+        const minStockLevel = Number(row.threshold ?? attrs.min_stock_level ?? 10);
+        return Number(row.quantity ?? 0) <= minStockLevel;
+      })
+      .map((row: any) => ({
+        id: row.product?.id,
+        name: row.product?.name ?? row.product?.sku ?? 'Unnamed Product',
+        stock_quantity: Number(row.quantity ?? 0)
+      }));
 
     const dashboardData = {
       totalRevenue,

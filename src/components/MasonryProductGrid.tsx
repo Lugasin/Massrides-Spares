@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Product } from '@/data/products';
 import { useQuote } from '@/context/QuoteContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
@@ -27,6 +28,7 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
   className
 }) => {
   const { addItem } = useQuote();
+  const { formatPrice } = useCurrency();
   const [favorites, setFavorites] = useState<(string | number)[]>([]);
   const [hoveredProduct, setHoveredProduct] = useState<string | number | null>(null);
   const cartIconRef = useRef<HTMLDivElement>(null);
@@ -147,7 +149,7 @@ export const MasonryProductGrid: React.FC<MasonryProductGridProps> = ({
               <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
                 <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
                   <span className="text-lg font-bold text-primary">
-                    ${product.price.toLocaleString()}
+                    {formatPrice(product.price)}
                   </span>
                 </div>
               </div>

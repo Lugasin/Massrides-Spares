@@ -10,7 +10,7 @@ interface AuditEvent {
 }
 
 export const ComprehensiveAuditLogger: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
   useEffect(() => {
     // Set up global error handler
@@ -34,7 +34,7 @@ export const ComprehensiveAuditLogger: React.FC = () => {
         action: 'unhandled_promise_rejection',
         resource_type: 'application',
         details: {
-          reason: event.reason,
+          reason: String(event.reason),
           stack: event.reason?.stack
         }
       });
@@ -51,28 +51,18 @@ export const ComprehensiveAuditLogger: React.FC = () => {
 
   const logAuditEvent = async (event: AuditEvent) => {
     try {
-      const userAgent = navigator.userAgent;
-      let ipAddress = 'unknown';
-      
-      // Get IP address (simplified)
-      try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        ipAddress = data.ip;
-      } catch (error) {
-        console.warn('Could not fetch IP address:', error);
-      }
-
       await supabase.from('activity_logs').insert({
-        user_id: profile?.id,
-        user_email: profile?.email,
-        activity_type: event.action,
-        resource_type: event.resource_type,
-        resource_id: event.resource_id ? parseInt(event.resource_id) : null,
-        additional_details: event.details || {},
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        log_source: 'client_audit'
+        user_id: user?.id ?? null,
+        action: event.action,
+        metadata: {
+          ...(event.details || {}),
+          entity_type: event.resource_type,
+          entity_id: event.resource_id ?? null,
+          log_source: 'client_audit',
+          user_agent: navigator.userAgent,
+          profile_id: profile?.id ?? null,
+          profile_email: profile?.email ?? null,
+        }
       });
     } catch (error) {
       console.error('Failed to log audit event:', error);

@@ -13,6 +13,35 @@ interface SecurityQueryParams {
   limit?: number;
 }
 
+async function parseSecurityParams(req: Request): Promise<SecurityQueryParams> {
+  const url = new URL(req.url)
+  const queryParams = Object.fromEntries(url.searchParams.entries())
+  let bodyParams: Record<string, unknown> = {}
+
+  if (req.method !== 'GET') {
+    const contentType = req.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      try {
+        bodyParams = await req.json()
+      } catch {
+        bodyParams = {}
+      }
+    }
+  }
+
+  const merged = {
+    ...queryParams,
+    ...bodyParams,
+  }
+
+  return {
+    timeframe: ['1h', '24h', '7d', '30d'].includes(String(merged.timeframe)) ? merged.timeframe as SecurityQueryParams['timeframe'] : '24h',
+    event_type: merged.event_type ? String(merged.event_type) : undefined,
+    risk_threshold: merged.risk_threshold !== undefined ? Number(merged.risk_threshold) : undefined,
+    limit: merged.limit !== undefined ? Number(merged.limit) : undefined,
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -24,8 +53,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const url = new URL(req.url)
-    const params: SecurityQueryParams = Object.fromEntries(url.searchParams)
+    const params = await parseSecurityParams(req)
     
     // Verify admin access
     const authHeader = req.headers.get('authorization')
@@ -101,23 +129,34 @@ serve(async (req) => {
 })
 
 async function getSecurityMetrics(supabase: any, since: string, params: SecurityQueryParams) {
-  // Security events summary
+  const securityActions = [
+    'suspicious_activity',
+    'failed_login_attempt',
+    'unauthorized_access',
+    'data_breach_attempt',
+    'payment_admin_action',
+    'user_role_updated',
+    'error_occurred',
+  ]
+
   const { data: eventsSummary } = await supabase
-    .from('tj_security_logs')
-    .select('event_type, risk_score, blocked, created_at')
+    .from('activity_logs')
+    .select('id, action, metadata, created_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(params.limit || 1000)
 
-  const events = eventsSummary || []
+  const events = (eventsSummary || [])
+    .filter((event: any) => securityActions.includes(event.action))
+    .map((event: any) => ({
+      event_type: event.action,
+      risk_score: Number(event.metadata?.risk_score ?? 0),
+      blocked: Boolean(event.metadata?.blocked),
+      created_at: event.created_at,
+    }))
   
-  // High-risk events
   const highRiskEvents = events.filter(e => e.risk_score >= (params.risk_threshold || 7))
-  
-  // Blocked events
   const blockedEvents = events.filter(e => e.blocked)
-  
-  // Event type breakdown
   const eventTypes = events.reduce((acc, event) => {
     acc[event.event_type] = (acc[event.event_type] || 0) + 1
     return acc
@@ -142,89 +181,143 @@ async function getSecurityMetrics(supabase: any, since: string, params: Security
 
 async function getSecurityAlerts(supabase: any, since: string, riskThreshold: number) {
   const { data: alerts } = await supabase
-    .from('tj_security_logs')
+    .from('activity_logs')
     .select('*')
     .gte('created_at', since)
-    .gte('risk_score', riskThreshold)
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(200)
 
-  return (alerts || []).map(alert => ({
+  return (alerts || [])
+    .filter((alert: any) => Number(alert.metadata?.risk_score ?? 0) >= riskThreshold)
+    .map((alert: any) => ({
     id: alert.id,
-    event_type: alert.event_type,
-    risk_score: alert.risk_score,
-    blocked: alert.blocked,
+    event_type: alert.action,
+    risk_score: Number(alert.metadata?.risk_score ?? 0),
+    blocked: Boolean(alert.metadata?.blocked),
     created_at: alert.created_at,
-    metadata: alert.metadata,
-    severity: getSeverity(alert.risk_score),
-    description: getEventDescription(alert.event_type, alert.metadata)
+    metadata: alert.metadata || {},
+    severity: getSeverity(Number(alert.metadata?.risk_score ?? 0)),
+    description: getEventDescription(alert.action, alert.metadata || {})
   }))
 }
 
 async function getPaymentMetrics(supabase: any, since: string) {
-  const { data: metrics } = await supabase
-    .from('system_metrics')
-    .select('*')
-    .gte('recorded_at', since)
-    .like('metric_name', 'payment_%')
-    .order('recorded_at', { ascending: false })
+  const [{ data: paymentRows }, { data: auditRows }] = await Promise.all([
+    supabase
+      .from('payments')
+      .select(`
+        id,
+        status,
+        created_at,
+        order:orders(
+          order_number,
+          total_amount,
+          shipping_address
+        )
+      `)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('financial_audit_logs')
+      .select('event_type, created_at, metadata')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false }),
+  ])
 
-  const paymentMetrics = metrics || []
-  
-  // Aggregate metrics
-  const aggregated = paymentMetrics.reduce((acc, metric) => {
-    if (!acc[metric.metric_name]) {
-      acc[metric.metric_name] = { total: 0, count: 0 }
-    }
-    acc[metric.metric_name].total += parseFloat(metric.metric_value)
-    acc[metric.metric_name].count += 1
-    return acc
-  }, {})
+  const payments = paymentRows || []
+  const audits = auditRows || []
+  const requestsTotal = audits.filter((row: any) => row.event_type === 'payment_checkout_created').length
+  const sessionsCreated = audits.filter((row: any) => row.event_type === 'payment_initialized').length
+  const paidPayments = payments.filter((row: any) => row.status === 'paid').length
+  const problematicPayments = payments
+    .filter((row: any) => ['pending', 'authorised', 'failed', 'cancelled', 'refunded'].includes(row.status))
+    .slice(0, 20)
+    .map((row: any) => ({
+      id: String(row.id),
+      order_number: row.order?.order_number || `Order #${row.id}`,
+      customer_email: String(row.order?.shipping_address?.email || ''),
+      amount: Number(row.order?.total_amount || 0),
+      status: row.status,
+      created_at: row.created_at,
+    }))
 
   return {
-    requests_total: aggregated.payment_requests_total?.total || 0,
-    sessions_created: aggregated.payment_sessions_created?.total || 0,
-    success_rate: aggregated.payment_sessions_created?.total / (aggregated.payment_requests_total?.total || 1) * 100,
-    recent_activity: paymentMetrics.slice(0, 20)
+    requests_total: requestsTotal,
+    sessions_created: sessionsCreated,
+    success_rate: payments.length > 0 ? (paidPayments / payments.length) * 100 : 0,
+    recent_activity: audits.slice(0, 20),
+    problematic_payments: problematicPayments,
   }
 }
 
 async function getSystemHealth(supabase: any, since: string) {
-  // Get various system health metrics
-  const { data: dbMetrics } = await supabase
-    .from('system_metrics')
-    .select('*')
-    .gte('recorded_at', since)
-    .in('metric_name', ['db_connections', 'memory_usage', 'cpu_usage', 'response_time'])
-    .order('recorded_at', { ascending: false })
-    .limit(100)
+  const { data: lowStockRows } = await supabase
+    .from('inventory')
+    .select(`
+      id,
+      quantity,
+      threshold,
+      product:products(
+        id,
+        name,
+        vendor_id
+      )
+    `)
+    .lte('quantity', 5)
+    .order('quantity', { ascending: true })
+    .limit(50)
 
-  const metrics = dbMetrics || []
-  
-  // Calculate averages for key metrics
-  const healthMetrics = metrics.reduce((acc, metric) => {
-    if (!acc[metric.metric_name]) {
-      acc[metric.metric_name] = { values: [], average: 0 }
-    }
-    acc[metric.metric_name].values.push(parseFloat(metric.metric_value))
-    return acc
-  }, {})
+  const vendorIds = Array.from(new Set((lowStockRows || []).map((row: any) => row.product?.vendor_id).filter(Boolean)))
+  let vendorMap: Record<string, string> = {}
 
-  // Calculate averages
-  Object.keys(healthMetrics).forEach(key => {
-    const values = healthMetrics[key].values
-    healthMetrics[key].average = values.reduce((a, b) => a + b, 0) / values.length
-  })
+  if (vendorIds.length > 0) {
+    const { data: vendors } = await supabase
+      .from('user_profiles')
+      .select('id, full_name, company_name')
+      .in('id', vendorIds)
 
-  // Overall health score (0-100)
-  const healthScore = calculateHealthScore(healthMetrics)
+    vendorMap = Object.fromEntries(
+      (vendors || []).map((vendor: any) => [vendor.id, vendor.company_name || vendor.full_name || 'Vendor']),
+    )
+  }
+
+  const lowStockItems = (lowStockRows || []).map((row: any) => ({
+    id: String(row.product?.id || row.id),
+    name: row.product?.name || 'Unknown product',
+    vendor_name: vendorMap[row.product?.vendor_id] || 'Vendor',
+    stock_quantity: Number(row.quantity || 0),
+    min_stock_level: Number(row.threshold || 0),
+  }))
+
+  const { data: recentErrors } = await supabase
+    .from('activity_logs')
+    .select('id')
+    .eq('action', 'error_occurred')
+    .gte('created_at', since)
+
+  const { data: recentFailedPayments } = await supabase
+    .from('payments')
+    .select('id')
+    .in('status', ['failed', 'cancelled'])
+    .gte('created_at', since)
+
+  const healthScore = Math.max(
+    0,
+    100 - (lowStockItems.length * 2) - ((recentErrors || []).length * 3) - ((recentFailedPayments || []).length * 2),
+  )
 
   return {
     score: healthScore,
     status: getHealthStatus(healthScore),
-    metrics: healthMetrics,
+    metrics: {
+      low_stock_count: lowStockItems.length,
+      recent_errors: (recentErrors || []).length,
+      failed_payments: (recentFailedPayments || []).length,
+    },
     uptime_percentage: 99.9, // This would come from actual monitoring
-    last_incident: null // This would come from incident tracking
+    last_incident: null,
+    low_stock_items_count: lowStockItems.length,
+    low_stock_items: lowStockItems,
   }
 }
 
@@ -254,36 +347,27 @@ function getSeverity(riskScore: number): 'low' | 'medium' | 'high' | 'critical' 
 
 function getEventDescription(eventType: string, metadata: any): string {
   const descriptions: Record<string, string> = {
-    'payment_initiated': 'Payment process started',
-    'payment_session_created': 'Payment session successfully created',
-    'payment_session_failed': 'Failed to create payment session',
-    'payment_auth_failed': 'Payment authentication failed',
-    'payment_config_error': 'Payment configuration error',
-    'payment_error': 'General payment error',
+    'payment_admin_action': 'Manual payment action recorded by an administrator',
+    'user_role_updated': 'A user role was changed',
+    'order_status_updated': 'An order status was changed',
+    'error_occurred': 'Application error recorded',
     'suspicious_activity': 'Suspicious activity detected',
-    'multiple_failed_attempts': 'Multiple failed payment attempts',
-    'high_risk_transaction': 'High-risk transaction flagged'
+    'failed_login_attempt': 'Failed login attempt detected',
+    'unauthorized_access': 'Unauthorized access attempt detected',
+    'data_breach_attempt': 'Potential data breach attempt detected'
   }
   
   const baseDescription = descriptions[eventType] || 'Unknown security event'
   
   if (metadata?.amount) {
-    return `${baseDescription} (Amount: $${metadata.amount})`
+    return `${baseDescription} (Amount: ${metadata.amount})`
   }
   
   return baseDescription
 }
 
 function calculateHealthScore(metrics: any): number {
-  // Simple health score calculation
-  // In a real implementation, this would be more sophisticated
-  let score = 100
-  
-  if (metrics.cpu_usage?.average > 80) score -= 20
-  if (metrics.memory_usage?.average > 85) score -= 20
-  if (metrics.response_time?.average > 2000) score -= 15
-  
-  return Math.max(0, score)
+  return metrics?.score ?? 100
 }
 
 function getHealthStatus(score: number): 'healthy' | 'warning' | 'critical' {

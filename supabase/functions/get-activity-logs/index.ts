@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { assertAdminOrSuperAdmin } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,53 +7,37 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get user from Authorization header.
-    const authHeader = req.headers.get('Authorization')!
-    const userSupabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-    const { data: { user } } = await userSupabase.auth.getUser();
-
-    if (!user) {
+    // Authenticate and authorize user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401,
-        }
+        JSON.stringify({ error: 'Authorization header required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check if the user is an admin or super_admin
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-    if (profileError || !['admin', 'super_admin'].includes(profile.role)) {
-        return new Response(
-            JSON.stringify({ error: 'Forbidden' }),
-            {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 403,
-            }
-        )
+    try {
+      await assertAdminOrSuperAdmin(authHeader, supabaseUrl, supabaseKey)
+    } catch (authError) {
+      console.error('Auth error:', authError)
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-const { searchParams } = new URL(req.url);
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const { searchParams } = new URL(req.url);
     let activityType = searchParams.get('activity_type');
     let userId = searchParams.get('user_id');
     let startDate = searchParams.get('start_date');
@@ -72,15 +56,12 @@ const { searchParams } = new URL(req.url);
 
     let query = supabase
       .from('activity_logs')
-      .select(`
-        *,
-        user_profiles!activity_logs_user_id_fkey(full_name, email)
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
 
     if (activityType) {
-      query = query.eq('activity_type', activityType);
+      query = query.eq('action', activityType);
     }
     if (userId) {
       query = query.eq('user_id', userId);
@@ -95,22 +76,60 @@ const { searchParams } = new URL(req.url);
     const { data: logs, error } = await query;
 
     if (error) {
-      throw error;
+      console.error('Database error:', error)
+      throw new Error('Failed to fetch activity logs')
     }
 
+    const uniqueUserIds = Array.from(new Set((logs || []).map((log: any) => log.user_id).filter(Boolean)));
+    let profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
+
+    if (uniqueUserIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', uniqueUserIds);
+
+      if (profilesError) {
+        console.error('Profiles fetch error:', profilesError)
+        // Don't throw - continue without profile info
+      } else {
+        profileMap = Object.fromEntries(
+          (profiles || []).map((profile: any) => [
+            profile.user_id,
+            {
+              full_name: profile.full_name ?? null,
+              email: profile.email ?? null,
+            },
+          ]),
+        );
+      }
+    }
+
+    const mappedLogs = (logs || []).map((log: any) => ({
+      ...log,
+      activity_type: log.action,
+      additional_details: log.metadata || {},
+      ip_address: log.metadata?.ip_address || null,
+      user_profiles: log.user_id ? profileMap[log.user_id] ?? null : null,
+    }));
+
     return new Response(
-      JSON.stringify({ logs }),
+      JSON.stringify({ logs: mappedLogs }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
     )
   } catch (error) {
+    console.error('Get activity logs error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: 'Internal server error',
+        details: error.message
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }

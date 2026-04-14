@@ -21,6 +21,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { mergeGuestCart } from "@/lib/supabase";
+import { sendEmailOtp, verifyEmailOtp, type OtpFlowType } from "@/lib/emailOtp";
+import { beginHostedPayment, preparePaymentPopup } from "@/lib/paymentRedirect";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +36,8 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Loader2 } from "lucide-react";
-
-const EXCHANGE_RATE = 28.5;
+import { formatDistanceToNow } from "date-fns";
+import { fetchCheckoutFxRate, type FxRateSnapshot } from "@/lib/fxRate";
 
 const Checkout = () => {
   const { items, total, itemCount, updateQuantity, removeItem } = useQuote();
@@ -75,9 +77,13 @@ const Checkout = () => {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
+  const [otpFlowType, setOtpFlowType] = useState<OtpFlowType>('signup');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [resendTimer, setResendTimer] = useState(120);
   const [verifyAttempts, setVerifyAttempts] = useState(0);
+  const [fxRateSnapshot, setFxRateSnapshot] = useState<FxRateSnapshot | null>(null);
+  const [fxRateLoading, setFxRateLoading] = useState(true);
+  const [fxRateError, setFxRateError] = useState<string | null>(null);
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -88,6 +94,37 @@ const Checkout = () => {
     }
     return () => clearInterval(interval);
   }, [isAuthModalOpen, resendTimer]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadFxRate = async () => {
+      try {
+        setFxRateLoading(true);
+        const response = await fetchCheckoutFxRate();
+
+        if (!cancelled) {
+          setFxRateSnapshot(response.fx_rate);
+          setFxRateError(null);
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setFxRateSnapshot(null);
+          setFxRateError(error instanceof Error ? error.message : "Exchange rate is unavailable.");
+        }
+      } finally {
+        if (!cancelled) {
+          setFxRateLoading(false);
+        }
+      }
+    };
+
+    void loadFxRate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Intercept Step 1 -> Step 2
   const handleCustomerInfoSubmit = async (e: React.FormEvent) => {
@@ -110,23 +147,23 @@ const Checkout = () => {
     // Guest Authentication Flow
     try {
       setIsProcessing(true);
-      const { error } = await supabase.auth.signInWithOtp({
+      const flowType = await sendEmailOtp({
         email: customerInfo.email,
-        options: {
-          shouldCreateUser: true,
-          data: {
-            full_name: `${customerInfo.firstName} ${customerInfo.lastName}`.trim(),
-            phone: customerInfo.phone,
-            company_name: customerInfo.company,
-          }
-        }
+        metadata: {
+          full_name: `${customerInfo.firstName} ${customerInfo.lastName}`.trim(),
+          phone: customerInfo.phone,
+          company_name: customerInfo.company,
+        },
       });
 
-      if (error) throw error;
-
+      setOtpFlowType(flowType);
       setResendTimer(120); // Reset timer 2 mins
       setVerifyAttempts(0);
-      toast.success("OTP sent to your email!");
+      toast.success(
+        flowType === 'magiclink'
+          ? "Account found. Enter the 6-digit code sent to your email."
+          : "Verification code sent to your email!"
+      );
       setIsAuthModalOpen(true);
     } catch (error: unknown) {
       toast.error((error instanceof Error && error.message) || "Failed to send OTP");
@@ -136,44 +173,18 @@ const Checkout = () => {
   };
 
   const handleVerifyOtp = async () => {
-    if (otpCode.length < 6 || otpCode.length > 8) {
-      toast.error("Please enter a valid verification code (6-8 digits)");
+    if (otpCode.length !== 6) {
+      toast.error("Please enter the 6-digit verification code");
       return;
     }
 
     try {
       setIsVerifyingOtp(true);
-
-      // Attempt 1: Try as 'signup' (most likely for this flow)
-      let { error } = await supabase.auth.verifyOtp({
+      await verifyEmailOtp({
         email: customerInfo.email,
         token: otpCode,
-        type: 'signup',
+        preferredFlow: otpFlowType,
       });
-
-      // Attempt 2: If failed, try as 'magiclink' (if user implicitly existed)
-      if (error) {
-        console.log('Signup verification failed, trying magiclink...');
-        const retry1 = await supabase.auth.verifyOtp({
-          email: customerInfo.email,
-          token: otpCode,
-          type: 'magiclink',
-        });
-        error = retry1.error;
-      }
-
-      // Attempt 3: If failed, try as generic 'email'
-      if (error) {
-        console.log('Magiclink verification failed, trying generic email...');
-        const retry2 = await supabase.auth.verifyOtp({
-          email: customerInfo.email,
-          token: otpCode,
-          type: 'email',
-        });
-        error = retry2.error;
-      }
-
-      if (error) throw error;
 
       toast.success("Authenticated successfully!");
       try {
@@ -209,12 +220,16 @@ const Checkout = () => {
     try {
       setResendTimer(120);
       setVerifyAttempts(0);
-      const { error } = await supabase.auth.signInWithOtp({
+      const flowType = await sendEmailOtp({
         email: customerInfo.email,
-        options: { shouldCreateUser: true }
+        metadata: {
+          full_name: `${customerInfo.firstName} ${customerInfo.lastName}`.trim(),
+          phone: customerInfo.phone,
+          company_name: customerInfo.company,
+        },
       });
-      if (error) throw error;
-      toast.success("New code sent!");
+      setOtpFlowType(flowType);
+      toast.success("New 6-digit code sent!");
     } catch (error: unknown) {
       toast.error("Failed to resend code: " + ((error instanceof Error && error.message) || "Unknown error"));
     }
@@ -222,7 +237,14 @@ const Checkout = () => {
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (fxRateLoading) {
+      toast.error("Loading the live exchange rate. Please wait a moment and try again.");
+      return;
+    }
+
     setIsProcessing(true);
+    const paymentPopup = preparePaymentPopup();
 
     try {
       // 0. Strict Auth Guard (Auth-Only Checkout)
@@ -288,13 +310,26 @@ const Checkout = () => {
 
       // 2. Redirect to Payment Directly (Consolidated)
       if (payment_link) {
-        toast.success("Redirecting to secure payment...");
-        window.location.href = payment_link;
+        const { usedPopup } = beginHostedPayment({
+          navigate,
+          orderId: order_id,
+          paymentLink: payment_link,
+          popup: paymentPopup,
+        });
+
+        toast.success(
+          usedPopup
+            ? "Payment window opened. You can track status in this page."
+            : "Payment window was blocked. Continue payment from the status page."
+        );
       } else {
         throw new Error("No payment link generated by secure channel.");
       }
 
     } catch (error: unknown) {
+      if (paymentPopup && !paymentPopup.closed) {
+        paymentPopup.close();
+      }
       console.error('Checkout Process Error:', error);
       toast.error((error instanceof Error && error.message) || 'Failed to process checkout');
       setIsProcessing(false);
@@ -573,7 +608,7 @@ const Checkout = () => {
 
                       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
                         <Lock className="h-4 w-4" />
-                        Secure payment processing via Vesicash
+                        Secure payment processing via Vesicash. Exchange rates are based on current market data and may vary before payment is confirmed.
                       </div>
 
                       <div>
@@ -605,7 +640,7 @@ const Checkout = () => {
                         </Button>
                         <Button
                           type="submit"
-                          disabled={isProcessing}
+                          disabled={isProcessing || fxRateLoading}
                           className="w-full sm:flex-1 bg-primary hover:bg-primary-hover"
                         >
                           {isProcessing ? "Creating Order..." : (
@@ -737,18 +772,8 @@ const Checkout = () => {
                     <Separator />
 
                     <div className="flex justify-between font-semibold">
-                      <span>Total</span>
+<span>Total</span>
                       <span className="text-primary">${total.toLocaleString()}</span>
-                    </div>
-
-                    <div className="pt-2">
-                      <div className="flex justify-between text-xs text-muted-foreground italic">
-                        <span>Estimated Total (ZMW)</span>
-                        <span>ZK {(total * EXCHANGE_RATE).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                        * Final amount calculated at current exchange rate (1 USD = {EXCHANGE_RATE} ZMW)
-                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -767,13 +792,13 @@ const Checkout = () => {
             <DialogTitle>Verify Email to Continue</DialogTitle>
             <DialogDescription>
               We've sent a code to <strong>{customerInfo.email}</strong>.
-              Enter it below to secure your order and create your account.
+              Enter the 6-digit code below to continue to payment.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col items-center justify-center space-y-6 py-4">
             <InputOTP
-              maxLength={8}
+              maxLength={6}
               value={otpCode}
               onChange={(value) => setOtpCode(value)}
               disabled={isVerifyingOtp}
@@ -785,15 +810,13 @@ const Checkout = () => {
                 <InputOTPSlot index={3} />
                 <InputOTPSlot index={4} />
                 <InputOTPSlot index={5} />
-                <InputOTPSlot index={6} />
-                <InputOTPSlot index={7} />
               </InputOTPGroup>
             </InputOTP>
 
             <div className="flex flex-col w-full gap-3">
               <Button
                 onClick={handleVerifyOtp}
-                disabled={isVerifyingOtp || otpCode.length < 6 || otpCode.length > 8}
+                disabled={isVerifyingOtp || otpCode.length !== 6}
                 className="w-full"
               >
                 {isVerifyingOtp ? (

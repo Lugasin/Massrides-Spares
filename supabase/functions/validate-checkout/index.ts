@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { loadVesicashConfig } from "../_shared/vesicash.ts";
+import { resolveFxRateSnapshot } from "../_shared/fx-rate.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -39,6 +41,27 @@ function asObject(value: unknown) {
     ? value as Record<string, unknown>
     : {};
 }
+
+type VesicashInitResponse = {
+  status?: string;
+  message?: string;
+  reference?: string;
+  payment_link?: string;
+  checkout_url?: string;
+  link?: string;
+  url?: string;
+  payment_id?: string;
+  data?: {
+    status?: string;
+    message?: string;
+    reference?: string;
+    payment_link?: string;
+    checkout_url?: string;
+    link?: string;
+    url?: string;
+    payment_id?: string;
+  };
+};
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -128,9 +151,19 @@ serve(async (req) => {
          throw { reason: "ORDER_FETCH_FAILED", message: fetchError?.message || "Order not found" };
     }
     
+    const fxRateSnapshot = await resolveFxRateSnapshot(supabaseAdmin, {
+      baseCurrency: "USD",
+      quoteCurrency: "ZMW",
+    }).catch((error) => {
+      throw {
+        reason: "FX_RATE_UNAVAILABLE",
+        message: error instanceof Error ? error.message : "Unable to fetch a live exchange rate.",
+      };
+    });
+
     const totalUSD = Number(order.total_amount ?? 0);
-    const exchangeRate = parseFloat(Deno.env.get("EXCHANGE_RATE") ?? "28.5");
-    const totalZMW = Math.ceil(totalUSD * exchangeRate);
+    const exchangeRate = Number(fxRateSnapshot.rate);
+    const totalZMW = Number((totalUSD * exchangeRate).toFixed(2));
     const reference = `ORD-${order.id}-${Date.now()}`;
 
     const { data: paymentRecord, error: paymentInsertError } = await supabaseAdmin
@@ -139,7 +172,17 @@ serve(async (req) => {
         order_id: order.id,
         provider: "vesicash",
         vesicash_transaction_id: reference,
-        status: "pending"
+        status: "pending",
+        base_currency: "USD",
+        quote_currency: "ZMW",
+        exchange_rate: exchangeRate,
+        fx_rate_provider: fxRateSnapshot.provider,
+        fx_rate_source: fxRateSnapshot.source,
+        fx_rate_fetched_at: fxRateSnapshot.fetched_at,
+        fx_rate_locked_at: new Date().toISOString(),
+        amount_usd: totalUSD,
+        amount_zmw: totalZMW,
+        fx_rate_payload: fxRateSnapshot.payload,
       })
       .select("id")
       .single();
@@ -156,37 +199,43 @@ serve(async (req) => {
       entity_type: "payment",
       entity_id: String(paymentRecord.id),
       amount: totalZMW,
-      metadata: {
-        order_id: order.id,
-        order_number: order.order_number,
-        provider: "vesicash",
-        customer: resolvedCustomer,
-        exchange_rate: exchangeRate,
-        order_amount_usd: totalUSD,
-        payment_amount_zmw: totalZMW,
-        send_receipt: !!send_receipt,
-        reference,
-      },
-    });
+        metadata: {
+          order_id: order.id,
+          order_number: order.order_number,
+          provider: "vesicash",
+          customer: resolvedCustomer,
+          exchange_rate: exchangeRate,
+          fx_rate_source: fxRateSnapshot.source,
+          fx_rate_provider: fxRateSnapshot.provider,
+          fx_rate_fetched_at: fxRateSnapshot.fetched_at,
+          fx_rate_locked_at: new Date().toISOString(),
+          order_amount_usd: totalUSD,
+          payment_amount_zmw: totalZMW,
+          fx_rate_snapshot: fxRateSnapshot,
+          send_receipt: !!send_receipt,
+          reference,
+        },
+      });
 
     let payment_link: string | null = null;
     if (payment_method === "vesicash") {
-      const privateKey = Deno.env.get("VESICASH_SECRET_KEY");
-      const publicKey = Deno.env.get("VESICASH_PUBLIC_KEY");
+      const vesicash = await loadVesicashConfig(supabaseAdmin);
 
-      if (!privateKey || !publicKey) {
+      if (!vesicash.secretKey || !vesicash.publicKey) {
         throw {
           reason: "VESICASH_KEYS_MISSING",
           message: "Payment keys not configured",
         };
       }
 
-      const callbackUrl =
-        (origin ?? "https://massridesspares.netlify.app") +
-        "/checkout/success";
+      const callbackUrl = new URL(
+        "/checkout/success",
+        origin ?? "https://massridesspares.netlify.app",
+      );
+      callbackUrl.searchParams.set("order", String(order.id));
+      callbackUrl.searchParams.set("popup", "1");
 
-      const webhookUrl =
-        "https://ocfljbhgssymtbjsunfr.supabase.co/functions/v1/handle-vesicash-webhook";
+      const webhookUrl = vesicash.paymentWebhookUrl;
 
       const vesicashPayload = {
         currency: "ZMW",
@@ -195,7 +244,7 @@ serve(async (req) => {
         method: "mobilemoney",
         amount: totalZMW,
         webhook_url: webhookUrl,
-        redirect_url: callbackUrl,
+        redirect_url: callbackUrl.toString(),
         email: resolvedCustomer.email,
         phone_number: resolvedCustomer.phone || undefined,
         first_name: resolvedCustomer.first_name || undefined,
@@ -225,24 +274,37 @@ serve(async (req) => {
       };
 
       const vesicashRes = await fetch(
-        "https://api.mor.vesicash.com/v1/payment/init",  // ✅ Correct endpoint
+        `${vesicash.apiBaseUrl}/payment/init`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "secret-key": privateKey,  // ✅ Changed from "v-private-key"
-            "public-key": publicKey,   // ✅ Changed from "v-public-key"
+            "secret-key": vesicash.secretKey,
+            "public-key": vesicash.publicKey,
           },
           body: JSON.stringify(vesicashPayload),
         }
       );
 
-      const vData = await vesicashRes.json();
+      const vData: VesicashInitResponse = await vesicashRes.json();
+      const providerStatus = String(vData.status ?? vData.data?.status ?? "").trim().toLowerCase();
+      const paymentLinkCandidate =
+        vData.data?.payment_link ??
+        vData.data?.checkout_url ??
+        vData.data?.link ??
+        vData.data?.url ??
+        vData.payment_link ??
+        vData.checkout_url ??
+        vData.link ??
+        vData.url ??
+        null;
 
       console.log("Vesicash Response Status:", vesicashRes.status);
       console.log("Vesicash Response:", JSON.stringify(vData, null, 2));
 
-      if (!vesicashRes.ok || vData.status !== "success") {
+      const failureStatuses = new Set(["failed", "error", "declined", "rejected", "cancelled", "canceled", "expired"]);
+
+      if (!vesicashRes.ok || failureStatuses.has(providerStatus)) {
         await supabaseAdmin
           .from("payments")
           .update({ status: "failed" })
@@ -268,16 +330,29 @@ serve(async (req) => {
         };
       }
 
-      payment_link = vData.data?.payment_link ?? null;
-      const providerReference = vData.data?.reference || reference;
+      payment_link = String(paymentLinkCandidate ?? "").trim() || null;
+      if (!payment_link) {
+        throw {
+          reason: "VESICASH_NO_PAYMENT_LINK",
+          message: "Payment initialization succeeded but no payment link was returned.",
+        };
+      }
+
+      const providerReference = vData.data?.reference || vData.reference || reference;
+      const normalizedInitStatus =
+        providerStatus === "processing"
+          ? "processing"
+          : providerStatus === "authorised" || providerStatus === "authorized"
+            ? "authorised"
+            : "pending";
 
       // Optional: Store the payment reference
       await supabaseAdmin
         .from("payments")
         .update({
           vesicash_transaction_id: providerReference,
-          vesicash_payment_id: vData.data?.payment_id,
-          status: "pending",
+          vesicash_payment_id: vData.data?.payment_id || vData.payment_id,
+          status: normalizedInitStatus,
         })
         .eq("id", paymentRecord.id);
 
@@ -290,8 +365,9 @@ serve(async (req) => {
           order_id: order.id,
           provider: "vesicash",
           reference: providerReference,
-          payment_id: vData.data?.payment_id ?? null,
+          payment_id: vData.data?.payment_id ?? vData.payment_id ?? null,
           customer: resolvedCustomer,
+          fx_rate_snapshot: fxRateSnapshot,
         },
       });
     }
@@ -300,6 +376,8 @@ serve(async (req) => {
       JSON.stringify({
         order_id: order.id,
         total: totalUSD,
+        fx_rate: fxRateSnapshot,
+        payment_amount_zmw: totalZMW,
         payment_link,
         message: "Checkout initialized",
       }),

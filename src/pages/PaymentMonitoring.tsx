@@ -1,84 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  CreditCard,
-  Search,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Clock,
-  DollarSign,
-  AlertTriangle,
-  Eye,
-  Settings,
-  Download,
-  TrendingUp,
-  Activity
-} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
 import { VesicashPaymentMonitoringView } from '@/components/admin/VesicashPaymentMonitoring';
-
-interface TJTransaction {
-  id: string;
-  order_id: string;
-  transaction_id: string;
-  event_type: string;
-  amount: number;
-  currency: string;
-  status: string;
-  webhook_data: any;
-  processed_at: string;
-  created_at: string;
-  order?: {
-    // order_number removed, use id if needed
-    total_amount: number;
-    status: string;
-    payment_status: string;
-    user_id: string;
-  };
-}
-
-interface Order {
-  id: string;
-  order_number: string;
-  status: string;
-  payment_status: string;
-  total_amount: number;
-  tj: any;
-  created_at: string;
-  user_profile?: {
-    full_name: string;
-    email: string;
-  };
-}
-
-interface PaymentMetrics {
-  totalTransactions: number;
-  successfulPayments: number;
-  failedPayments: number;
-  pendingPayments: number;
-  totalRevenue: number;
-  averageOrderValue: number;
-}
+import { CreditCard } from 'lucide-react';
 
 const PaymentMonitoring = () => {
   const { user, profile, userRole } = useAuth();
+  const layoutRole = userRole === 'super_admin' ? 'super_admin' : 'admin';
 
   if (userRole !== 'admin' && userRole !== 'super_admin') {
     return (
-      <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
+      <DashboardLayout userRole={layoutRole} userName={profile?.full_name || user?.email || 'User'}>
         <div className="p-6 text-center">
           <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold mb-2">Admin Access Required</h2>
@@ -89,11 +21,12 @@ const PaymentMonitoring = () => {
   }
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Admin'}>
+    <DashboardLayout userRole={layoutRole} userName={profile?.full_name || user?.email || 'Admin'}>
       <VesicashPaymentMonitoringView />
     </DashboardLayout>
   );
-
+};
+  /*
   const [transactions, setTransactions] = useState<TJTransaction[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<PaymentMetrics>({
@@ -349,7 +282,7 @@ const PaymentMonitoring = () => {
           </div>
         </div>
 
-        {/* Payment Metrics */}
+        // Payment Metrics
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
@@ -652,7 +585,7 @@ const PaymentMonitoring = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Transaction Details Modal */}
+        // Transaction Details Modal
         {selectedTransaction && (
           <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
             <DialogContent className="max-w-2xl">
@@ -690,7 +623,7 @@ const PaymentMonitoring = () => {
           </Dialog>
         )}
 
-        {/* Settlement Dialog */}
+        // Settlement Dialog
         <Dialog open={settlementDialog.isOpen} onOpenChange={(open) =>
           setSettlementDialog(prev => ({ ...prev, isOpen: open }))
         }>
@@ -744,5 +677,7 @@ const PaymentMonitoring = () => {
     </DashboardLayout>
   );
 };
+
+  */
 
 export default PaymentMonitoring;

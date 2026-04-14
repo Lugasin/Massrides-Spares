@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Product } from "@/data/products"; // Import Product interface
 import { useQuote } from "@/context/QuoteContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { toast } from "sonner";
 import { Link } from "react-router-dom"; // Import Link
 
@@ -30,6 +31,7 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
   const [activeCategory, setActiveCategory] = useState("All");
   const [favorites, setFavorites] = useState<number[]>([]);
   const { addItem } = useQuote();
+  const { formatPrice } = useCurrency();
 
   // Filter products based on active category (use the products prop)
   const filteredProducts = products.filter(
@@ -205,7 +207,7 @@ export const ProductShowcase = ({ products }: ProductShowcaseProps) => { // Rece
                     {/* Price */}
                     <div className="flex items-center gap-2 mb-4">
                       <span className="text-lg lg:text-2xl font-bold text-primary">
-                        ${product.price.toLocaleString()}
+                        {formatPrice(product.price)}
                       </span>
                     </div>
                   </CardContent>

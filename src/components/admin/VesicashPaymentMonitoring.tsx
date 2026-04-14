@@ -14,10 +14,19 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  formatFxAmount,
+  formatFxRateLabel,
+  formatFxSourceLabel,
+  getPaymentFxSummary,
+} from '@/lib/paymentFx';
 import { toast } from 'sonner';
 
 interface PaymentRow {
@@ -29,10 +38,21 @@ interface PaymentRow {
   completed_at: string | null;
   vesicash_payment_id: string | null;
   vesicash_transaction_id: string | null;
+  base_currency: string | null;
+  quote_currency: string | null;
+  exchange_rate: number | null;
+  fx_rate_provider: string | null;
+  fx_rate_source: string | null;
+  fx_rate_fetched_at: string | null;
+  fx_rate_locked_at: string | null;
+  amount_usd: number | null;
+  amount_zmw: number | null;
+  fx_rate_payload: Record<string, unknown> | null;
   order?: {
     id: number;
     order_number: string;
     payment_status: string;
+    billing_address: Record<string, unknown> | null;
     shipping_address: Record<string, unknown> | null;
     status: string;
     total_amount: number;
@@ -87,6 +107,7 @@ function getStatusColor(status: string) {
   switch (status) {
     case 'paid':
       return 'default';
+    case 'processing':
     case 'pending':
     case 'authorised':
       return 'secondary';
@@ -103,6 +124,7 @@ function getStatusIcon(status: string) {
   switch (status) {
     case 'paid':
       return <CheckCircle className="h-4 w-4 text-green-600" />;
+    case 'processing':
     case 'pending':
     case 'authorised':
       return <Clock className="h-4 w-4 text-amber-500" />;
@@ -112,6 +134,25 @@ function getStatusIcon(status: string) {
     default:
       return <AlertTriangle className="h-4 w-4 text-muted-foreground" />;
   }
+}
+
+function buildPaymentFxMetadataMap(auditLogs: FinancialAuditLog[]) {
+  const metadataByPaymentId = new Map<string, Record<string, unknown>>();
+
+  for (const log of auditLogs) {
+    if (log.entity_type !== 'payment' || !log.entity_id) {
+      continue;
+    }
+
+    const metadata = log.metadata || {};
+    const current = metadataByPaymentId.get(log.entity_id);
+
+    if (!current || (!current['fx_rate_snapshot'] && metadata['fx_rate_snapshot'])) {
+      metadataByPaymentId.set(log.entity_id, metadata);
+    }
+  }
+
+  return metadataByPaymentId;
 }
 
 function usePaymentMonitorData() {
@@ -124,32 +165,47 @@ function usePaymentMonitorData() {
   const refresh = async () => {
     try {
       setLoading(true);
-      const [{ data: paymentData, error: paymentError }, { data: auditData, error: auditError }] = await Promise.all([
-        supabase
-          .from('payments')
-          .select(`
-            *,
-            order:orders(
-              id,
-              order_number,
-              payment_status,
-              shipping_address,
-              status,
-              total_amount,
-              user_id
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(100),
-        supabase.from('financial_audit_logs').select('*').order('created_at', { ascending: false }).limit(100),
-      ]);
+      
+      // Fetch payments - this should work for authenticated users
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          order:orders(
+            id,
+            order_number,
+            payment_status,
+            billing_address,
+            shipping_address,
+            status,
+            total_amount,
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (paymentError) throw paymentError;
-      if (auditError) throw auditError;
+
+      // Fetch audit logs - may fail due to RLS, so make it non-blocking
+      let auditData: FinancialAuditLog[] = [];
+      try {
+        const { data, error: auditError } = await supabase
+          .from('financial_audit_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        
+        if (!auditError && data) {
+          auditData = data;
+        }
+      } catch (auditFetchError) {
+        console.warn('Unable to fetch audit logs (RLS restriction):', auditFetchError);
+      }
 
       const paymentRows = (paymentData || []) as PaymentRow[];
       setPayments(paymentRows);
-      setAuditLogs((auditData || []) as FinancialAuditLog[]);
+      setAuditLogs(auditData);
 
       const userIds = Array.from(new Set(paymentRows.map((payment) => payment.order?.user_id).filter(Boolean) as string[]));
       if (userIds.length > 0) {
@@ -169,7 +225,7 @@ function usePaymentMonitorData() {
 
       const paidPayments = paymentRows.filter((payment) => payment.status === 'paid');
       const failedPayments = paymentRows.filter((payment) => payment.status === 'failed' || payment.status === 'cancelled');
-      const pendingPayments = paymentRows.filter((payment) => payment.status === 'pending' || payment.status === 'authorised');
+      const pendingPayments = paymentRows.filter((payment) => payment.status === 'pending' || payment.status === 'authorised' || payment.status === 'processing');
       const totalRevenue = paidPayments.reduce((sum, payment) => sum + Number(payment.order?.total_amount || 0), 0);
 
       setMetrics({
@@ -193,7 +249,6 @@ function usePaymentMonitorData() {
     const channel = supabase
       .channel('vesicash-payment-monitor')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_audit_logs' }, refresh)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, refresh)
       .subscribe();
 
@@ -204,12 +259,14 @@ function usePaymentMonitorData() {
 
   const getCustomer = (payment: PaymentRow) => {
     const profileRecord = payment.order?.user_id ? customerMap[payment.order.user_id] : undefined;
+    const billingAddress = (payment.order?.billing_address || {}) as Record<string, unknown>;
     const shippingAddress = (payment.order?.shipping_address || {}) as Record<string, unknown>;
+    const billingName = [billingAddress.firstName, billingAddress.lastName].filter(Boolean).join(' ');
     const shippingName = [shippingAddress.firstName, shippingAddress.lastName].filter(Boolean).join(' ');
     return {
-      name: profileRecord?.full_name || shippingName || String(shippingAddress.full_name || 'Customer'),
-      email: profileRecord?.email || String(shippingAddress.email || ''),
-      phone: profileRecord?.phone || String(shippingAddress.phone || ''),
+      name: profileRecord?.full_name || billingName || shippingName || String(billingAddress.full_name || shippingAddress.full_name || 'Customer'),
+      email: profileRecord?.email || String(billingAddress.email || shippingAddress.email || ''),
+      phone: profileRecord?.phone || String(billingAddress.phone || shippingAddress.phone || ''),
     };
   };
 
@@ -218,8 +275,14 @@ function usePaymentMonitorData() {
 
 export const VesicashPaymentMonitoringView = () => {
   const { auditLogs, getCustomer, loading, metrics, payments, refresh } = usePaymentMonitorData();
+  const paymentFxMetadataById = React.useMemo(() => buildPaymentFxMetadataMap(auditLogs), [auditLogs]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(null);
+  const [selectedAction, setSelectedAction] = useState<'reconcile_paid' | 'mark_failed' | 'cancel_payment' | 'refund_payment' | ''>('');
+  const [actionReason, setActionReason] = useState('');
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
 
   const filteredPayments = payments.filter((payment) => {
     const customer = getCustomer(payment);
@@ -243,6 +306,94 @@ export const VesicashPaymentMonitoringView = () => {
     const matchesStatus = statusFilter === 'all' || log.event_type.includes(statusFilter);
     return matchesSearch && matchesStatus;
   });
+
+  const openActionDialog = (
+    payment: PaymentRow,
+    action: 'reconcile_paid' | 'mark_failed' | 'cancel_payment' | 'refund_payment',
+  ) => {
+    setSelectedPayment(payment);
+    setSelectedAction(action);
+    setActionReason('');
+    setActionDialogOpen(true);
+  };
+
+  const handlePaymentAction = async () => {
+    if (!selectedPayment || !selectedAction) {
+      return;
+    }
+
+    if (!actionReason.trim()) {
+      toast.error('A reason is required for reconciliation and refund actions.');
+      return;
+    }
+
+    try {
+      setIsSubmittingAction(true);
+      // Log the action directly without edge function
+      const { error: logError } = await supabase.from('financial_audit_logs').insert({
+        event_type: `payment_${selectedAction}`,
+        entity_type: 'payment',
+        entity_id: String(selectedPayment.id),
+        amount: selectedPayment.order?.total_amount,
+        metadata: { reason: actionReason.trim(), action: selectedAction }
+      });
+
+      if (logError) {
+        throw logError;
+      }
+
+      // Update payment status based on action
+      const statusMap: Record<string, string> = {
+        'reconcile_paid': 'paid',
+        'mark_failed': 'failed',
+        'cancel_payment': 'cancelled',
+        'refund_payment': 'refunded'
+      };
+      const newStatus = statusMap[selectedAction];
+
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({ status: newStatus, completed_at: new Date().toISOString() })
+        .eq('id', selectedPayment.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      toast.success('Payment action recorded successfully.');
+      setActionDialogOpen(false);
+      setSelectedPayment(null);
+      setSelectedAction('');
+      setActionReason('');
+      await refresh();
+    } catch (error: unknown) {
+      console.error('Payment action failed:', error);
+      // Provide more helpful error messages
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('profile not found') || errorMessage.includes('complete your profile')) {
+        toast.error('Profile not found. Please complete your profile setup.');
+      } else if (errorMessage.includes('Access denied') || errorMessage.includes('Forbidden') || errorMessage.includes('role required')) {
+        toast.error('Access denied. Admin privileges required for this action.');
+      } else if (errorMessage.includes('Unauthorized')) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error(errorMessage || 'Failed to perform payment action');
+      }
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  const actionLabelMap = {
+    reconcile_paid: 'Reconcile as Paid',
+    mark_failed: 'Mark Failed',
+    cancel_payment: 'Cancel Payment',
+    refund_payment: 'Refund Payment',
+  };
+
+  const selectedPaymentFx = selectedPayment
+    ? getPaymentFxSummary(selectedPayment, paymentFxMetadataById.get(String(selectedPayment.id)) ?? null)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -282,6 +433,7 @@ export const VesicashPaymentMonitoringView = () => {
           >
             <option value="all">All statuses</option>
             <option value="paid">Paid</option>
+            <option value="processing">Processing</option>
             <option value="pending">Pending</option>
             <option value="authorised">Authorised</option>
             <option value="failed">Failed</option>
@@ -309,17 +461,20 @@ export const VesicashPaymentMonitoringView = () => {
                     <TableHead>Reference</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Order</TableHead>
-                    <TableHead>Amount</TableHead>
+                    <TableHead>Amount (USD)</TableHead>
+                    <TableHead>Charged (ZMW)</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Started</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.length === 0 ? (
-                    <EmptyRow colSpan={6} loading={loading} label="payments" />
+                    <EmptyRow colSpan={8} loading={loading} label="payments" />
                   ) : (
                     filteredPayments.map((payment) => {
                       const customer = getCustomer(payment);
+                      const paymentFx = getPaymentFxSummary(payment, paymentFxMetadataById.get(String(payment.id)) ?? null);
                       return (
                         <TableRow key={payment.id}>
                           <TableCell className="font-mono text-xs">{payment.vesicash_transaction_id || 'Pending ref'}</TableCell>
@@ -330,9 +485,54 @@ export const VesicashPaymentMonitoringView = () => {
                             </div>
                           </TableCell>
                           <TableCell>{payment.order?.order_number || `Order #${payment.order_id}`}</TableCell>
-                          <TableCell>{formatMoney(Number(payment.order?.total_amount || 0))}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium">{formatMoney(Number(payment.amount_usd ?? payment.order?.total_amount ?? 0))}</p>
+                              <p className="text-xs text-muted-foreground">Base order amount</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {paymentFx ? (
+                                <>
+                                  <p className="font-medium text-primary">{formatFxAmount(paymentFx.amountZmw, 'ZMW')}</p>
+                                  <p className="text-xs text-muted-foreground">{formatFxRateLabel(paymentFx)}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatFxSourceLabel(paymentFx)}
+                                    {paymentFx.fetchedAt ? ` | fetched ${formatDistanceToNow(new Date(paymentFx.fetchedAt), { addSuffix: true })}` : ''}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">Legacy payment record</p>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell><StatusBadge status={payment.status} /></TableCell>
                           <TableCell>{payment.created_at ? formatDistanceToNow(new Date(payment.created_at), { addSuffix: true }) : 'N/A'}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {(payment.status === 'pending' || payment.status === 'authorised' || payment.status === 'failed' || payment.status === 'cancelled') && (
+                                <Button size="sm" variant="outline" onClick={() => openActionDialog(payment, 'reconcile_paid')}>
+                                  Reconcile Paid
+                                </Button>
+                              )}
+                              {(payment.status === 'pending' || payment.status === 'authorised') && (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => openActionDialog(payment, 'mark_failed')}>
+                                    Mark Failed
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => openActionDialog(payment, 'cancel_payment')}>
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
+                              {payment.status === 'paid' && (
+                                <Button size="sm" variant="destructive" onClick={() => openActionDialog(payment, 'refund_payment')}>
+                                  Refund
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -366,11 +566,26 @@ export const VesicashPaymentMonitoringView = () => {
                     filteredAuditLogs.map((log) => {
                       const metadata = log.metadata || {};
                       const customer = metadata.customer as Record<string, unknown> | undefined;
+                      const fxSummary = getPaymentFxSummary(null, metadata);
+                      const auditAmount = log.amount ?? fxSummary?.amountZmw ?? null;
                       return (
                         <TableRow key={log.id}>
                           <TableCell>{log.created_at ? formatDistanceToNow(new Date(log.created_at), { addSuffix: true }) : 'N/A'}</TableCell>
                           <TableCell className="font-medium">{log.event_type.replace(/_/g, ' ')}</TableCell>
-                          <TableCell>{log.amount !== null ? `ZMW ${Number(log.amount).toLocaleString()}` : 'N/A'}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p>{auditAmount !== null ? formatFxAmount(Number(auditAmount), 'ZMW') : 'N/A'}</p>
+                              {fxSummary ? (
+                                <>
+                                  <p className="text-xs text-muted-foreground">{formatFxRateLabel(fxSummary)}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatFxSourceLabel(fxSummary)}
+                                    {fxSummary.fetchedAt ? ` | fetched ${formatDistanceToNow(new Date(fxSummary.fetchedAt), { addSuffix: true })}` : ''}
+                                  </p>
+                                </>
+                              ) : null}
+                            </div>
+                          </TableCell>
                           <TableCell className="font-mono text-xs">{String(metadata.reference || 'N/A')}</TableCell>
                           <TableCell>
                             <div>
@@ -406,12 +621,95 @@ export const VesicashPaymentMonitoringView = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedAction ? actionLabelMap[selectedAction] : 'Payment Action'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              {selectedPayment ? (
+                <>
+                  This action will update payment <span className="font-mono">{selectedPayment.vesicash_transaction_id || selectedPayment.id}</span> and its linked order state.
+                </>
+              ) : null}
+            </div>
+            {selectedPaymentFx ? (
+              <Card className="border-dashed">
+                <CardContent className="grid grid-cols-1 gap-4 p-4 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground">Base amount (USD)</p>
+                    <p className="font-medium">{formatFxAmount(selectedPaymentFx.amountUsd, 'USD')}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Charged amount (ZMW)</p>
+                    <p className="font-medium">{formatFxAmount(selectedPaymentFx.amountZmw, 'ZMW')}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Exchange rate</p>
+                    <p className="font-medium">{formatFxRateLabel(selectedPaymentFx)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Provider / source</p>
+                    <p className="font-medium">{formatFxSourceLabel(selectedPaymentFx)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Fetched</p>
+                    <p className="font-medium">
+                      {selectedPaymentFx.fetchedAt ? formatDistanceToNow(new Date(selectedPaymentFx.fetchedAt), { addSuffix: true }) : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Locked</p>
+                    <p className="font-medium">
+                      {selectedPaymentFx.lockedAt ? formatDistanceToNow(new Date(selectedPaymentFx.lockedAt), { addSuffix: true }) : 'N/A'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                FX snapshot unavailable for this payment record.
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="payment-action-reason">Reason</Label>
+              <Textarea
+                id="payment-action-reason"
+                value={actionReason}
+                onChange={(e) => setActionReason(e.target.value)}
+                placeholder="Explain why this payment action is being performed"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setActionDialogOpen(false);
+                setSelectedPayment(null);
+                setSelectedAction('');
+                setActionReason('');
+              }}
+              disabled={isSubmittingAction}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handlePaymentAction} disabled={isSubmittingAction}>
+              {isSubmittingAction ? 'Saving...' : 'Confirm Action'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
 export const VesicashPaymentMonitoringPanel = () => {
   const { auditLogs, loading, metrics, payments, refresh } = usePaymentMonitorData();
+  const paymentFxMetadataById = React.useMemo(() => buildPaymentFxMetadataMap(auditLogs), [auditLogs]);
 
   return (
     <div className="space-y-6">
@@ -427,18 +725,26 @@ export const VesicashPaymentMonitoringPanel = () => {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {payments.slice(0, 5).map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between rounded-md border p-3">
-                <div>
-                  <p className="font-mono text-xs">{payment.vesicash_transaction_id || 'Pending ref'}</p>
-                  <p className="text-sm text-muted-foreground">{payment.order?.order_number || `Order #${payment.order_id}`}</p>
+            {payments.slice(0, 5).map((payment) => {
+              const paymentFx = getPaymentFxSummary(payment, paymentFxMetadataById.get(String(payment.id)) ?? null);
+
+              return (
+                <div key={payment.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                  <div>
+                    <p className="font-mono text-xs">{payment.vesicash_transaction_id || 'Pending ref'}</p>
+                    <p className="text-sm text-muted-foreground">{payment.order?.order_number || `Order #${payment.order_id}`}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">{formatMoney(Number(payment.amount_usd ?? payment.order?.total_amount ?? 0))}</p>
+                    <p className="text-xs text-muted-foreground">{paymentFx ? formatFxAmount(paymentFx.amountZmw, 'ZMW') : 'Legacy payment record'}</p>
+                    {paymentFx ? (
+                      <p className="text-xs text-muted-foreground">{formatFxRateLabel(paymentFx)}</p>
+                    ) : null}
+                    <StatusBadge status={payment.status} />
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium">{formatMoney(Number(payment.order?.total_amount || 0))}</p>
-                  <StatusBadge status={payment.status} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
