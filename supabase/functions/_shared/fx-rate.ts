@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-export type FxRateSource = "live" | "cache";
+export type FxRateSource = "live" | "manual" | "cache";
 
 export interface FxRateSnapshot {
   base_currency: string;
@@ -18,17 +18,6 @@ export interface FxRateSnapshot {
   payload: Record<string, unknown>;
 }
 
-interface StoredFxRateRow {
-  base_currency: string;
-  quote_currency: string;
-  provider: string;
-  rate: number;
-  rate_date: string | null;
-  fetched_at: string;
-  expires_at: string | null;
-  source_payload: Record<string, unknown> | null;
-}
-
 interface ProviderRateResult {
   provider: string;
   rate: number;
@@ -39,8 +28,6 @@ interface ProviderRateResult {
 
 const DEFAULT_BASE_CURRENCY = "USD";
 const DEFAULT_QUOTE_CURRENCY = "ZMW";
-const CACHE_TTL_MINUTES = Math.max(5, Number(Deno.env.get("FX_RATE_CACHE_TTL_MINUTES") ?? "15"));
-const CACHE_TTL_MS = CACHE_TTL_MINUTES * 60 * 1000;
 
 function asRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -55,41 +42,12 @@ function toIsoString(value: string | number | Date | null | undefined) {
   if (!value) {
     return null;
   }
-
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function roundRate(rate: number) {
   return Number(rate.toFixed(8));
-}
-
-function buildSnapshot(args: {
-  baseCurrency: string;
-  quoteCurrency: string;
-  providerRate: ProviderRateResult;
-  source: FxRateSource;
-  fallbackUsed: boolean;
-  staleCacheUsed: boolean;
-  fetchedAt: string;
-  cacheExpiresAt: string | null;
-  cacheAgeMinutes: number | null;
-}): FxRateSnapshot {
-  return {
-    base_currency: args.baseCurrency,
-    quote_currency: args.quoteCurrency,
-    rate: roundRate(args.providerRate.rate),
-    provider: args.providerRate.provider,
-    source: args.source,
-    fetched_at: args.fetchedAt,
-    provider_timestamp: args.providerRate.providerTimestamp,
-    rate_date: args.providerRate.rateDate,
-    fallback_used: args.fallbackUsed,
-    stale_cache_used: args.staleCacheUsed,
-    cache_expires_at: args.cacheExpiresAt,
-    cache_age_minutes: args.cacheAgeMinutes,
-    payload: args.providerRate.payload,
-  };
 }
 
 async function fetchFrankfurterRate(baseCurrency: string, quoteCurrency: string): Promise<ProviderRateResult> {
@@ -166,48 +124,6 @@ async function fetchLiveProviderRate(baseCurrency: string, quoteCurrency: string
   throw new Error(`Unable to fetch live FX rate. ${providerErrors.join(" | ")}`);
 }
 
-async function getCachedFxRate(
-  supabaseAdmin: SupabaseClient,
-  baseCurrency: string,
-  quoteCurrency: string,
-) {
-  const { data, error } = await supabaseAdmin
-    .from("fx_rates")
-    .select("base_currency, quote_currency, provider, rate, rate_date, fetched_at, expires_at, source_payload")
-    .eq("base_currency", baseCurrency)
-    .eq("quote_currency", quoteCurrency)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data as StoredFxRateRow | null) ?? null;
-}
-
-async function upsertFxRateCache(
-  supabaseAdmin: SupabaseClient,
-  snapshot: FxRateSnapshot,
-) {
-  const { error } = await supabaseAdmin
-    .from("fx_rates")
-    .upsert({
-      base_currency: snapshot.base_currency,
-      quote_currency: snapshot.quote_currency,
-      provider: snapshot.provider,
-      rate: snapshot.rate,
-      rate_date: snapshot.rate_date,
-      fetched_at: snapshot.fetched_at,
-      expires_at: snapshot.cache_expires_at,
-      source_payload: snapshot.payload,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "base_currency,quote_currency" });
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function resolveFxRateSnapshot(
   supabaseAdmin: SupabaseClient,
   options?: {
@@ -218,84 +134,59 @@ export async function resolveFxRateSnapshot(
   const baseCurrency = normalizeCurrencyCode(options?.baseCurrency, DEFAULT_BASE_CURRENCY);
   const quoteCurrency = normalizeCurrencyCode(options?.quoteCurrency, DEFAULT_QUOTE_CURRENCY);
   const now = new Date();
-  const cachedRate = await getCachedFxRate(supabaseAdmin, baseCurrency, quoteCurrency);
 
-  if (cachedRate) {
-    const cachedExpiresAt = cachedRate.expires_at ? new Date(cachedRate.expires_at) : null;
-    const cachedFetchedAt = new Date(cachedRate.fetched_at);
-    const cacheAgeMinutes = Number.isNaN(cachedFetchedAt.getTime())
-      ? null
-      : Math.max(0, Math.round((now.getTime() - cachedFetchedAt.getTime()) / 60000));
+  // 1. Check system_settings for manual rate and auto_fetch preference
+  const { data: settingsData, error: settingsError } = await supabaseAdmin
+    .from("system_settings")
+    .select("value")
+    .eq("key", "currency")
+    .maybeSingle();
 
-    if (cachedExpiresAt && cachedExpiresAt.getTime() > now.getTime()) {
-      return buildSnapshot({
-        baseCurrency,
-        quoteCurrency,
-        providerRate: {
-          provider: cachedRate.provider,
-          rate: Number(cachedRate.rate),
-          providerTimestamp: toIsoString(cachedRate.fetched_at),
-          rateDate: cachedRate.rate_date,
-          payload: asRecord(cachedRate.source_payload),
-        },
-        source: "cache",
-        fallbackUsed: true,
-        staleCacheUsed: false,
-        fetchedAt: cachedRate.fetched_at,
-        cacheExpiresAt: cachedRate.expires_at,
-        cacheAgeMinutes,
-      });
+  if (settingsError) {
+      console.error("Error fetching system_settings:", settingsError);
+  }
+
+  const currencySettings = asRecord(settingsData?.value);
+  const autoFetch = !!currencySettings.auto_fetch;
+  const manualRate = Number(currencySettings.exchange_rate ?? 28);
+
+  // If autoFetch is enabled, try live providers
+  if (autoFetch) {
+    try {
+      const liveRate = await fetchLiveProviderRate(baseCurrency, quoteCurrency);
+      return {
+        base_currency: baseCurrency,
+        quote_currency: quoteCurrency,
+        rate: roundRate(liveRate.rate),
+        provider: liveRate.provider,
+        source: "live",
+        fetched_at: now.toISOString(),
+        provider_timestamp: liveRate.providerTimestamp,
+        rate_date: liveRate.rateDate,
+        fallback_used: false,
+        stale_cache_used: false,
+        cache_expires_at: null,
+        cache_age_minutes: 0,
+        payload: liveRate.payload,
+      };
+    } catch (liveError) {
+      console.error("Live FX fetch failed, falling back to manual rate:", liveError);
+      // Fall through to manual rate
     }
   }
 
-  try {
-    const liveRate = await fetchLiveProviderRate(baseCurrency, quoteCurrency);
-    const fetchedAt = now.toISOString();
-    const cacheExpiresAt = new Date(now.getTime() + CACHE_TTL_MS).toISOString();
-    const snapshot = buildSnapshot({
-      baseCurrency,
-      quoteCurrency,
-      providerRate: liveRate,
-      source: "live",
-      fallbackUsed: false,
-      staleCacheUsed: false,
-      fetchedAt,
-      cacheExpiresAt,
-      cacheAgeMinutes: 0,
-    });
-
-    await upsertFxRateCache(supabaseAdmin, snapshot);
-    return snapshot;
-  } catch (liveError) {
-    if (cachedRate) {
-      const cachedFetchedAt = new Date(cachedRate.fetched_at);
-      const cacheAgeMinutes = Number.isNaN(cachedFetchedAt.getTime())
-        ? null
-        : Math.max(0, Math.round((now.getTime() - cachedFetchedAt.getTime()) / 60000));
-
-      return buildSnapshot({
-        baseCurrency,
-        quoteCurrency,
-        providerRate: {
-          provider: cachedRate.provider,
-          rate: Number(cachedRate.rate),
-          providerTimestamp: toIsoString(cachedRate.fetched_at),
-          rateDate: cachedRate.rate_date,
-          payload: asRecord(cachedRate.source_payload),
-        },
-        source: "cache",
-        fallbackUsed: true,
-        staleCacheUsed: true,
-        fetchedAt: cachedRate.fetched_at,
-        cacheExpiresAt: cachedRate.expires_at,
-        cacheAgeMinutes,
-      });
-    }
-
-    throw new Error(
-      liveError instanceof Error
-        ? liveError.message
-        : "Unable to fetch live FX rate and no cached rate exists.",
-    );
-  }
+  // Fallback or explicit manual rate
+  return {
+    base_currency: baseCurrency,
+    quote_currency: quoteCurrency,
+    rate: roundRate(manualRate),
+    provider: "system_settings",
+    source: "manual",
+    fetched_at: now.toISOString(),
+    fallback_used: autoFetch, // true if it was a fallback from failed live attempt
+    stale_cache_used: false,
+    cache_expires_at: null,
+    cache_age_minutes: null,
+    payload: currencySettings,
+  };
 }

@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { useSettings } from '@/hooks/useSettings';
 import { formatCurrencyAmount, Currency, convertCurrency } from '@/lib/currencyUtils';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CurrencyContextType {
   currency: Currency;
   exchangeRate: number;
+  autoFetch: boolean;
   setCurrency: (currency: Currency) => void;
   formatPrice: (amount: number) => string;
   convertPrice: (amount: number, targetCurrency?: Currency) => number;
+  refreshSettings: () => Promise<void>;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -19,61 +20,75 @@ const DEFAULT_RATE = 28;
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { settings, updateSetting } = useSettings();
-  const [currency, setCurrencyState] = useState<Currency>(
-    (settings?.currency as Currency) || 'USD'
-  );
+  const [currency, setCurrencyState] = useState<Currency>('USD');
   const [exchangeRate, setExchangeRate] = useState<number>(DEFAULT_RATE);
+  const [autoFetch, setAutoFetch] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch exchange rate from database or API
-  useEffect(() => {
-    const fetchExchangeRate = async () => {
-      try {
-        // Use edge function which has proper access - this avoids RLS issues
-        const { data, error } = await supabase.functions.invoke('get-fx-rate', {
-          body: { base_currency: 'USD', quote_currency: 'ZMW' }
-        });
+  const fetchSettings = async () => {
+    try {
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'currency')
+        .maybeSingle();
 
-        if (!error && data?.fx_rate?.rate) {
-          setExchangeRate(data.fx_rate.rate);
-        } else {
-          // Fallback to default rate
-          setExchangeRate(DEFAULT_RATE);
-        }
-      } catch {
-        // Use default rate on error
-        setExchangeRate(DEFAULT_RATE);
-      } finally {
-        setLoading(false);
+      if (!settingsError && settingsData?.value) {
+        const val = settingsData.value as any;
+        setExchangeRate(val.exchange_rate || DEFAULT_RATE);
+        setAutoFetch(!!val.auto_fetch);
+        // We could also set the default primary currency here if needed
       }
-    };
 
-    fetchExchangeRate();
+      // If autoFetch is on, we might want to get the latest live rate
+      const { data, error } = await supabase.functions.invoke('get-fx-rate', {
+        body: { base_currency: 'USD', quote_currency: 'ZMW' }
+      });
 
-    // Note: Real-time FX rate updates disabled due to RLS on fx_rates table
-    // Users can manually set rate in Super Admin or Admin dashboard
-  }, []);
-
-  // Update settings when currency changes
-  useEffect(() => {
-    if (user && settings?.id) {
-      setCurrencyState((settings?.currency as Currency) || 'USD');
-    }
-  }, [settings?.currency, user]);
-
-  const setCurrency = async (newCurrency: Currency) => {
-    setCurrencyState(newCurrency);
-    if (user && updateSetting) {
-      try {
-        await updateSetting('currency', newCurrency);
-      } catch (error) {
-        console.error('Failed to update currency setting:', error);
-        // Revert on error
-        setCurrencyState(currency);
+      if (!error && data?.fx_rate?.rate) {
+        setExchangeRate(data.fx_rate.rate);
       }
+    } catch (err) {
+      console.error('Failed to fetch currency settings:', err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  // Listen for changes in system_settings
+  useEffect(() => {
+    const channel = supabase
+      .channel('system_settings_changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'system_settings', filter: 'key=eq.currency' },
+        () => {
+          fetchSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const setCurrency = (newCurrency: Currency) => {
+    setCurrencyState(newCurrency);
+    // Persist to local storage or user profile if needed
+    localStorage.setItem('preferred_currency', newCurrency);
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('preferred_currency');
+    if (saved === 'USD' || saved === 'ZMW') {
+      setCurrencyState(saved as Currency);
+    }
+  }, []);
 
   const formatPrice = (amount: number): string => {
     return formatCurrencyAmount(amount, currency, exchangeRate);
@@ -86,18 +101,16 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const value: CurrencyContextType = {
     currency,
     exchangeRate,
+    autoFetch,
     setCurrency,
     formatPrice,
     convertPrice: convertPriceAmount,
+    refreshSettings: fetchSettings,
   };
 
   return (
     <CurrencyContext.Provider value={value}>
-      {loading ? (
-        <div>{children}</div> // Render children even while loading to avoid blocking UI
-      ) : (
-        children
-      )}
+      {children}
     </CurrencyContext.Provider>
   );
 };
