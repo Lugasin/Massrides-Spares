@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { assertAdminOrSuperAdmin } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +28,7 @@ Deno.serve(async (req) => {
       { data: orderStats },
       { data: recentPayments }
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('user_profiles').select('*', { count: 'exact', head: true }),
       supabase.from('vendors').select('*', { count: 'exact', head: true }),
       supabase.from('orders').select('status, total_amount, created_at'),
       supabase.from('payments').select('*, order:orders(order_number)').order('created_at', { ascending: false }).limit(5)

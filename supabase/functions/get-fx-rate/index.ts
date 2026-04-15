@@ -41,6 +41,27 @@ serve(async (req) => {
     const baseCurrency = String(body.base_currency ?? body.baseCurrency ?? query.base_currency ?? "USD");
     const quoteCurrency = String(body.quote_currency ?? body.quoteCurrency ?? query.quote_currency ?? "ZMW");
 
+    // Special case: if base and quote are the same, return 1:1
+    if (baseCurrency.toUpperCase() === quoteCurrency.toUpperCase()) {
+        return new Response(JSON.stringify({
+            fx_rate: {
+                base_currency: baseCurrency,
+                quote_currency: quoteCurrency,
+                rate: 1,
+                provider: "identity",
+                source: "manual",
+                fetched_at: new Date().toISOString()
+            },
+            source: "manual",
+            fallback_used: false,
+            stale_cache_used: false,
+            note: "1:1 rate for identical currencies"
+        }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
+
     const fx_rate = await resolveFxRateSnapshot(supabaseAdmin, {
       baseCurrency,
       quoteCurrency,
@@ -51,11 +72,9 @@ serve(async (req) => {
       source: fx_rate.source,
       fallback_used: fx_rate.fallback_used,
       stale_cache_used: fx_rate.stale_cache_used,
-      note: fx_rate.source === "cache"
-        ? fx_rate.stale_cache_used
-          ? "Exchange rate is based on current market data and may vary. Live data was unavailable, so a cached rate was used."
-          : "Exchange rate is based on current market data and may vary. Cached rate is being used for checkout consistency."
-        : "Exchange rate is based on current market data and may vary before payment is confirmed.",
+      note: fx_rate.source === "manual"
+        ? "Using manual exchange rate set by administrator."
+        : "Exchange rate is based on live market data.",
     };
 
     return new Response(JSON.stringify(response), {
