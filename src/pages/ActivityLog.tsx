@@ -1,149 +1,87 @@
-import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { DashboardLayout } from '@/components/DashboardLayout';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DateRange } from 'react-day-picker';
-import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { Loader2, SlidersHorizontal, Activity } from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
+import React, { useState, useEffect } from 'react';
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { useAuth } from "@/context/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 
-interface Log {
-  id: string;
-  created_at: string;
-  activity_type: string;
-  user_id: string;
-  user_profiles: {
-    full_name: string | null;
-    email: string | null;
-  } | null;
-  additional_details: unknown;
-  ip_address: string | null;
-}
-
-const activityTypes = [
-  'signup', 'login', 'guest_login', 'password_reset',
-  'profile_updated', 'user_role_updated', 'order_created', 'order_status_updated',
-  'payment_processed', 'payment_admin_action', 'error_occurred'
-];
-
-const superAdminActivityTypes = [...activityTypes, 'suspicious_activity', 'failed_login_attempt', 'unauthorized_access', 'data_breach_attempt'];
-
-const ActivityLogPage = () => {
-  const { userRole, profile } = useAuth();
-  const [filters, setFilters] = useState<{
-    activityType: string;
-    userId: string;
-    dateRange?: DateRange;
-  }>({
-    activityType: '',
-    userId: '',
-    dateRange: undefined,
-  });
-
-  const { data: logs, isLoading, isError, error } = useQuery<Log[], Error>({
-    queryKey: ['activityLogs', filters],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-activity-logs', {
-        body: {
-          activity_type: filters.activityType || undefined,
-          user_id: filters.userId || undefined,
-          start_date: filters.dateRange?.from?.toISOString(),
-          end_date: filters.dateRange?.to?.toISOString(),
-        },
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-      return data.logs;
-    },
-    enabled: !!profile && (userRole === 'admin' || userRole === 'super_admin'),
-  });
+const ActivityLog = () => {
+  const { user, profile, userRole } = useAuth();
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isError) {
-      toast.error(`Failed to fetch logs: ${error.message}`);
-    }
-  }, [error, isError]);
+    const fetchLogs = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select(`
+          *,
+          profiles:user_id(full_name, email)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-  const currentActivityTypes = userRole === 'super_admin' ? superAdminActivityTypes : activityTypes;
+      if (!error) {
+        setLogs(data || []);
+      }
+      setLoading(false);
+    };
+
+    fetchLogs();
+  }, []);
 
   return (
-    <DashboardLayout userRole={userRole ?? 'guest'} userName={profile?.full_name || 'Admin'}>
+    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'User'}>
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><SlidersHorizontal /> Filter Activity Logs</CardTitle>
-            <CardDescription>Refine the logs by type, user, or date range for a detailed system audit.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Select value={filters.activityType} onValueChange={(value) => setFilters(f => ({ ...f, activityType: value === 'all' ? '' : value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by type..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Activity Types</SelectItem>
-                {currentActivityTypes.map(type => (
-                  <SelectItem key={type} value={type} className="capitalize">{type.replace(/_/g, ' ')}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Filter by User ID..."
-              value={filters.userId}
-              onChange={(e) => setFilters(f => ({ ...f, userId: e.target.value }))}
-            />
-            <div className="lg:col-span-2">
-              <DatePickerWithRange
-                date={filters.dateRange}
-                onDateChange={(range) => setFilters(f => ({ ...f, dateRange: range }))}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <h1 className="text-3xl font-bold">Activity Log</h1>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Activity /> System Activity Log</CardTitle>
-            <CardDescription>A comprehensive, real-time audit trail of all significant system and user actions.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="pt-6">
+            {loading ? (
+              <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Timestamp</TableHead>
-                    <TableHead>Activity Type</TableHead>
                     <TableHead>User</TableHead>
-                    <TableHead>IP Address</TableHead>
+                    <TableHead>Action</TableHead>
                     <TableHead>Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
-                    <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></TableCell></TableRow>
-                  ) : logs && logs.length > 0 ? (
-                    logs.map(log => (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-xs">{format(new Date(log.created_at), 'PPpp')}</TableCell>
-                        <TableCell className="font-medium capitalize text-primary">{log.activity_type.replace(/_/g, ' ')}</TableCell>
-                        <TableCell>{log.user_profiles?.email || log.user_id || 'System'}</TableCell>
-                        <TableCell>{log.ip_address || 'N/A'}</TableCell>
-                        <TableCell><pre className="text-xs bg-muted p-2 rounded-md max-w-xs overflow-auto">{JSON.stringify(log.additional_details, null, 2)}</pre></TableCell>
+                  {logs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-sm">
+                        {format(new Date(log.created_at), 'MMM dd, HH:mm:ss')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm font-medium">{log.profiles?.full_name || 'System'}</div>
+                        <div className="text-xs text-muted-foreground">{log.profiles?.email || ''}</div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                          {log.action}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm max-w-xs truncate">
+                        {JSON.stringify(log.metadata)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {logs.length === 0 && (
+                      <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                              No activity logs found
+                          </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No logs found for the selected filters.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -151,4 +89,4 @@ const ActivityLogPage = () => {
   );
 };
 
-export default ActivityLogPage;
+export default ActivityLog;

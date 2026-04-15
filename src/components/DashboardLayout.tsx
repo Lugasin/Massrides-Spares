@@ -16,12 +16,13 @@ import {
   X,
   Shield,
   Activity,
-  MessageSquare // Added missing import
+  Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface DashboardLayoutProps {
   userRole: "super_admin" | "admin" | "vendor" | "customer" | "guest" | null;
@@ -81,25 +82,27 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { currency, setCurrency } = useCurrency();
   const config = userRole ? (roleConfig[userRole as keyof typeof roleConfig] || defaultConfig) : defaultConfig;
 
   const navigationItems = [
-    { label: "Browse Catalog", icon: ShoppingCart, href: "/catalog" },
     { label: "Dashboard", icon: BarChart3, href: "/dashboard" },
+    { label: "Browse Catalog", icon: ShoppingCart, href: "/catalog" },
     { label: "Products", icon: Package, href: "/products-management", roles: ["vendor", "admin", "super_admin"] },
     { label: "Orders", icon: ShoppingCart, href: "/orders" },
     { label: "Analytics", icon: TrendingUp, href: "/analytics", roles: ["vendor", "admin", "super_admin"] },
     { label: "User Management", icon: Users, href: "/user-management", roles: ["super_admin", "admin"] },
     { label: "Role Manager", icon: Users, href: "/role-manager", roles: ["super_admin", "admin"] },
     { label: "Activity Log", icon: BarChart3, href: "/activity-log", roles: ["super_admin", "admin"] },
-    { label: "Payment Monitor", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin"] },
+    { label: "Payment Monitor", icon: DollarSign, href: "/payment-monitoring", roles: ["super_admin", "admin"] },
     { label: "Security Dashboard", icon: Shield, href: "/security-dashboard", roles: ["super_admin"] },
     { label: "System Health", icon: Activity, href: "/system-health", roles: ["admin", "super_admin"] },
     { label: "Settings", icon: Settings, href: "/settings" }
   ];
 
   const visibleNavItems = navigationItems.filter(item =>
-    !item.roles || item.roles.includes(userRole)
+    !item.roles || (userRole && item.roles.includes(userRole))
   );
 
   const handleNavClick = (href: string) => {
@@ -127,7 +130,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
         />
       )}
 
-      {/* Sidebar - Same as before */}
+      {/* Sidebar */}
       <aside className={cn(
         "fixed left-0 top-0 z-50 h-full w-64 bg-background border-r border-border transition-transform duration-300 lg:translate-x-0",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -152,11 +155,11 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
           {/* User Info */}
           <div className="p-6 border-b border-border">
             <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold mb-3", config.color)}>
-              {userName.charAt(0).toUpperCase()}
+              {userName?.charAt(0).toUpperCase() || 'U'}
             </div>
-            <h3 className="font-medium text-foreground">{userName}</h3>
+            <h3 className="font-medium text-foreground">{userName || 'User'}</h3>
             <Badge variant="outline" className="mt-1 capitalize">
-              {userRole.replace('_', ' ')}
+              {userRole?.replace('_', ' ') || 'Guest'}
             </Badge>
           </div>
 
@@ -166,10 +169,10 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
               {visibleNavItems.map((item) => (
                 <li key={item.label}>
                   <Button
-                    variant={window.location.pathname === item.href ? "default" : "ghost"}
+                    variant={location.pathname === item.href ? "default" : "ghost"}
                     className={cn(
                       "w-full justify-start gap-3",
-                      window.location.pathname === item.href && "bg-primary text-primary-foreground"
+                      location.pathname === item.href && "bg-primary text-primary-foreground"
                     )}
                     onClick={() => handleNavClick(item.href)}
                   >
@@ -215,6 +218,24 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center bg-muted rounded-full p-1 mr-2">
+                <Button
+                  variant={currency === 'ZMW' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-full px-3 h-8 text-xs"
+                  onClick={() => setCurrency('ZMW')}
+                >
+                  ZMW
+                </Button>
+                <Button
+                  variant={currency === 'USD' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-full px-3 h-8 text-xs"
+                  onClick={() => setCurrency('USD')}
+                >
+                  USD
+                </Button>
+              </div>
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
               </Button>
@@ -229,7 +250,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
         <main className="p-6">
           {showMetrics && (metrics && metrics.length > 0) && (
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-              {(metrics || config.metrics).map((metric) => (
+              {metrics.map((metric) => (
                 <Card key={metric.label} className="border-border/50">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -241,12 +262,14 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
                     <div className="text-2xl font-bold text-foreground mb-1">
                       {metric.value}
                     </div>
-                    <p className={cn(
-                      "text-xs font-medium",
-                      metric.change.startsWith('+') ? "text-success" : "text-destructive"
-                    )}>
-                      {metric.change && metric.change !== '0%' ? metric.change : '—'}
-                    </p>
+                    {metric.change && (
+                        <p className={cn(
+                        "text-xs font-medium",
+                        metric.change.startsWith('+') ? "text-success" : "text-destructive"
+                        )}>
+                        {metric.change !== '0%' ? metric.change : '—'}
+                        </p>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -261,7 +284,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  This is your {userRole.replace('_', ' ')} dashboard. Use the navigation menu to access different sections and manage your responsibilities.
+                  This is your {userRole?.replace('_', ' ') || 'Guest'} dashboard. Use the navigation menu to access different sections and manage your responsibilities.
                 </p>
               </CardContent>
             </Card>

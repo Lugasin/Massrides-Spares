@@ -1,3 +1,4 @@
+import { useCurrency } from "@/context/CurrencyContext";
 import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
   className
 }) => {
   const { addItem } = useQuote();
+  const { formatPrice } = useCurrency();
   const [favorites, setFavorites] = useState<(string | number)[]>([]);
 
   const handleAddToCart = (sparePart: Omit<SparePart, 'id'> & { id: string | number }) => {
@@ -177,7 +179,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="text-lg font-bold text-primary">
-                  ${sparePart.price.toLocaleString()} {/* From products.ts */}
+                  {formatPrice(sparePart.price)} {/* From products.ts */}
                 </span>
               </div>
               <div className="text-right">

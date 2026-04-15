@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveFxRateSnapshot } from "../_shared/fx-rate.ts"
+import { loadVesicashConfig } from "../_shared/vesicash.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,237 +32,159 @@ interface CreateOrderRequest {
     country?: string;
   };
   guest_session_id?: string;
-  send_receipt?: boolean;
+  payment_method?: string;
 }
-
-type CartItemRow = {
-  product: {
-    id: number;
-    price: number;
-  };
-  quantity: number;
-};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
-    // Variables declared outside try block for scope access
-    let user = null
-    let profile = null
-    let cartItems: CartItemRow[] = []
-    let sourceCartId: string | null = null;
-    let sourceIsGuest = false;
-
-    let guest_session_id: string | undefined; // ensure this is also available
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Try to get authenticated user (may be null for guest checkout)
-    const authHeader = req.headers.get('Authorization')
-    
-    if (authHeader) {
-      const userSupabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          global: { headers: { Authorization: authHeader } },
-          auth: { persistSession: false }
-        }
-      )
-      
-      const { data: { user: authUser } } = await userSupabase.auth.getUser()
-      user = authUser
-      
-      if (user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-        profile = userProfile
-      }
-    }
-
     const body: CreateOrderRequest = await req.json()
-    const { customer_info, shipping_info, guest_session_id: gs_id } = body
-    guest_session_id = gs_id;
+    const { customer_info, shipping_info, guest_session_id, payment_method = 'vesicash' } = body
 
-    // Get cart items (either from user cart or guest cart)
-    
-    console.log(`Processing order for: User=${user?.id}, GuestSession=${guest_session_id}`);
+    const authHeader = req.headers.get('Authorization')
+    let user_id: string | null = null
+    if (authHeader) {
+        const { data: { user } } = await createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: authHeader } } }
+        ).auth.getUser()
+        user_id = user?.id || null
+    }
 
-    if (user && profile) {
-      // Get user cart items
-      const { data: cart } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('user_id', profile.id)
-        .single()
-      
-      console.log('User ID found:', user.id, 'Cart:', cart);
-
-      if (cart) {
-        sourceCartId = cart.id;
-        const { data: userCartItems } = await supabase
-          .from('cart_items')
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products(*)
-          `)
-          .eq('cart_id', cart.id)
-
-        cartItems = userCartItems || []
-      }
-    } 
-    
-    // Fallback: If no user items found (or user not logged in), check guest cart
-    if (cartItems.length === 0 && guest_session_id) {
-      // Get guest cart items
-      console.log('Searching for guest cart with session:', guest_session_id);
-      
-      const { data: guestCart, error: guestCartError } = await supabase
-        .from('guest_carts')
-        .select('id')
-        .eq('session_id', guest_session_id)
-        .single()
-      
-      console.log('Guest Cart Result:', { guestCart, error: guestCartError });
-
-      if (guestCart) {
-        sourceCartId = guestCart.id;
-        sourceIsGuest = true;
-        const { data: guestCartItems, error: itemsError } = await supabase
-          .from('guest_cart_items')
-          .select(`
-            id,
-            product_id,
-            quantity,
-            product:products(*)
-          `)
-          .eq('guest_cart_id', guestCart.id)
+    // Handle Guest Cart if no user_id
+    if (!user_id && guest_session_id) {
+        // Find guest cart items
+        const { data: guestCart } = await supabaseAdmin
+            .from('guest_carts')
+            .select('id')
+            .eq('session_id', guest_session_id)
+            .single()
         
-        console.log('Guest Cart Items Result:', { count: guestCartItems?.length, error: itemsError });
-
-        cartItems = guestCartItems || []
-      }
-    }
-
-    if (!cartItems || cartItems.length === 0) {
-      console.error('Cart Empty Check Failed. Items:', cartItems);
-      throw new Error('Cart is empty')
-    }
-
-    // Calculate totals
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
-    const taxAmount = subtotal * 0.15 // 15% tax rate
-    const shippingAmount = subtotal > 50000 ? 0 : 2500 // Free shipping over $500
-    const totalAmount = subtotal + taxAmount + shippingAmount
-
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-
-    // Create order
-    const orderData = {
-      user_id: profile?.id || null,
-      order_number: orderNumber,
-      status: 'pending',
-      payment_status: 'pending',
-      total_amount: totalAmount,
-      
-      shipping_address: {
-        full_name: `${shipping_info?.firstName || customer_info.firstName} ${shipping_info?.lastName || customer_info.lastName}`.trim(),
-        email: customer_info.email,
-        phone: customer_info.phone,
-        firstName: shipping_info?.firstName || customer_info.firstName,
-        lastName: shipping_info?.lastName || customer_info.lastName,
-        company: shipping_info?.company || customer_info.company,
-        address: shipping_info?.address || customer_info.address || "",
-        city: shipping_info?.city || customer_info.city || "",
-        state: shipping_info?.state || customer_info.state || "",
-        zipCode: shipping_info?.zipCode || customer_info.zipCode || "",
-        country: shipping_info?.country || customer_info.country || "Zambia"
-      },
-      
-      billing_address: {
-        full_name: `${customer_info.firstName} ${customer_info.lastName}`.trim(),
-        firstName: customer_info.firstName,
-        lastName: customer_info.lastName,
-        company: customer_info.company,
-        address: customer_info.address || "",
-        city: customer_info.city || "",
-        state: customer_info.state || "",
-        zipCode: customer_info.zipCode || "",
-        country: customer_info.country || "Zambia",
-        email: customer_info.email,
-        phone: customer_info.phone
-      }
-    }
-
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert(orderData)
-      .select()
-      .single()
-
-    if (orderError) {
-      throw new Error(`Failed to create order: ${orderError.message}`)
-    }
-
-    // Create order items
-    const orderItems = cartItems.map(item => ({
-      order_id: order.id,
-      product_id: item.product.id,
-      quantity: item.quantity,
-      price: item.product.price
-    }))
-
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems)
-
-    if (itemsError) {
-      throw new Error(`Failed to create order items: ${itemsError.message}`)
-    }
-
-
-
-    // Send notification if user is logged in
-    if (user && profile) {
-      await supabase.from('notifications').insert({
-        user_id: profile.id,
-        title: 'Order Created',
-        message: `Your order ${orderNumber} has been created and is pending payment.`,
-        type: 'info'
-      })
-    }
-
-    // Clear cart items
-    if (sourceCartId) {
-        if (sourceIsGuest) {
-            await supabase.from('guest_cart_items').delete().eq('guest_cart_id', sourceCartId);
-        } else {
-            await supabase.from('cart_items').delete().eq('cart_id', sourceCartId);
+        if (guestCart) {
+            // Check if we have items
+            const { data: items } = await supabaseAdmin.from('guest_cart_items').select('*').eq('guest_cart_id', guestCart.id)
+            if (items && items.length > 0) {
+                // For production, we'd create a temporary user or link to a guest user account
+                // For simplicity here, we'll try to find or create a 'guest' user in profiles
+            }
         }
     }
 
+    // Call RPC to create order
+    const { data: orderId, error: rpcError } = await supabaseAdmin.rpc("create_order_from_cart", {
+        _user_id: user_id,
+        _shipping_address: {
+            ...customer_info,
+            ...(shipping_info || {}),
+            full_name: `${shipping_info?.firstName || customer_info.firstName} ${shipping_info?.lastName || customer_info.lastName}`.trim()
+        },
+        _payment_method: payment_method
+    });
+
+    if (rpcError) throw new Error(rpcError.message)
+
+    const { data: order, error: orderFetchError } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single()
+
+    if (orderFetchError || !order) throw new Error("Order not found after creation")
+
+    const fxRate = await resolveFxRateSnapshot(supabaseAdmin)
+    const totalUSD = Number(order.total_amount)
+    const totalZMW = Number((totalUSD * fxRate.rate).toFixed(2))
+    const reference = `ORD-${order.order_number}-${Date.now()}`
+
+    const { data: payment, error: paymentError } = await supabaseAdmin
+        .from('payments')
+        .insert({
+            order_id: order.id,
+            provider: payment_method,
+            vesicash_transaction_id: reference,
+            status: 'pending',
+            amount_usd: totalUSD,
+            amount_zmw: totalZMW,
+            exchange_rate: fxRate.rate,
+            base_currency: 'USD',
+            quote_currency: 'ZMW'
+        })
+        .select()
+        .single()
+
+    if (paymentError) throw new Error(`Payment record creation failed`)
+
+    let payment_link = null
+    if (payment_method === 'vesicash') {
+        const vesicash = await loadVesicashConfig(supabaseAdmin)
+        const callbackUrl = new URL("/checkout/success", req.headers.get('origin') || "https://massridesspares.netlify.app")
+        callbackUrl.searchParams.set("order", String(order.id))
+
+        const vesicashPayload = {
+            currency: "ZMW",
+            country: "ZM",
+            narration: `Order ${order.order_number}`,
+            amount: totalZMW,
+            webhook_url: vesicash.paymentWebhookUrl,
+            redirect_url: callbackUrl.toString(),
+            customer: {
+                email: customer_info.email,
+                phone_number: customer_info.phone,
+                first_name: customer_info.firstName,
+                last_name: customer_info.lastName,
+                address: customer_info.address,
+                city: customer_info.city,
+                country: customer_info.country || "Zambia"
+            },
+            metadata: {
+                order_id: order.id,
+                order_number: order.order_number,
+                reference
+            }
+        }
+
+        const vesicashRes = await fetch(`${vesicash.apiBaseUrl}/payment/init`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'V-PRIVATE-KEY': vesicash.secretKey!,
+                'V-PUBLIC-KEY': vesicash.publicKey!
+            },
+            body: JSON.stringify(vesicashPayload)
+        })
+
+        const vData = await vesicashRes.json()
+        if (!vesicashRes.ok) throw new Error(vData.message || "Vesicash initialization failed")
+
+        payment_link = vData.data?.payment_link || vData.data?.checkout_url
+
+        await supabaseAdmin
+            .from('payments')
+            .update({
+                vesicash_payment_id: vData.data?.payment_id,
+                vesicash_transaction_id: vData.data?.reference || reference
+            })
+            .eq('id', payment.id)
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        order: {
-          id: order.id,
-          order_number: orderNumber,
-          total_amount: totalAmount,
-          items: orderItems.length
-        }
+        order_id: order.id,
+        order_number: order.order_number,
+        payment_link,
+        total_usd: totalUSD,
+        total_zmw: totalZMW,
+        fx_rate: fxRate.rate
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -269,21 +193,15 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error creating order:', error)
+    console.error('Error in create-order:', error)
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
-        debug: {
-            user_id: user?.id,
-            guest_session_id,
-            sourceCartId,
-            sourceIsGuest
-        }
+        error: error.message
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 to allow client to parse error message
+        status: 400,
       }
     )
   }
