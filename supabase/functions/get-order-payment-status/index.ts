@@ -260,12 +260,15 @@ serve(async (req) => {
     }
 
     const requesterRole = profile.role ?? "customer";
-    const requesterIds = Array.from(new Set([profile.id, user.id].filter(Boolean))) as string[];
-    const forbidden =
-      (requesterRole === "vendor" && !requesterIds.includes(String(orderRecord.vendor_id ?? ""))) ||
-      (!["admin", "super_admin", "vendor"].includes(requesterRole) && !requesterIds.includes(String(orderRecord.user_id ?? "")));
+    const requesterIds = Array.from(new Set([profile.id, user.id].filter(Boolean))).map(String);
+    const orderOwnerId = String(orderRecord.user_id ?? "").trim();
+    const vendorOwnerId = String(orderRecord.vendor_id ?? "").trim();
+    const isAdmin = ["admin", "super_admin"].includes(requesterRole);
+    const isVendor = requesterRole === "vendor" && vendorOwnerId && requesterIds.includes(vendorOwnerId);
+    const isOrderOwner = orderOwnerId && requesterIds.includes(orderOwnerId);
+    const isReferenceLookup = Boolean(reference && paymentRecord);
 
-    if (forbidden) {
+    if (!isAdmin && !isVendor && !isOrderOwner && !isReferenceLookup) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 403,

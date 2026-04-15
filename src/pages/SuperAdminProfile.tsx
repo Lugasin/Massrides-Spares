@@ -26,6 +26,7 @@ import {
   UserMinus,
   Store,
   Package,
+  ShoppingCart,
   DollarSign,
   TrendingUp,
   AlertTriangle,
@@ -91,7 +92,8 @@ const SuperAdminProfile: React.FC = () => {
     customers: 0,
     admins: 0
   });
-const [loading, setLoading] = useState(false);
+  const [ordersToday, setOrdersToday] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
 
   const [financialStats, setFinancialStats] = useState({
     total_commission_recorded: 0,
@@ -104,6 +106,11 @@ const [loading, setLoading] = useState(false);
   const [vendorPayouts, setVendorPayouts] = useState<any[]>([]);
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [processingPayoutId, setProcessingPayoutId] = useState<string | null>(null);
+
+  // FX Rate state
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInput, setRateInput] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
 
   /* State */
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -118,11 +125,31 @@ const [loading, setLoading] = useState(false);
 useEffect(() => {
     loadSystemSettings();
     loadUserStats();
+    loadOrdersToday();
     loadFinancialStats();
     loadAuditLogs();
     loadSecurityOverview();
     loadVendorPayouts();
   }, []);
+
+  const loadOrdersToday = async () => {
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const { count, error } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', startOfDay.toISOString())
+        .eq('payment_status', 'paid');
+
+      if (error) throw error;
+      setOrdersToday(count || 0);
+    } catch (error) {
+      logger.error("Error loading today's orders", error);
+      setOrdersToday(0);
+    }
+  };
 
   const loadAuditLogs = async () => {
     try {
@@ -353,9 +380,75 @@ useEffect(() => {
     // Implement cache clearing logic
   };
 
+  const handleSaveRate = async () => {
+    const newRate = Number(rateInput);
+    if (isNaN(newRate) || newRate <= 0) {
+      toast.error('Please enter a valid exchange rate');
+      return;
+    }
+
+    setSavingRate(true);
+    try {
+      // Let supabase.functions.invoke handle JWT auth automatically
+      const { data: responseData, error } = await supabase.functions.invoke('save-fx-rate', {
+        body: {
+          base_currency: 'USD',
+          quote_currency: 'ZMW',
+          provider: 'manual_super_admin',
+          rate: newRate,
+          rate_date: new Date().toISOString().split('T')[0],
+          fetched_at: new Date().toISOString(),
+          expires_at: null,
+          source_payload: { manually_set: true },
+        },
+      });
+
+      if (error) throw error;
+      if (!responseData?.success) {
+        throw new Error(responseData?.message || 'Failed to save exchange rate');
+      }
+
+      setEditingRate(false);
+      setRateInput('');
+      localStorage.setItem('massrides_checkout_fx_rate:USD:ZMW', JSON.stringify({
+        base_currency: 'USD',
+        quote_currency: 'ZMW',
+        rate: newRate,
+        provider: 'manual_super_admin',
+        fetched_at: new Date().toISOString(),
+      }));
+      toast.success(`Exchange rate updated to ${newRate}`);
+    } catch (err: any) {
+      console.error('Failed to save rate:', err);
+      // Check if it's an auth error
+      if (err?.message?.includes('401') || err?.message?.includes('Unauthorized')) {
+        // Still save to localStorage as offline fallback
+        localStorage.setItem('massrides_checkout_fx_rate:USD:ZMW', JSON.stringify({
+          base_currency: 'USD',
+          quote_currency: 'ZMW',
+          rate: newRate,
+          provider: 'manual_super_admin',
+          fetched_at: new Date().toISOString(),
+        }));
+        toast.success(`Exchange rate saved locally: ${newRate} (offline mode)`);
+      } else {
+        toast.error('Failed to update exchange rate');
+      }
+    } finally {
+      setSavingRate(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(amount);
   };
+
+  const dashboardMetrics = [
+    { icon: Users, label: 'Total Users', value: userStats.total_users, change: '+0%' },
+    { icon: Package, label: 'Active Vendors', value: userStats.vendors, change: '+0%' },
+    { icon: ShoppingCart, label: 'Orders Today', value: ordersToday, change: '+0%' },
+    { icon: DollarSign, label: 'Revenue', value: formatCurrency(financialStats.total_volume_released), change: '+0%' },
+  ];
 
   const systemMetrics = [
     { icon: Users, label: 'Total Users', value: userStats.total_users, color: 'text-blue-500' },
@@ -377,7 +470,11 @@ useEffect(() => {
   }
 
   return (
-    <DashboardLayout userRole={userRole as any} userName={profile?.full_name || user?.email || 'Super Admin'}>
+    <DashboardLayout
+      userRole={userRole as any}
+      userName={profile?.full_name || user?.email || 'Super Admin'}
+      metrics={dashboardMetrics}
+    >
       <div className="space-y-6">
         {/* Super Admin Header */}
         <Card className="border-destructive/20">
@@ -778,6 +875,37 @@ useEffect(() => {
                       <SelectItem value="GBP">GBP - British Pound</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-medium">Exchange Rate (USD to ZMW)</Label>
+                      <p className="text-sm text-muted-foreground">Manual override for exchange rate when auto-fetch fails</p>
+                    </div>
+                    {editingRate ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Enter rate (e.g. 26.50)"
+                          value={rateInput}
+                          onChange={(e) => setRateInput(e.target.value)}
+                          className="w-32"
+                        />
+                        <Button size="sm" onClick={handleSaveRate} disabled={savingRate}>
+                          {savingRate ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingRate(false); setRateInput(''); }}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => setEditingRate(true)}>
+                        <Edit className="h-4 w-4 mr-1" />
+                        Set Manual Rate
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

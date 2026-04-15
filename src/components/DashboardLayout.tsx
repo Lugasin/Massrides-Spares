@@ -36,86 +36,52 @@ const roleConfig = {
     title: "Super Admin Dashboard",
     description: "Complete system overview and management",
     color: "bg-purple-500",
-    metrics: [
-      { label: "Total Users", value: "1,234", icon: Users, change: "+12%" },
-      { label: "Total Revenue", value: "$2.4M", icon: DollarSign, change: "+18%" },
-      { label: "Active Vendors", value: "56", icon: Package, change: "+8%" },
-      { label: "Orders Today", value: "89", icon: ShoppingCart, change: "+24%" }
-    ]
+    metrics: []
   },
   admin: {
     title: "Admin Dashboard",
     description: "User and order management",
     color: "bg-blue-500",
-    metrics: [
-      { label: "New Users", value: "0", icon: Users, change: "0%" },
-      { label: "Orders Pending", value: "0", icon: ShoppingCart, change: "0%" },
-      { label: "Revenue Today", value: "$0.00", icon: DollarSign, change: "0%" },
-      { label: "Support Tickets", value: "0", icon: Bell, change: "0%" }
-    ]
+    metrics: []
   },
   vendor: {
     title: "Vendor Dashboard",
     description: "Manage your products and orders",
     color: "bg-green-500",
-    metrics: [
-      { label: "Your Products", value: "0", icon: Package, change: "0%" },
-      { label: "Orders Received", value: "0", icon: ShoppingCart, change: "0%" },
-      { label: "Revenue This Month", value: "$0.00", icon: DollarSign, change: "0%" },
-      { label: "Pending Orders", value: "0", icon: Bell, change: "0%" }
-    ]
+    metrics: []
   },
   customer: {
     title: "Customer Dashboard",
     description: "Track your orders and quotes",
     color: "bg-blue-500",
-    metrics: [
-      { label: "Active Orders", value: "0", icon: ShoppingCart, change: "0%" },
-      { label: "Quote Requests", value: "0", icon: BarChart3, change: "0%" },
-      { label: "Total Spent", value: "$0.00", icon: DollarSign, change: "0%" },
-      { label: "Saved Items", value: "0", icon: Package, change: "0%" }
-    ]
+    metrics: []
   },
   guest: {
     title: "Welcome",
     description: "Manage your products and sales",
     color: "bg-green-500",
-    metrics: [
-      { label: "My Products", value: "0", icon: Package, change: "0%" },
-      { label: "Orders Today", value: "0", icon: ShoppingCart, change: "0%" },
-      { label: "Revenue", value: "$0.00", icon: DollarSign, change: "0%" },
-      { label: "Views", value: "0", icon: TrendingUp, change: "0%" }
-    ]
+    metrics: []
   },
   support: {
     title: "Support Dashboard",
     description: "Customer support and tickets",
     color: "bg-orange-500",
-    metrics: [
-      { label: "Open Tickets", value: "0", icon: Bell, change: "0%" },
-      { label: "Resolved Today", value: "0", icon: Users, change: "0%" },
-      { label: "Avg Response", value: "--", icon: TrendingUp, change: "0%" },
-      { label: "Customer Rating", value: "--", icon: BarChart3, change: "0%" }
-    ]
+    metrics: []
   }
+};
+
+const defaultConfig = {
+  title: "Dashboard",
+  description: "Loading...",
+  color: "bg-gray-500",
+  metrics: []
 };
 
 export const DashboardLayout = ({ userRole, userName, children, showMetrics = true, metrics }: DashboardLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const config = userRole ? roleConfig[userRole] : null;
-
-  if (!config) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const config = userRole ? (roleConfig[userRole as keyof typeof roleConfig] || defaultConfig) : defaultConfig;
 
   const navigationItems = [
     { label: "Browse Catalog", icon: ShoppingCart, href: "/catalog" },
@@ -261,7 +227,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
 
         {/* Dashboard Content */}
         <main className="p-6">
-          {showMetrics && (
+          {showMetrics && (metrics && metrics.length > 0) && (
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
               {(metrics || config.metrics).map((metric) => (
                 <Card key={metric.label} className="border-border/50">
@@ -279,7 +245,7 @@ export const DashboardLayout = ({ userRole, userName, children, showMetrics = tr
                       "text-xs font-medium",
                       metric.change.startsWith('+') ? "text-success" : "text-destructive"
                     )}>
-                      {metric.change} from last month
+                      {metric.change && metric.change !== '0%' ? metric.change : '—'}
                     </p>
                   </CardContent>
                 </Card>

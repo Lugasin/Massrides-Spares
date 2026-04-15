@@ -17,11 +17,14 @@ create table if not exists roles (
 -- 1. profiles
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'customer',
   full_name text,
+  vendor_name text,
   phone text,
   avatar_url text,
   bio text,
   metadata jsonb default '{}'::jsonb,
+  email text,
   email_verified boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -260,13 +263,13 @@ begin
   end;
 
   if (TG_OP = 'INSERT') then
-    insert into audit_logs(actor_id, current_setting('jwt.claims.role', true), 'CREATE', TG_TABLE_NAME, COALESCE(new.id::text, ''), row_to_json(new));
+    insert into audit_logs(actor_id, actor_role, action, object_type, object_id, diff) values (actor, current_setting('jwt.claims.role', true), 'CREATE', TG_TABLE_NAME, COALESCE(new.id::text, ''), row_to_json(new));
     return new;
   elsif (TG_OP = 'UPDATE') then
-    insert into audit_logs(actor_id, current_setting('jwt.claims.role', true), 'UPDATE', TG_TABLE_NAME, COALESCE(new.id::text, ''), json_build_object('old', row_to_json(old), 'new', row_to_json(new)));
+    insert into audit_logs(actor_id, actor_role, action, object_type, object_id, diff) values (actor, current_setting('jwt.claims.role', true), 'UPDATE', TG_TABLE_NAME, COALESCE(new.id::text, ''), json_build_object('old', row_to_json(old), 'new', row_to_json(new)));
     return new;
   elsif (TG_OP = 'DELETE') then
-    insert into audit_logs(actor_id, current_setting('jwt.claims.role', true), 'DELETE', TG_TABLE_NAME, COALESCE(old.id::text, ''), row_to_json(old));
+    insert into audit_logs(actor_id, actor_role, action, object_type, object_id, diff) values (actor, current_setting('jwt.claims.role', true), 'DELETE', TG_TABLE_NAME, COALESCE(old.id::text, ''), row_to_json(old));
     return old;
   end if;
   return null;

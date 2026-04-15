@@ -20,8 +20,8 @@ function getVesicashHeaders(config: VesicashConfig) {
 
   return {
     "Content-Type": "application/json",
-    "secret-key": secretKey,
-    "public-key": publicKey,
+    "V-PRIVATE-KEY": secretKey,
+    "V-PUBLIC-KEY": publicKey,
   };
 }
 

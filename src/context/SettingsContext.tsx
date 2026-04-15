@@ -82,30 +82,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             setLoading(true);
 
-            const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-
-            if (!headers) {
-                setSettings({
-                    id: 'temp',
-                    user_id: user?.id || 'temp',
-                    theme: 'light',
-                    currency: 'ZMW',
-                    email_notifications: true,
-                    push_notifications: true,
-                    marketing_emails: false,
-                    order_updates: true,
-                    language: 'en',
-                    timezone: 'Africa/Lusaka'
-                } as UserSettings);
-                return;
-            }
-
-            const { data, error } = await supabase.functions.invoke('get-user-settings', {
-                headers
-            });
+            // Let supabase.functions.invoke handle JWT auth automatically
+            const { data, error } = await supabase.functions.invoke('get-user-settings');
 
             if (error || !data) {
-                // Warning, but NOT fatal
+                // Warning, but NOT fatal - use defaults
                 console.warn("Using default settings (fetch failed):", error);
                 setSettings({
                     id: 'temp',
@@ -165,15 +146,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 });
             }
 
-            const headers = session ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-
-            if (!headers) {
-                throw new Error('You must be signed in to update settings.');
-            }
-
+            // Let supabase.functions.invoke handle JWT auth automatically
             const { error } = await supabase.functions.invoke('update-user-settings', {
-                body: { [key]: value },
-                headers
+                body: { [key]: value }
             });
 
             if (error) {

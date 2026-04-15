@@ -235,11 +235,13 @@ const Checkout = () => {
     }
   };
 
-  const handleCreateOrder = async (e: React.FormEvent) => {
+const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (fxRateLoading) {
-      toast.error("Loading the live exchange rate. Please wait a moment and try again.");
+    // Pre-check: verify cart has items locally before server call
+    if (items.length === 0) {
+      toast.error("Your cart is empty. Add items before checkout.");
+      navigate('/catalog');
       return;
     }
 
@@ -270,8 +272,26 @@ const Checkout = () => {
         return;
       }
 
-      // 1. Validate Checkout & Create Order (Server-Side)
-      toast.info("Validating order...");
+      // Re-sync cart before checkout to ensure we have latest from DB
+      try {
+        const { mergeGuestCart, getCartItems } = await import('@/lib/supabase');
+        await mergeGuestCart();
+        const dbItems = await getCartItems();
+        if (dbItems.length === 0) {
+          // Check if local items exist but DB is empty - try to recover
+          if (items.length > 0) {
+            console.warn("Cart items exist locally but not in DB - proceeding with local items");
+          } else {
+            throw new Error("CART_EMPTY");
+          }
+        }
+      } catch (syncError) {
+        console.warn("Cart sync failed, proceeding with local state:", syncError);
+      }
+
+      // Debug: log cart items
+      console.log("Checkout Items:", items);
+      console.log("Checkout Total:", total);
 
       // Explicit Payload (Auth Only - SDK will inject JWT automatically)
       const payload = {
@@ -638,9 +658,9 @@ const Checkout = () => {
                           <ArrowLeft className="h-4 w-4 mr-2" />
                           Back
                         </Button>
-                        <Button
+<Button
                           type="submit"
-                          disabled={isProcessing || fxRateLoading}
+                          disabled={isProcessing}
                           className="w-full sm:flex-1 bg-primary hover:bg-primary-hover"
                         >
                           {isProcessing ? "Creating Order..." : (
@@ -650,6 +670,11 @@ const Checkout = () => {
                             </>
                           )}
                         </Button>
+                        {fxRateError && (
+                          <p className="text-xs text-yellow-600 mt-1">
+                            FX rate unavailable - using fallback pricing
+                          </p>
+                        )}
                       </div>
                     </form>
                   </CardContent>

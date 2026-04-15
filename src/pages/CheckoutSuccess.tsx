@@ -96,12 +96,16 @@ const CheckoutSuccess = () => {
     setLoading(true);
     setError(null);
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    const authHeader = sessionData?.session?.access_token ? `Bearer ${sessionData.session.access_token}` : undefined;
+
     const { data, error: invokeError } = await supabase.functions.invoke("get-order-payment-status", {
       body: {
         orderId: lookup.orderId || undefined,
         orderNumber: lookup.orderNumber || undefined,
         reference: lookup.reference || undefined,
       },
+      headers: authHeader ? { Authorization: authHeader } : undefined,
     });
 
     if (invokeError) {

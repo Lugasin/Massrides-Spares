@@ -30,18 +30,16 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const fetchExchangeRate = async () => {
       try {
-        // Try to fetch from fx_rates table if available
-        const { data, error } = await supabase
-          .from('fx_rates')
-          .select('rate')
-          .eq('base_currency', 'USD')
-          .eq('quote_currency', 'ZMW')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+        // Use edge function which has proper access - this avoids RLS issues
+        const { data, error } = await supabase.functions.invoke('get-fx-rate', {
+          body: { base_currency: 'USD', quote_currency: 'ZMW' }
+        });
 
-        if (!error && data?.rate) {
-          setExchangeRate(data.rate);
+        if (!error && data?.fx_rate?.rate) {
+          setExchangeRate(data.fx_rate.rate);
+        } else {
+          // Fallback to default rate
+          setExchangeRate(DEFAULT_RATE);
         }
       } catch {
         // Use default rate on error
@@ -53,28 +51,8 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     fetchExchangeRate();
 
-    // Subscribe to rate updates
-    const channel = supabase
-      .channel('fx-rates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'fx_rates',
-          filter: 'base_currency=eq.USD',
-        },
-        (payload: any) => {
-          if (payload.new?.rate) {
-            setExchangeRate(payload.new.rate);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Note: Real-time FX rate updates disabled due to RLS on fx_rates table
+    // Users can manually set rate in Super Admin or Admin dashboard
   }, []);
 
   // Update settings when currency changes

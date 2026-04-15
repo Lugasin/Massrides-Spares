@@ -279,8 +279,8 @@ serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "secret-key": vesicash.secretKey,
-            "public-key": vesicash.publicKey,
+            "V-PRIVATE-KEY": vesicash.secretKey,
+            "V-PUBLIC-KEY": vesicash.publicKey,
           },
           body: JSON.stringify(vesicashPayload),
         }

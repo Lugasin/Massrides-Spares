@@ -78,9 +78,9 @@ const AdminDashboard: React.FC = () => {
 
     setSavingRate(true);
     try {
-      const { error } = await supabase
-        .from('fx_rates')
-        .upsert({
+      // Let supabase.functions.invoke handle JWT auth automatically
+      const { data: responseData, error } = await supabase.functions.invoke('save-fx-rate', {
+        body: {
           base_currency: 'USD',
           quote_currency: 'ZMW',
           provider: 'manual_admin',
@@ -88,17 +88,26 @@ const AdminDashboard: React.FC = () => {
           rate_date: new Date().toISOString().split('T')[0],
           fetched_at: new Date().toISOString(),
           expires_at: null,
-          source_payload: { manually_set: true }
-        }, { onConflict: 'base_currency,quote_currency' });
+          source_payload: { manually_set: true },
+        },
+      });
 
       if (error) throw error;
+      if (!responseData?.success) {
+        throw new Error(responseData?.message || 'Failed to save exchange rate');
+      }
 
       setExchangeRate(newRate);
       setEditingRate(false);
       toast.success(`Exchange rate updated to ${newRate}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save rate:', err);
-      toast.error('Failed to update exchange rate');
+      // Check if it's an auth error
+      if (err?.message?.includes('401') || err?.message?.includes('Unauthorized')) {
+        toast.error('Authentication failed. Please log in again.');
+      } else {
+        toast.error('Failed to update exchange rate');
+      }
     } finally {
       setSavingRate(false);
     }
