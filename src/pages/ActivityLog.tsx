@@ -19,7 +19,7 @@ const ActivityLog = () => {
         .from('activity_logs')
         .select(`
           *,
-          profiles:user_id(full_name, email)
+          user_profiles:user_id(full_name, email)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -59,8 +59,8 @@ const ActivityLog = () => {
                         {format(new Date(log.created_at), 'MMM dd, HH:mm:ss')}
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm font-medium">{log.profiles?.full_name || 'System'}</div>
-                        <div className="text-xs text-muted-foreground">{log.profiles?.email || ''}</div>
+                        <div className="text-sm font-medium">{log.user_profiles?.full_name || 'System'}</div>
+                        <div className="text-xs text-muted-foreground">{log.user_profiles?.email || ''}</div>
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">

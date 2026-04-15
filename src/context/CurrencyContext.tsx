@@ -8,18 +8,16 @@ interface CurrencyContextType {
   exchangeRate: number;
   autoFetch: boolean;
   setCurrency: (currency: Currency) => void;
-  formatPrice: (amount: number) => string;
-  convertPrice: (amount: number, targetCurrency?: Currency) => number;
+  formatPrice: (amount: number, baseCurrency?: Currency) => string;
+  convertPrice: (amount: number, targetCurrency?: Currency, baseCurrency?: Currency) => number;
   refreshSettings: () => Promise<void>;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
-// Default exchange rate - ZMW per 1 USD
 const DEFAULT_RATE = 28;
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
   const [currency, setCurrencyState] = useState<Currency>('USD');
   const [exchangeRate, setExchangeRate] = useState<number>(DEFAULT_RATE);
   const [autoFetch, setAutoFetch] = useState<boolean>(false);
@@ -37,10 +35,8 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const val = settingsData.value as any;
         setExchangeRate(val.exchange_rate || DEFAULT_RATE);
         setAutoFetch(!!val.auto_fetch);
-        // We could also set the default primary currency here if needed
       }
 
-      // If autoFetch is on, we might want to get the latest live rate
       const { data, error } = await supabase.functions.invoke('get-fx-rate', {
         body: { base_currency: 'USD', quote_currency: 'ZMW' }
       });
@@ -59,7 +55,6 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchSettings();
   }, []);
 
-  // Listen for changes in system_settings
   useEffect(() => {
     const channel = supabase
       .channel('system_settings_changes')
@@ -79,7 +74,6 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setCurrency = (newCurrency: Currency) => {
     setCurrencyState(newCurrency);
-    // Persist to local storage or user profile if needed
     localStorage.setItem('preferred_currency', newCurrency);
   };
 
@@ -90,12 +84,12 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
-  const formatPrice = (amount: number): string => {
-    return formatCurrencyAmount(amount, currency, exchangeRate);
+  const formatPrice = (amount: number, baseCurrency: Currency = 'USD'): string => {
+    return formatCurrencyAmount(amount, currency, exchangeRate, baseCurrency);
   };
 
-  const convertPriceAmount = (amount: number, targetCurrency?: Currency): number => {
-    return convertCurrency(amount, targetCurrency || currency, exchangeRate);
+  const convertPriceAmount = (amount: number, targetCurrency?: Currency, baseCurrency: Currency = 'USD'): number => {
+    return convertCurrency(amount, targetCurrency || currency, exchangeRate, baseCurrency);
   };
 
   const value: CurrencyContextType = {

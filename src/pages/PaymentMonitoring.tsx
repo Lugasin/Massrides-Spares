@@ -24,7 +24,7 @@ const PaymentMonitoring = () => {
         .from('payments')
         .select(`
           *,
-          order:orders(order_number, total_amount, profiles:user_id(full_name, email))
+          order:orders(order_number, total_amount, user_profiles:user_id(full_name, email))
         `)
         .order('created_at', { ascending: false });
 
@@ -114,8 +114,8 @@ const PaymentMonitoring = () => {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                            <div className="font-medium">{p.order?.profiles?.full_name || 'Guest'}</div>
-                            <div className="text-xs text-muted-foreground">{p.order?.profiles?.email || ''}</div>
+                            <div className="font-medium">{p.order?.user_profiles?.full_name || 'Guest'}</div>
+                            <div className="text-xs text-muted-foreground">{p.order?.user_profiles?.email || ''}</div>
                         </div>
                       </TableCell>
                       <TableCell>{formatPrice(p.amount_usd || 0)}</TableCell>

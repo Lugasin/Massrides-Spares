@@ -3,19 +3,15 @@
  * Supports USD and ZMW (Zambian Kwacha)
  */
 
-// Exchange rate: 1 USD = approximately 28 ZMW (this should be updated dynamically)
-const DEFAULT_USD_TO_ZMW_RATE = 28;
-
 export type Currency = 'USD' | 'ZMW';
 
 export interface CurrencyConfig {
   currency: Currency;
-  rate: number; // ZMW per 1 USD
   symbol: string;
   locale: string;
 }
 
-const currencyConfigs: Record<Currency, Omit<CurrencyConfig, 'rate'>> = {
+const currencyConfigs: Record<Currency, CurrencyConfig> = {
   USD: {
     currency: 'USD',
     symbol: '$',
@@ -29,17 +25,31 @@ const currencyConfigs: Record<Currency, Omit<CurrencyConfig, 'rate'>> = {
 };
 
 /**
- * Convert USD amount to specified currency
+ * Convert amount between currencies
+ * @param amount The amount to convert
+ * @param targetCurrency The currency to convert to
+ * @param exchangeRate The rate (how many ZMW per 1 USD)
+ * @param baseCurrency The original currency of the amount (defaults to USD)
  */
 export const convertCurrency = (
-  usdAmount: number,
+  amount: number,
   targetCurrency: Currency,
-  exchangeRate = DEFAULT_USD_TO_ZMW_RATE
+  exchangeRate: number,
+  baseCurrency: Currency = 'USD'
 ): number => {
-  if (targetCurrency === 'USD') {
-    return usdAmount;
+  if (targetCurrency === baseCurrency) {
+    return amount;
   }
-  return usdAmount * exchangeRate;
+
+  if (baseCurrency === 'USD' && targetCurrency === 'ZMW') {
+    return amount * exchangeRate;
+  }
+
+  if (baseCurrency === 'ZMW' && targetCurrency === 'USD') {
+    return amount / exchangeRate;
+  }
+
+  return amount;
 };
 
 /**
@@ -48,44 +58,33 @@ export const convertCurrency = (
 export const formatCurrencyAmount = (
   amount: number,
   currency: Currency,
-  exchangeRate = DEFAULT_USD_TO_ZMW_RATE
+  exchangeRate: number,
+  baseCurrency: Currency = 'USD'
 ): string => {
-  const convertedAmount = convertCurrency(amount, currency, exchangeRate);
+  const convertedAmount = convertCurrency(amount, currency, exchangeRate, baseCurrency);
   const config = currencyConfigs[currency];
 
   try {
     const formatter = new Intl.NumberFormat(config.locale, {
       style: 'currency',
       currency: currency,
-      minimumFractionDigits: currency === 'ZMW' ? 0 : 2,
-      maximumFractionDigits: currency === 'ZMW' ? 0 : 2,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
     return formatter.format(convertedAmount);
   } catch {
-    // Fallback formatting if Intl is not available
     const rounded = Math.round(convertedAmount * 100) / 100;
     return `${config.symbol}${rounded.toLocaleString()}`;
   }
 };
 
-/**
- * Get currency display info
- */
 export const getCurrencyInfo = (currency: Currency) => {
-  return {
-    ...currencyConfigs[currency],
-    currency,
-  };
+  return currencyConfigs[currency];
 };
 
-/**
- * Parse currency string back to number (removes symbol/formatting)
- */
 export const parseCurrencyString = (
-  formatted: string,
-  currency: Currency = 'USD'
+  formatted: string
 ): number => {
-  // Remove all non-numeric characters except decimal point
   const numeric = formatted.replace(/[^\d.]/g, '');
   return parseFloat(numeric) || 0;
 };

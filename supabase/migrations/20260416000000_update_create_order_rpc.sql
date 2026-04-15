@@ -1,3 +1,6 @@
+-- Drop existing function to avoid "cannot remove parameter defaults" error
+DROP FUNCTION IF EXISTS public.create_order_from_cart(uuid, jsonb, text);
+
 CREATE OR REPLACE FUNCTION public.create_order_from_cart(
     _user_id uuid,
     _shipping_address jsonb,
@@ -19,10 +22,10 @@ BEGIN
 
     -- If no items in user cart, check if it was a guest cart (guest_session_id passed in shipping_address)
     IF v_cart_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.cart_items WHERE cart_id = v_cart_id) THEN
-        -- This logic can be expanded if we want to handle guest carts in RPC
-        -- For now, we assume create-order function handles guest cart retrieval and passes a temporary user if needed
-        -- Or just throw error if user cart is empty
+        -- Fallback for guest checkout could be added here
         IF v_cart_id IS NULL THEN
+            -- In guest mode, we expect items to be passed or handled by the edge function
+            -- For this RPC, we'll assume it's only for authenticated carts for now
             RAISE EXCEPTION 'CART_EMPTY';
         END IF;
     END IF;
@@ -55,3 +58,6 @@ BEGIN
     RETURN v_order_id;
 END;
 $$ ;
+
+GRANT EXECUTE ON FUNCTION public.create_order_from_cart TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_order_from_cart TO service_role;
