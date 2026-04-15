@@ -155,10 +155,8 @@ serve(async (req) => {
       baseCurrency: "USD",
       quoteCurrency: "ZMW",
     }).catch((error) => {
-      throw {
-        reason: "FX_RATE_UNAVAILABLE",
-        message: error instanceof Error ? error.message : "Unable to fetch a live exchange rate.",
-      };
+      console.warn("FX rate unavailable for checkout, proceeding without rate lock:", error);
+      return null;
     });
 
     const totalUSD = Number(order.total_amount ?? 0);
@@ -188,10 +186,8 @@ serve(async (req) => {
       .single();
 
     if (paymentInsertError || !paymentRecord) {
-      throw {
         reason: "PAYMENT_RECORD_FAILED",
         message: paymentInsertError?.message || "Unable to create payment record",
-      };
     }
 
     await supabaseAdmin.from("financial_audit_logs").insert({
@@ -271,7 +267,6 @@ serve(async (req) => {
           source: "massrides_checkout",
           reference,
         },
-      };
 
       const vesicashRes = await fetch(
         `${vesicash.apiBaseUrl}/payment/init`,
