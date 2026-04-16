@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useSettings } from '@/context/SettingsContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -48,7 +48,7 @@ interface Product {
 }
 
 const ProductsManagement = () => {
-  const { formatCurrency } = useSettings();
+  const { formatPrice } = useCurrency();
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
@@ -401,7 +401,7 @@ const ProductsManagement = () => {
                               <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-primary">{formatCurrency(product.price)}</p>
+                              <p className="text-lg font-bold text-primary">{formatPrice(product.price)}</p>
                               <p className="text-sm text-muted-foreground">Stock: {product.stock_quantity}</p>
                             </div>
                           </div>

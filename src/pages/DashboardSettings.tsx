@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { Loader2, DollarSign, Globe } from "lucide-react";
 
 const DashboardSettings = () => {
   const { user, profile, userRole } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currencySettings, setCurrencySettings] = useState({
@@ -33,7 +35,13 @@ const DashboardSettings = () => {
         .maybeSingle();
 
       if (!error && data?.value) {
-        setCurrencySettings(data.value as any);
+        const settings = data.value as any;
+        // Ensure exchange_rate is a valid number
+        const exchangeRate = Number(settings.exchange_rate);
+        setCurrencySettings({
+          ...settings,
+          exchange_rate: isNaN(exchangeRate) || exchangeRate <= 0 ? 28 : exchangeRate
+        });
       }
       setLoading(false);
     };
@@ -46,12 +54,19 @@ const DashboardSettings = () => {
   }, [userRole]);
 
   const handleSaveCurrency = async () => {
+    // Validate exchange rate
+    const rate = Number(currencySettings.exchange_rate);
+    if (isNaN(rate) || rate <= 0) {
+      toast.error('Please enter a valid exchange rate');
+      return;
+    }
+    
     setSaving(true);
     const { error } = await supabase
       .from('system_settings')
       .upsert({
         key: 'currency',
-        value: currencySettings,
+        value: { ...currencySettings, exchange_rate: rate },
         updated_by: user?.id,
         updated_at: new Date().toISOString()
       });
@@ -139,8 +154,11 @@ const DashboardSettings = () => {
                         id="rate"
                         type="number"
                         className="pl-10"
-                        value={currencySettings.exchange_rate}
-                        onChange={(e) => setCurrencySettings({...currencySettings, exchange_rate: parseFloat(e.target.value)})}
+                        value={isNaN(currencySettings.exchange_rate) ? 28 : currencySettings.exchange_rate}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value);
+                          setCurrencySettings({...currencySettings, exchange_rate: isNaN(value) ? 0 : value});
+                        }}
                         disabled={currencySettings.auto_fetch}
                       />
                     </div>

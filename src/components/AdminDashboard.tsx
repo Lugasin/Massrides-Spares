@@ -12,7 +12,8 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Package
+  Package,
+  Settings
 } from 'lucide-react';
 import {
   Table,
@@ -26,12 +27,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { useCurrency } from '@/context/CurrencyContext';
 
 const AdminDashboard: React.FC = () => {
   const { userRole, profile, user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const { formatPrice } = useCurrency();
 
   const fetchDashboardData = async () => {
     try {
@@ -89,7 +92,7 @@ const AdminDashboard: React.FC = () => {
                 {data?.recentPayments?.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.order?.order_number}</TableCell>
-                    <TableCell>K{p.amount_zmw?.toLocaleString()}</TableCell>
+                    <TableCell>{formatPrice(p.amount_zmw)}</TableCell>
                     <TableCell>
                       <Badge variant={p.status === 'paid' ? 'default' : 'secondary'}>
                         {p.status}

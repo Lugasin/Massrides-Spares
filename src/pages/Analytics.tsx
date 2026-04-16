@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, TrendingUp, Users, DollarSign, Package, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useSettings } from '@/context/SettingsContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { supabase } from '@/integrations/supabase/client';
 
 type VendorDashboardData = {
@@ -31,7 +31,7 @@ type DashboardData = VendorDashboardData | AdminDashboardData | null;
 
 const Analytics = () => {
   const { user, profile, userRole, session, ready } = useAuth();
-  const { formatCurrency } = useSettings();
+  const { formatPrice } = useCurrency();
   const [dashboardData, setDashboardData] = useState<DashboardData>(null);
   const layoutRole =
     userRole === 'super_admin' ||
@@ -105,7 +105,7 @@ const Analytics = () => {
       return {
         title: userRole === 'super_admin' ? "Super Admin Analytics" : "Admin Analytics",
         cards: [
-          { title: "Total Revenue", value: formatCurrency(dashboardData.stats?.totalRevenue || 0), change: "Paid Orders", icon: DollarSign },
+          { title: "Total Revenue", value: formatPrice(dashboardData.stats?.totalRevenue || 0), change: "Paid Orders", icon: DollarSign },
           { title: "Users", value: `${dashboardData.stats?.totalUsers || 0}`, change: "Registered", icon: Users },
           { title: "Orders", value: `${dashboardData.stats?.totalOrders || 0}`, change: `${dashboardData.stats?.pendingOrders || 0} pending`, icon: ShoppingCart },
           { title: "Products", value: `${dashboardData.stats?.totalProducts || 0}`, change: `${dashboardData.stats?.activeVendors || 0} active vendors`, icon: Package }
@@ -122,7 +122,7 @@ const Analytics = () => {
         { title: "Products", value: "0", change: "-", icon: Package }
       ]
     };
-  }, [dashboardData, formatCurrency, userRole]);
+  }, [dashboardData, formatPrice, userRole]);
 
   return (
     <DashboardLayout userRole={layoutRole} userName={profile?.full_name || user?.email || 'User'} showMetrics={false}>

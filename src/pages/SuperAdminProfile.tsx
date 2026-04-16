@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PaymentMonitoringPanel } from '@/components/admin/PaymentMonitoringPanel';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface SystemSettings {
   maintenance_mode: boolean;
@@ -75,6 +76,7 @@ const SYSTEM_SETTINGS_STORAGE_KEY = 'super_admin_system_settings';
 const SuperAdminProfile: React.FC = () => {
   const { user, profile, userRole } = useAuth();
   const navigate = useNavigate();
+  const { formatPrice } = useCurrency();
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     maintenance_mode: false,
     allow_registrations: true,
@@ -440,14 +442,14 @@ useEffect(() => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(amount);
+    return formatPrice(amount);
   };
 
   const dashboardMetrics = [
     { icon: Users, label: 'Total Users', value: userStats.total_users, change: '+0%' },
     { icon: Package, label: 'Active Vendors', value: userStats.vendors, change: '+0%' },
     { icon: ShoppingCart, label: 'Orders Today', value: ordersToday, change: '+0%' },
-    { icon: DollarSign, label: 'Revenue', value: formatCurrency(financialStats.total_volume_released), change: '+0%' },
+    { icon: DollarSign, label: 'Revenue', value: formatPrice(financialStats.total_volume_released), change: '+0%' },
   ];
 
   const systemMetrics = [

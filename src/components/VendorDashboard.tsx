@@ -24,6 +24,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCurrency } from '@/context/CurrencyContext';
 
 const VendorDashboard: React.FC = () => {
   const { user, profile } = useAuth();
@@ -31,6 +32,7 @@ const VendorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const { formatPrice } = useCurrency();
 
   const fetchDashboardData = async () => {
     try {
@@ -126,7 +128,7 @@ const VendorDashboard: React.FC = () => {
                       <TableCell>
                         <Badge variant="secondary" className="capitalize">{order.status}</Badge>
                       </TableCell>
-                      <TableCell>${order.total_amount.toLocaleString()}</TableCell>
+                      <TableCell>{formatPrice(order.total_amount)}</TableCell>
                     </TableRow>
                   ))}
                   {recentOrders.length === 0 && (
