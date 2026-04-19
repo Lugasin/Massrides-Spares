@@ -15,7 +15,7 @@ interface CurrencyContextType {
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 // Default exchange rate - ZMW per 1 USD
-const DEFAULT_RATE = 28;
+const DEFAULT_RATE = 1.0;
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();

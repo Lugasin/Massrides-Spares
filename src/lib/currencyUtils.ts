@@ -3,8 +3,8 @@
  * Supports USD and ZMW (Zambian Kwacha)
  */
 
-// Exchange rate: 1 USD = approximately 28 ZMW (this should be updated dynamically)
-const DEFAULT_USD_TO_ZMW_RATE = 28;
+// Exchange rate: 1 USD = approximately 1.0 ZMW (this should be updated dynamically)
+const DEFAULT_USD_TO_ZMW_RATE = 1.0;
 
 export type Currency = 'USD' | 'ZMW';
 
