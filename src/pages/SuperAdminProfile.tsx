@@ -321,13 +321,33 @@ useEffect(() => {
 
   const loadSystemSettings = async () => {
     try {
+      let dbLoaded = false;
+      const { data, error } = await supabase.from('platform_settings').select('*');
+      
+      if (!error && data && data.length > 0) {
+        const newSettings = { ...systemSettings };
+        data.forEach((row) => {
+           if (row.setting_key === 'platform_commission_percent') {
+              newSettings.commission_rate = Number(row.setting_value);
+              dbLoaded = true;
+           }
+        });
+        
+        if (dbLoaded) {
+           setSystemSettings(newSettings);
+           logger.log('Financial settings loaded from database');
+        }
+      }
+
       const stored = window.localStorage.getItem(SYSTEM_SETTINGS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        setSystemSettings(prev => ({ ...prev, ...parsed }));
-        logger.log('System settings loaded from local preview storage');
-      } else {
-        logger.log('System settings loaded (using defaults)');
+        setSystemSettings(prev => ({ 
+          ...prev, 
+          ...parsed, 
+          commission_rate: dbLoaded ? prev.commission_rate : parsed.commission_rate 
+        }));
+        logger.log('Local system settings merged');
       }
     } catch (error) {
       logger.error('Error loading system settings:', error);
@@ -358,12 +378,24 @@ useEffect(() => {
   const updateSystemSetting = async (key: string, value: any) => {
     setLoading(true);
     try {
+      if (key === 'commission_rate') {
+        const { error } = await supabase
+          .from('platform_settings')
+          .upsert({ 
+            setting_key: 'platform_commission_percent', 
+            setting_value: value.toString(),
+            description: 'Global percentage fee taken by the platform on each order'
+          }, { onConflict: 'setting_key' });
+          
+        if (error) throw error;
+      }
+
       setSystemSettings(prev => {
         const next = { ...prev, [key]: value };
         window.localStorage.setItem(SYSTEM_SETTINGS_STORAGE_KEY, JSON.stringify(next));
         return next;
       });
-      toast.success(`System setting ${key} updated in this browser session`);
+      toast.success(key === 'commission_rate' ? `Global commission updated to ${value}%` : `System setting ${key} updated locally`);
     } catch (error: any) {
       toast.error(`Failed to update setting: ${error.message}`);
     }
@@ -790,8 +822,9 @@ useEffect(() => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                  These system controls are stored in local preview storage until a persisted system settings table is deployed.
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 border-l-4 border-l-green-500">
+                  <span className="font-semibold text-green-700 block mb-1">Financial Settings Live</span>
+                  Commission rates are persisted securely to the global database. Other system controls are stored in local preview storage until fully deployed.
                 </div>
 
                 <div className="space-y-4">

@@ -6,6 +6,7 @@ export interface CartItem {
   product_id?: string; // Product ID (for uniqueness check)
   name: string;
   price: number;
+  currency: string;
   quantity: number;
   image: string;
   specs: string[];
@@ -57,6 +58,7 @@ const mapContextItems = (savedItems: any[]): CartItem[] => savedItems.map((i: an
   product_id: i.spare_part_id || i.product_id, // Store Product ID for lookups
   name: i.spare_part?.name || 'Unknown Part',
   price: i.spare_part?.price || 0,
+  currency: i.spare_part?.currency || 'USD',
   quantity: i.quantity,
   image: i.spare_part?.images?.[0] || '',
   specs: [],

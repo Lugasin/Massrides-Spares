@@ -695,16 +695,22 @@ const handleCreateOrder = async (e: React.FormEvent) => {
                     <div className="bg-muted/30 rounded-lg p-6 mb-8 max-w-md mx-auto text-left">
                       <h4 className="font-medium mb-4">Order Summary</h4>
                       <div className="space-y-3">
-                        {items.map((item) => (
-                          <div key={item.id} className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">{item.name} x{item.quantity}</span>
-                            <span>${(item.price * item.quantity).toLocaleString()}</span>
-                          </div>
-                        ))}
+                        {items.map((item) => {
+                          const symbol = item.currency === 'ZMW' ? 'K' : item.currency === 'USD' ? '$' : `${item.currency} `;
+                          return (
+                            <div key={item.id} className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">{item.name} x{item.quantity}</span>
+                              <span>{symbol}{(item.price * item.quantity).toLocaleString()}</span>
+                            </div>
+                          );
+                        })}
                         <Separator className="my-2" />
                         <div className="flex justify-between font-bold">
                           <span>Total</span>
-                          <span className="text-primary">${total.toLocaleString()}</span>
+                          <span className="text-primary">
+                            {items[0]?.currency === 'ZMW' ? 'K' : items[0]?.currency === 'USD' ? '$' : (items[0]?.currency || '$')}
+                            {total.toLocaleString()}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -771,7 +777,10 @@ const handleCreateOrder = async (e: React.FormEvent) => {
                                 <span className="text-lg leading-none mb-1">+</span>
                               </Button>
                             </div>
-                            <span>${(item.price * item.quantity).toLocaleString()}</span>
+                            <span>
+                              {item.currency === 'ZMW' ? 'K' : item.currency === 'USD' ? '$' : `${item.currency} `}
+                              {(item.price * item.quantity).toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -782,7 +791,10 @@ const handleCreateOrder = async (e: React.FormEvent) => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${total.toLocaleString()}</span>
+                        <span>
+                          {items[0]?.currency === 'ZMW' ? 'K' : items[0]?.currency === 'USD' ? '$' : (items[0]?.currency || '$')}
+                          {total.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Shipping</span>
@@ -797,8 +809,11 @@ const handleCreateOrder = async (e: React.FormEvent) => {
                     <Separator />
 
                     <div className="flex justify-between font-semibold">
-<span>Total</span>
-                      <span className="text-primary">${total.toLocaleString()}</span>
+                      <span>Total</span>
+                      <span className="text-primary">
+                        {items[0]?.currency === 'ZMW' ? 'K' : items[0]?.currency === 'USD' ? '$' : (items[0]?.currency || '$')}
+                        {total.toLocaleString()}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>

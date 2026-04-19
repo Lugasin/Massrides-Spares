@@ -60,13 +60,24 @@ BEGIN
   SELECT id INTO vendor_id FROM vendors LIMIT 1;
   
   IF vendor_id IS NULL THEN
-    -- Create a default vendor profile and vendor if none exists
-    INSERT INTO profiles (id, email, full_name, role)
-    VALUES (gen_random_uuid(), 'vendor@massrides.co.zm', 'Default Vendor', 'vendor');
-    
-    INSERT INTO vendors (owner_id, corporate_name, slug, description, contact_email)
-    SELECT gen_random_uuid(), 'Massrides Parts', 'massrides-parts', 'Default vendor for mock products', 'vendor@massrides.co.zm'
-    RETURNING id INTO vendor_id;
+    -- Get an existing user from auth.users, or skip vendor creation if none exists
+    SELECT id INTO vendor_id FROM auth.users LIMIT 1;
+
+    IF vendor_id IS NOT NULL THEN
+      -- Create vendor profile if we have a user
+      INSERT INTO profiles (id, email, full_name, role)
+      SELECT vendor_id, 'vendor@massrides.co.zm', 'Default Vendor', 'vendor'
+      WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE id = vendor_id);
+
+      -- Create vendor
+      INSERT INTO vendors (owner_id, corporate_name, slug, description, contact_email)
+      VALUES (vendor_id, 'Massrides Parts', 'massrides-parts', 'Default vendor for mock products', 'vendor@massrides.co.zm')
+      RETURNING id INTO vendor_id;
+    ELSE
+      -- No users exist, skip product insertion
+      RAISE NOTICE 'No users exist in auth.users, skipping mock product insertion';
+      RETURN;
+    END IF;
   END IF;
 
   -- Insert mock products

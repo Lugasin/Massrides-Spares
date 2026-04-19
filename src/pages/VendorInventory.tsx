@@ -23,11 +23,12 @@ import {
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useSettings } from '@/context/SettingsContext';
 
 interface SparePart {
   id: string;
   part_number: string;
-  name: string;
+  title: string;
   description: string;
   price: number;
   brand: string;
@@ -39,12 +40,13 @@ interface SparePart {
   category: { name: string };
   created_at: string;
   is_active: boolean;
-  main_image: string | null;
+  images: string[] | null;
   vendor_id: string | null;
 }
 
 const VendorInventory: React.FC = () => {
   const { user, profile, userRole } = useAuth();
+  const { formatCurrency } = useSettings();
   const navigate = useNavigate();
   const [parts, setParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +97,7 @@ const VendorInventory: React.FC = () => {
           quantity_change: newStock - previousStock,
           reason: 'Vendor dashboard stock update',
           product_id: parseInt(selectedPart.id),
-          vendor_id: actualVendorId
+          vendor_id: vendorId
         } as any);
       } catch (logError) {
         console.warn('Inventory log insert failed:', logError);
@@ -118,8 +120,7 @@ const VendorInventory: React.FC = () => {
         .from('products')
         .select(`
           *,
-          category:categories!category_id(name),
-          inventory(quantity, location, threshold, last_restocked, vendor_id)
+          category:categories!category_id(name)
         `)
         .order('created_at', { ascending: false });
 
@@ -139,13 +140,12 @@ const VendorInventory: React.FC = () => {
 
       const mappedParts: SparePart[] = (data || []).map((p: any) => {
         const attrs = p.attributes || {};
-        const inventory = Array.isArray(p.inventory) ? p.inventory[0] : p.inventory;
-        const totalStock = Number(inventory?.quantity ?? p.stock_quantity ?? 0);
-        const minStockLevel = Number(inventory?.threshold ?? attrs.min_stock_level ?? 5);
+        const totalStock = Number(p.stock_quantity ?? 0);
+        const minStockLevel = Number(p.min_stock_level ?? 5);
         return {
           id: p.id.toString(),
           part_number: p.sku || '',
-          name: p.name,
+          title: p.title,
           description: p.description || '',
           price: p.price,
           brand: attrs.brand || '',
@@ -157,7 +157,7 @@ const VendorInventory: React.FC = () => {
           category: { name: p.category?.name || 'Uncategorized' },
           created_at: p.created_at,
           is_active: p.is_active ?? true,
-          main_image: p.main_image,
+          images: p.images || [],
           vendor_id: p.vendor_id || null
         };
       });
@@ -179,11 +179,6 @@ const VendorInventory: React.FC = () => {
         { event: '*', schema: 'public', table: 'products' },
         () => { fetchVendorParts(); }
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'inventory' },
-        () => { fetchVendorParts(); }
-      )
       .subscribe();
 
     return () => {
@@ -203,11 +198,6 @@ const VendorInventory: React.FC = () => {
     if (!confirm('Are you sure you want to delete this part?')) return;
 
     try {
-      await supabase
-        .from('inventory')
-        .delete()
-        .eq('product_id', parseInt(partId));
-
       const { error } = await supabase
         .from('products')
         .delete()
@@ -240,7 +230,7 @@ const VendorInventory: React.FC = () => {
 
   const filteredParts = parts.filter(part => {
     const matchesSearch = !searchTerm ||
-      part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       part.part_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       part.brand.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -412,8 +402,8 @@ const VendorInventory: React.FC = () => {
                     {filteredParts.map((part) => (
                       <TableRow key={part.id}>
                         <TableCell>
-                          {part.main_image ? (
-                            <img src={part.main_image} alt={part.name} className="h-8 w-8 object-cover rounded" />
+                          {part.images?.[0] ? (
+                            <img src={part.images[0]} alt={part.title} className="h-8 w-8 object-cover rounded" />
                           ) : (
                             <div className="h-8 w-8 bg-muted rounded flex items-center justify-center">
                               <ImageIcon className="h-4 w-4 text-muted-foreground" />
@@ -423,7 +413,7 @@ const VendorInventory: React.FC = () => {
                         <TableCell className="font-mono text-sm">{part.part_number}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{part.name}</p>
+                            <p className="font-medium">{part.title}</p>
                             {part.featured && (
                               <Badge variant="secondary" className="text-xs mt-1">Featured</Badge>
                             )}
@@ -431,7 +421,9 @@ const VendorInventory: React.FC = () => {
                         </TableCell>
                         <TableCell>{part.category?.name || 'No Category'}</TableCell>
                         <TableCell>{part.brand}</TableCell>
-                        <TableCell>${part.price.toLocaleString()}</TableCell>
+                        <TableCell>
+                          {formatCurrency(part.price)}
+                        </TableCell>
                         <TableCell>
                           <div
                             className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
@@ -516,7 +508,7 @@ const VendorInventory: React.FC = () => {
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm font-medium mb-1">{selectedPart?.name}</p>
+                    <p className="text-sm font-medium mb-1">{selectedPart?.title}</p>
                     <p className="text-xs text-muted-foreground mb-4">Current Stock: {selectedPart?.stock_quantity}</p>
                   </div>
                   <div className="flex items-center gap-4">

@@ -82,7 +82,7 @@ interface Metrics {
   failedPayments: number;
   paidPayments: number;
   pendingPayments: number;
-  totalRevenue: number;
+  totalRevenue: Record<string, number>;
   totalTransactions: number;
 }
 
@@ -91,7 +91,7 @@ const emptyMetrics: Metrics = {
   failedPayments: 0,
   paidPayments: 0,
   pendingPayments: 0,
-  totalRevenue: 0,
+  totalRevenue: {},
   totalTransactions: 0,
 };
 
@@ -226,7 +226,22 @@ function usePaymentMonitorData() {
       const paidPayments = paymentRows.filter((payment) => payment.status === 'paid');
       const failedPayments = paymentRows.filter((payment) => payment.status === 'failed' || payment.status === 'cancelled');
       const pendingPayments = paymentRows.filter((payment) => payment.status === 'pending' || payment.status === 'authorised' || payment.status === 'processing');
-      const totalRevenue = paidPayments.reduce((sum, payment) => sum + Number(payment.order?.total_amount || 0), 0);
+      const totalRevenue: Record<string, number> = {};
+      paidPayments.forEach((payment) => {
+        if (payment.amount_zmw) {
+          const curr = payment.quote_currency || 'ZMW';
+          totalRevenue[curr] = (totalRevenue[curr] || 0) + Number(payment.amount_zmw);
+        } else if (payment.amount_usd) {
+          const curr = payment.base_currency || 'USD';
+          totalRevenue[curr] = (totalRevenue[curr] || 0) + Number(payment.amount_usd);
+        } else if (payment.order?.total_amount) {
+          // Fallback if no specific currency amount in payment record
+          const curr = 'USD'; 
+          totalRevenue[curr] = (totalRevenue[curr] || 0) + Number(payment.order.total_amount);
+        }
+      });
+
+      const totalRevenueVal = Object.values(totalRevenue).reduce((a, b) => a + b, 0);
 
       setMetrics({
         totalTransactions: paymentRows.length,
@@ -234,7 +249,7 @@ function usePaymentMonitorData() {
         failedPayments: failedPayments.length,
         pendingPayments: pendingPayments.length,
         totalRevenue,
-        averageOrderValue: paidPayments.length > 0 ? totalRevenue / paidPayments.length : 0,
+        averageOrderValue: paidPayments.length > 0 ? totalRevenueVal / paidPayments.length : 0,
       });
     } catch (error) {
       console.error('Error fetching Vesicash monitor data:', error);
@@ -412,7 +427,17 @@ export const VesicashPaymentMonitoringView = () => {
         <MetricCard icon={Activity} label="Transactions" value={`${metrics.totalTransactions}`} />
         <MetricCard icon={CheckCircle} label="Paid" value={`${metrics.paidPayments}`} accent="text-green-600" />
         <MetricCard icon={Clock} label="Pending" value={`${metrics.pendingPayments}`} accent="text-amber-500" />
-        <MetricCard icon={DollarSign} label="Revenue" value={formatMoney(metrics.totalRevenue)} />
+        <MetricCard 
+          icon={DollarSign} 
+          label="Revenue" 
+          value={
+            Object.keys(metrics.totalRevenue).length > 0 
+              ? Object.entries(metrics.totalRevenue)
+                  .map(([curr, amount]) => formatMoney(amount, curr))
+                  .join(' / ')
+              : formatMoney(0)
+          } 
+        />
       </div>
 
       <Card>
@@ -774,7 +799,17 @@ export const VesicashPaymentMonitoringPanel = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard icon={CheckCircle} label="Paid" value={`${metrics.paidPayments}`} accent="text-green-600" />
         <MetricCard icon={Clock} label="Pending" value={`${metrics.pendingPayments}`} accent="text-amber-500" />
-        <MetricCard icon={DollarSign} label="Revenue" value={formatMoney(metrics.totalRevenue)} />
+        <MetricCard 
+          icon={DollarSign} 
+          label="Revenue" 
+          value={
+            Object.keys(metrics.totalRevenue).length > 0 
+              ? Object.entries(metrics.totalRevenue)
+                  .map(([curr, amount]) => formatMoney(amount, curr))
+                  .join(' / ')
+              : formatMoney(0)
+          } 
+        />
       </div>
     </div>
   );

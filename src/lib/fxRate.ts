@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export type FxRateSource = "live" | "cache";
 
 export interface FxRateSnapshot {
@@ -126,21 +128,16 @@ export async function fetchCheckoutFxRate(
   const cachedSnapshot = readCachedFxRateSnapshot(baseCurrency, quoteCurrency);
 
   try {
-    const response = await fetch(buildFxRateEndpoint(baseCurrency, quoteCurrency), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
+    const { data: payload, error } = await supabase.functions.invoke('get-fx-rate', {
+      method: 'POST',
+      body: {
+        base_currency: baseCurrency,
+        quote_currency: quoteCurrency
+      }
     });
 
-    const payload = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      const message =
-        (payload as { message?: string; error?: string } | null)?.message ||
-        (payload as { message?: string; error?: string } | null)?.error ||
-        `Live exchange rate request failed (${response.status}).`;
+    if (error) {
+      const message = error.message || "Live exchange rate request failed.";
 
       if (cachedSnapshot) {
         return toCachedResponse(

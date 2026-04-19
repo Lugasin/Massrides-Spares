@@ -30,6 +30,7 @@ import {
 import { sparePartsData, sparePartCategories, SparePart } from "@/data/sparePartsData";
 import SparePartsGrid from "@/components/SparePartsGrid";
 import { useQuote } from "@/context/QuoteContext";
+import { useSettings } from "@/context/SettingsContext";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 
@@ -67,6 +68,7 @@ const SparePartsCatalog = () => {
   const [totalItems, setTotalItems] = useState(0);
 
   const { itemCount } = useQuote();
+  const { formatCurrency } = useSettings();
 
   // Extract unique brands and conditions (Keep using local data for filter options to avoid heavy DISTINCT queries)
   const brands = ["All", ...Array.from(new Set(sparePartsData.map(part => part.brand))).sort()];
@@ -125,14 +127,13 @@ const SparePartsCatalog = () => {
         .from('products')
         .select(`
           *,
-          category:categories(name),
-          inventory(quantity)
+          category:categories(name)
         `, { count: 'exact' })
         .eq('is_active', true);
 
       // 1. Text Search (Title or SKU)
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
+        query = query.or(`title.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`);
       }
 
       // 2. Category Filter - use category_id directly (much faster)
@@ -160,7 +161,7 @@ const SparePartsCatalog = () => {
       } else if (sortBy === 'price-high') {
         query = query.order('price', { ascending: false });
       } else {
-        query = query.order('name', { ascending: true });
+        query = query.order('title', { ascending: true });
       }
 
       // 7. Pagination
@@ -183,12 +184,12 @@ const SparePartsCatalog = () => {
           // Parse attributes safely
           const attrs = (part.attributes as any) || {};
           // Inventory is 1:1, so it is an object, not an array.
-          const totalStock = part.inventory?.quantity || 0;
+          const totalStock = part.stock_quantity || 0;
 
           return {
             id: part.id.toString(),
             partNumber: part.sku || '',
-            name: part.name,
+            name: part.title,
             description: part.description || '',
             category: (part.category as any)?.name || 'General',
             brand: attrs.brand || 'Generic',
@@ -197,14 +198,15 @@ const SparePartsCatalog = () => {
             condition: attrs.condition || 'new',
             availabilityStatus: totalStock > 0 ? 'in_stock' : 'out_of_stock',
             stockQuantity: totalStock,
-            images: part.main_image ? [part.main_image] : [],
+            images: (part.images as any)?.[0] ? [part.images[0]] : [],
             technicalSpecs: attrs.technicalSpecs || {},
             compatibility: attrs.compatibility || [],
             warranty: attrs.warranty || '12 months',
             weight: attrs.weight ? parseFloat(attrs.weight.toString()) : undefined,
             dimensions: attrs.dimensions,
             featured: attrs.featured === true || attrs.featured === 'true',
-            tags: attrs.tags || []
+            tags: attrs.tags || [],
+            currency: 'ZMW'
           };
         });
 
@@ -359,13 +361,13 @@ const SparePartsCatalog = () => {
                       <h4 className="font-medium text-sm">Price Range</h4>
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Min $"
+                          placeholder="Min Amt"
                           type="number"
                           value={minPrice}
                           onChange={(e) => setMinPrice(e.target.value)}
                         />
                         <Input
-                          placeholder="Max $"
+                          placeholder="Max Amt"
                           type="number"
                           value={maxPrice}
                           onChange={(e) => setMaxPrice(e.target.value)}
@@ -480,14 +482,14 @@ const SparePartsCatalog = () => {
                   </Select>
 
                   <Input
-                    placeholder="Min Price ($)"
+                    placeholder="Min Price"
                     type="number"
                     value={minPrice}
                     onChange={(e) => setMinPrice(e.target.value)}
                   />
 
                   <Input
-                    placeholder="Max Price ($)"
+                    placeholder="Max Price"
                     type="number"
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(e.target.value)}

@@ -291,6 +291,7 @@ async function sendOrderReceiptIfNeeded(
         customer_email: customerEmail,
         customer_name: customerName || null,
         item_count: items.length,
+        currency: 'USD', // Receipts are currently USD-priced snapshots
       },
     });
   } catch (error) {
@@ -401,12 +402,37 @@ serve(async (req) => {
         throw updatePaymentError;
       }
 
-      const { error: updateOrderError } = await supabaseAdmin
-        .from("orders")
-        .update({
+      let commissionRate = 0.10; // Default 10%
+      if (nextPaymentStatus === "paid") {
+        try {
+          const { data: feeData, error: rpcError } = await supabaseAdmin.rpc('get_platform_commission_rate');
+          if (!rpcError && feeData !== null && !isNaN(Number(feeData))) {
+             commissionRate = Number(feeData) / 100; // e.g. 10 returns 0.10
+          }
+        } catch (e) {
+          console.warn("Could not fetch custom platform fee, using default 10%");
+        }
+      }
+
+      const totalAmount = Number(order.total_amount ?? 0);
+      const platformFee = totalAmount * commissionRate;
+      const vendorEarning = totalAmount - platformFee;
+
+      const orderUpdatePayload: Record<string, any> = {
           status: nextOrderStatus ?? order.status,
           payment_status: nextPaymentStatus,
-        })
+      };
+
+      // Apply Escrow lock and financial splits ONLY on successful payment
+      if (nextPaymentStatus === "paid" && order.payment_status !== "paid") {
+          orderUpdatePayload.platform_fee = platformFee;
+          orderUpdatePayload.vendor_earning = vendorEarning;
+          orderUpdatePayload.payout_status = 'escrow';
+      }
+
+      const { error: updateOrderError } = await supabaseAdmin
+        .from("orders")
+        .update(orderUpdatePayload)
         .eq("id", order.id);
 
       if (updateOrderError) {
@@ -448,6 +474,7 @@ serve(async (req) => {
         previous_order_status: order.status,
         next_order_status: nextOrderStatus,
         verification: morSignature ? "mor-signature" : "x-vesicash-signature",
+        currency: String(data.currency || payload.currency || 'USD'),
         payload,
       },
     });

@@ -19,7 +19,7 @@ interface Metrics {
   activeUsers: number;
   totalProducts: number;
   totalOrders: number;
-  totalRevenue: number;
+  revenues: { [currency: string]: number };
   pendingOrders: number;
   lowStockItems: number;
   unreadNotifications: number;
@@ -37,7 +37,7 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
     activeUsers: 0,
     totalProducts: 0,
     totalOrders: 0,
-    totalRevenue: 0,
+    revenues: {},
     pendingOrders: 0,
     lowStockItems: 0,
     unreadNotifications: 0
@@ -61,8 +61,16 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
         const [usersRes, productsRes, ordersRes, revenueRes, inventoryRes] = await Promise.all([
           supabase.from('user_profiles').select('id', { count: 'exact' }),
           supabase.from('products').select('id', { count: 'exact' }),
-          supabase.from('orders').select('id, total_amount, status', { count: 'exact' }),
-          supabase.from('orders').select('total_amount').eq('payment_status', 'paid'),
+          supabase.from('orders').select('id, status', { count: 'exact' }),
+          supabase.from('payments')
+            .select(`
+              amount_usd,
+              amount_zmw,
+              status,
+              quote_currency,
+              base_currency
+            `)
+            .in('status', ['paid', 'authorised', 'settled']),
           supabase.from('inventory').select(`
             quantity,
             threshold,
@@ -74,7 +82,17 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
           `)
         ]);
 
-        const totalRevenue = revenueRes.data?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
+        const revenues: { [key: string]: number } = {};
+        revenueRes.data?.forEach(payment => {
+          if (payment.amount_zmw) {
+            const curr = payment.quote_currency || 'ZMW';
+            revenues[curr] = (revenues[curr] || 0) + Number(payment.amount_zmw);
+          } else if (payment.amount_usd) {
+            const curr = payment.base_currency || 'USD';
+            revenues[curr] = (revenues[curr] || 0) + Number(payment.amount_usd);
+          }
+        });
+
         const pendingOrders = ordersRes.data?.filter(o => ['pending', 'pending_payment'].includes(o.status)).length || 0;
         const lowStockItems = (inventoryRes.data || []).filter((row: any) => {
           const attrs = typeof row.product?.attributes === 'object' && row.product?.attributes ? row.product.attributes : {};
@@ -84,10 +102,10 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
 
         setMetrics({
           totalUsers: usersRes.count || 0,
-          activeUsers: usersRes.count || 0, // TODO: Add last_active_at tracking
+          activeUsers: usersRes.count || 0,
           totalProducts: productsRes.count || 0,
           totalOrders: ordersRes.count || 0,
-          totalRevenue,
+          revenues,
           pendingOrders,
           lowStockItems,
           unreadNotifications: 0
@@ -135,7 +153,14 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
           return Number(row.quantity ?? 0) <= threshold;
         }).length;
 
-        const vendorRevenue = orderItems.reduce((sum, item) => sum + (Number(item.price_snapshot || 0) * Number(item.quantity || 0)), 0) || 0;
+        const revenues: { [key: string]: number } = {};
+        orderItems.forEach((item: any) => {
+          // Note: In a real system, we might need a currency field on order_items or join with products
+          // For now, assuming products have a base currency
+          const curr = item.product?.currency || 'USD';
+          revenues[curr] = (revenues[curr] || 0) + (Number(item.price_snapshot || 0) * Number(item.quantity || 0));
+        });
+
         const distinctOrders = new Set(orderItems.map((item) => item.order_id)).size;
 
         setMetrics({
@@ -143,7 +168,7 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
           activeUsers: 0,
           totalProducts: products?.length || 0,
           totalOrders: distinctOrders,
-          totalRevenue: vendorRevenue,
+          revenues,
           pendingOrders: 0,
           lowStockItems,
           unreadNotifications: notificationsRes.count || 0
@@ -153,11 +178,16 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
         // Customer metrics
         const ownerIds = Array.from(new Set([profile?.id, user?.id].filter(Boolean))) as string[];
         const [ordersRes, notificationsRes] = await Promise.all([
-          supabase.from('orders').select('id, total_amount, status').in('user_id', ownerIds),
+          supabase.from('orders').select('id, total_amount, currency, status').in('user_id', ownerIds),
           supabase.from('notifications').select('id', { count: 'exact' }).eq('user_id', profile?.id || user?.id).is('read_at', null)
         ]);
 
-        const totalSpent = ordersRes.data?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
+        const revenues: { [key: string]: number } = {};
+        ordersRes.data?.forEach(order => {
+          const curr = 'ZMW'; // Orders are usually in ZMW for this platform
+          revenues[curr] = (revenues[curr] || 0) + Number(order.total_amount || 0);
+        });
+
         const pendingOrders = ordersRes.data?.filter(o => ['pending', 'pending_payment'].includes(o.status)).length || 0;
 
         setMetrics({
@@ -165,7 +195,7 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
           activeUsers: 0,
           totalProducts: 0,
           totalOrders: ordersRes.data?.length || 0,
-          totalRevenue: totalSpent,
+          revenues,
           pendingOrders,
           lowStockItems: 0,
           unreadNotifications: notificationsRes.count || 0
@@ -252,26 +282,35 @@ export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({ userRole, clas
     };
   };
 
+  const formatRevenue = (revenues: { [key: string]: number }) => {
+    const keys = Object.keys(revenues);
+    if (keys.length === 0) return '0';
+    return keys.map(curr => {
+      const symbol = curr === 'ZMW' ? 'K' : curr === 'USD' ? '$' : `${curr} `;
+      return `${symbol}${revenues[curr].toLocaleString()}`;
+    }).join(' / ');
+  };
+
   const getMetricCards = () => {
     if (userRole === 'admin' || userRole === 'super_admin') {
       return [
         { icon: Users, label: 'Total Users', value: metrics.totalUsers, color: 'text-blue-500' },
         { icon: Package, label: 'Products', value: metrics.totalProducts, color: 'text-green-500' },
         { icon: ShoppingCart, label: 'Orders', value: metrics.totalOrders, color: 'text-purple-500' },
-        { icon: DollarSign, label: 'Revenue', value: `$${metrics.totalRevenue.toLocaleString()}`, color: 'text-yellow-500' },
+        { icon: DollarSign, label: 'Revenue', value: formatRevenue(metrics.revenues), color: 'text-yellow-500' },
         { icon: AlertTriangle, label: 'Low Stock', value: metrics.lowStockItems, color: 'text-red-500' }
       ];
     } else if (userRole === 'vendor') {
       return [
         { icon: Package, label: 'My Products', value: metrics.totalProducts, color: 'text-green-500' },
         { icon: ShoppingCart, label: 'Orders', value: metrics.totalOrders, color: 'text-blue-500' },
-        { icon: DollarSign, label: 'Revenue', value: `$${metrics.totalRevenue.toLocaleString()}`, color: 'text-yellow-500' },
+        { icon: DollarSign, label: 'Revenue', value: formatRevenue(metrics.revenues), color: 'text-yellow-500' },
         { icon: AlertTriangle, label: 'Low Stock', value: metrics.lowStockItems, color: 'text-red-500' }
       ];
     } else {
       return [
         { icon: ShoppingCart, label: 'My Orders', value: metrics.totalOrders, color: 'text-blue-500' },
-        { icon: DollarSign, label: 'Total Spent', value: `$${metrics.totalRevenue.toLocaleString()}`, color: 'text-green-500' },
+        { icon: DollarSign, label: 'Total Spent', value: formatRevenue(metrics.revenues), color: 'text-green-500' },
         { icon: Clock, label: 'Pending', value: metrics.pendingOrders, color: 'text-yellow-500' },
         { icon: Activity, label: 'Notifications', value: metrics.unreadNotifications, color: 'text-purple-500' }
       ];

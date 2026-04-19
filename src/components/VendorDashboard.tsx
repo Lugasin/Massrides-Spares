@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
 import { VendorPaymentPanel } from '@/components/vendor/VendorPaymentPanel';
+import { VendorSettingsPanel } from '@/components/vendor/VendorSettingsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DashboardData {
@@ -131,6 +132,7 @@ const VendorDashboard: React.FC = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -292,6 +294,9 @@ const VendorDashboard: React.FC = () => {
         </TabsContent>
         <TabsContent value="payments">
           <VendorPaymentPanel />
+        </TabsContent>
+        <TabsContent value="settings">
+          <VendorSettingsPanel />
         </TabsContent>
       </Tabs>
     </div>

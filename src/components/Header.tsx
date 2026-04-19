@@ -243,11 +243,36 @@ export const Header = ({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <div className="flex items-center gap-1 sm:gap-2">
+              <div className="flex items-center gap-2 lg:gap-3">
                 {localStorage.getItem('guest_session_id') && (
-                  <Badge variant="secondary" className="text-xs hidden sm:inline-flex">Guest</Badge>
+                  <Badge variant="secondary" className="text-[10px] lg:text-xs">Guest</Badge>
                 )}
-                {/* Auth buttons hidden as per request */}
+                <div className="hidden sm:flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs lg:text-sm font-medium hover:text-primary transition-colors"
+                    onClick={() => navigate('/login')}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-primary hover:bg-primary-hover text-primary-foreground text-xs lg:text-sm font-medium px-4 shadow-sm"
+                    onClick={() => navigate('/register')}
+                  >
+                    Register
+                  </Button>
+                </div>
+                {/* Mobile Auth Icon */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="sm:hidden"
+                  onClick={() => navigate('/login')}
+                >
+                  <User className="h-5 w-5" />
+                </Button>
               </div>
             )}
 

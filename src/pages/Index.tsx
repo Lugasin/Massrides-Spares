@@ -50,8 +50,7 @@ const Index = () => {
       const { data, error } = await supabase
         .from('products')
         .select(`
-          *,
-          inventory(quantity)
+          *
         `)
         .limit(20);
 
@@ -62,7 +61,7 @@ const Index = () => {
           title: p.title || p.name,
           image: p.main_image || '/placeholder-part.png',
           price: p.price,
-          in_stock: (p.inventory?.quantity || 0) > 0,
+          in_stock: (p.stock_quantity || 0) > 0,
           part_number: p.sku,
           featured: p.featured || p.attributes?.featured === true
         }));
@@ -137,7 +136,8 @@ const Index = () => {
       price: part.price,
       image: part.image || '',
       specs: part.specs || [],
-      category: part.category
+      category: part.category,
+      currency: part.currency || 'ZMW'
     });
     toast.success(`${part.title || part.name} added to cart!`);
   };
@@ -149,7 +149,8 @@ const Index = () => {
       price: part.price,
       image: part.image || '',
       specs: part.specs,
-      category: part.category
+      category: part.category,
+      currency: 'ZMW' // Local parts default
     });
     toast.success(`${part.name} added to cart!`);
   };

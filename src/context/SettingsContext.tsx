@@ -82,12 +82,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             setLoading(true);
 
-            // Let supabase.functions.invoke handle JWT auth automatically
-            const { data, error } = await supabase.functions.invoke('get-user-settings');
+            let data = null;
+            if (user?.id) {
+                const { data: dbData, error } = await supabase
+                    .from('user_settings')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                
+                if (!error && dbData) {
+                    data = dbData;
+                }
+            }
 
-            if (error || !data) {
+            if (!data) {
                 // Warning, but NOT fatal - use defaults
-                console.warn("Using default settings (fetch failed):", error);
+                console.warn("Using default settings");
                 setSettings({
                     id: 'temp',
                     user_id: user?.id || 'temp',
@@ -176,13 +186,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const formatCurrency = (amount: number) => {
-        const currency = settings?.currency || 'USD';
-        // Simple formatter map. Can be improved with Intl.NumberFormat
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currency,
-        }).format(amount);
+    const formatCurrency = (amount: number, overrideCurrency?: string) => {
+        const currency = overrideCurrency || settings?.currency || 'USD';
+        try {
+          return new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: currency,
+          }).format(amount);
+        } catch (e) {
+          return `${currency} ${amount.toLocaleString()}`;
+        }
     };
 
     return (

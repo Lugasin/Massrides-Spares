@@ -110,7 +110,7 @@ const AddProduct: React.FC = () => {
       // Join inventory to get quantity
       const { data, error } = await supabase
         .from('products')
-        .select('*, inventory(quantity, threshold, last_restocked, vendor_id)')
+        .select('*')
         .eq('id', Number(productId))
         .single<any>();
 
@@ -132,8 +132,8 @@ const AddProduct: React.FC = () => {
           sku: data.sku || '',
           category_id: data.category_id?.toString() || '',
           main_image: data.main_image || '',
-          stock_quantity: inv.quantity || 0,
-          min_stock_level: Number(inv.threshold ?? (attributes as any)?.min_stock_level ?? 5),
+          stock_quantity: data.stock_quantity || 0,
+          min_stock_level: Number(data.min_stock_level ?? (attributes as any)?.min_stock_level ?? 5),
           // Map stored attributes back to form fields
           brand: (attributes as any)?.brand || '',
           condition: (attributes as any)?.condition || 'new',
@@ -142,7 +142,7 @@ const AddProduct: React.FC = () => {
           warranty: (attributes as any)?.warranty || '',
           compatibility: (attributes as any)?.compatibility || '',
           featured: (attributes as any)?.featured === true,
-          availability_status: inv.quantity > 0 ? 'in_stock' : 'out_of_stock'
+          availability_status: data.stock_quantity > 0 ? 'in_stock' : 'out_of_stock'
         });
       }
     } catch (error: any) {

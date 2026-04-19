@@ -186,8 +186,10 @@ serve(async (req) => {
       .single();
 
     if (paymentInsertError || !paymentRecord) {
+      throw {
         reason: "PAYMENT_RECORD_FAILED",
         message: paymentInsertError?.message || "Unable to create payment record",
+      };
     }
 
     await supabaseAdmin.from("financial_audit_logs").insert({
@@ -267,6 +269,7 @@ serve(async (req) => {
           source: "massrides_checkout",
           reference,
         },
+      };
 
       const vesicashRes = await fetch(
         `${vesicash.apiBaseUrl}/payment/init`,

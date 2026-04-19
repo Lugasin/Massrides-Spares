@@ -13,6 +13,8 @@ interface AuthContextType {
   userPermissions: string[]
   userRole: string
   refreshProfile: () => Promise<void>
+  signUp: (email: string, password: string, metadata?: any) => Promise<{ user: User | null; error: Error | null }>
+  signIn: (email: string, password: string) => Promise<{ user: User | null; error: Error | null }>
   hasPermission: (permission: string) => boolean
   isAdmin: () => boolean
   isVendor: () => boolean
@@ -28,6 +30,8 @@ const AuthContext = createContext<AuthContextType>({
   userPermissions: [],
   userRole: 'guest',
   refreshProfile: async () => { },
+  signUp: async () => ({ user: null, error: null }),
+  signIn: async () => ({ user: null, error: null }),
   hasPermission: () => false,
   isAdmin: () => false,
   isVendor: () => false,
@@ -52,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: profileData, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .maybeSingle()
 
       if (error) {
@@ -74,8 +78,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return true
       }
 
-      // If no profile found, user might be new - don't create automatically
-      logger.warn('AuthContext: No profile found for user')
+      // If no profile found, user might be new or profile was wiped in a reset
+      logger.warn('AuthContext: No profile found for user, attempting self-healing...')
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const metadata = user.user_metadata || {}
+        const { data: newProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name: metadata.full_name || metadata.name || '',
+            phone: metadata.phone || '',
+            company_name: metadata.company_name || '',
+            role: 'customer',
+            is_active: true
+          })
+          .select()
+          .maybeSingle()
+
+        if (!createError && newProfile) {
+          logger.log('AuthContext: Self-healed profile created')
+          setProfile(newProfile)
+          setUserRole(newProfile.role || 'customer')
+          setUserPermissions(getPermissionsForRole(newProfile.role || 'customer'))
+          return true
+        } else {
+          logger.error('AuthContext: Failed to self-heal profile:', createError)
+        }
+      }
+
       setProfile(null)
       setUserRole('guest')
       setUserPermissions([])
@@ -188,7 +221,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUserRole('guest')
         setUserPermissions([])
         setRetryCount(0)
-      } else if (event === 'TOKEN_REFRESH_FAILED') {
+      } else if (event as string === 'TOKEN_REFRESH_FAILED') {
         await handleAuthError({ message: 'Token refresh failed' }, event)
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         logger.log('AuthContext: User signed in or token refreshed')
@@ -249,6 +282,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return userRole === 'vendor'
   }, [userRole])
 
+  const signUp = useCallback(async (email: string, password: string, metadata: any = {}) => {
+    try {
+      logger.log('AuthContext: Signing up user', email)
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata
+        }
+      })
+      if (error) {
+        logger.error('AuthContext: Sign up error:', error)
+        return { user: null, error }
+      }
+      return { user: data.user, error: null }
+    } catch (error: any) {
+      logger.error('AuthContext: Sign up exception:', error)
+      return { user: null, error }
+    }
+  }, [])
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      logger.log('AuthContext: Signing in user', email)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      if (error) {
+        logger.error('AuthContext: Sign in error:', error)
+        return { user: null, error }
+      }
+      return { user: data.user, error: null }
+    } catch (error: any) {
+      logger.error('AuthContext: Sign in exception:', error)
+      return { user: null, error }
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
     try {
       logger.log('AuthContext: Signing out user')
@@ -274,6 +346,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       userPermissions,
       userRole,
       refreshProfile,
+      signUp,
+      signIn,
       hasPermission,
       isAdmin,
       isVendor,

@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { SparePart } from '@/data/products';
 import { useQuote } from '@/context/QuoteContext';
+import { useSettings } from '@/context/SettingsContext';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
@@ -41,6 +42,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
   className
 }) => {
   const { addItem } = useQuote();
+  const { formatCurrency } = useSettings();
   const [favorites, setFavorites] = useState<(string | number)[]>([]);
 
   const handleAddToCart = (sparePart: Omit<SparePart, 'id'> & { id: string | number }) => {
@@ -177,7 +179,7 @@ export const SparePartsGrid: React.FC<SparePartsGridProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="text-lg font-bold text-primary">
-                  ${sparePart.price.toLocaleString()} {/* From products.ts */}
+                  {formatCurrency(sparePart.price, sparePart.currency)}
                 </span>
               </div>
               <div className="text-right">

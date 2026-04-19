@@ -23,6 +23,7 @@ type OrderRecord = {
   status: string | null;
   payment_status: string | null;
   total_amount: number | null;
+  currency: string | null;
   created_at: string | null;
   billing_address: Record<string, unknown> | null;
   shipping_address: Record<string, unknown> | null;
@@ -163,6 +164,7 @@ serve(async (req) => {
           status,
           payment_status,
           total_amount,
+          currency,
           created_at,
           billing_address,
           shipping_address,
@@ -227,6 +229,7 @@ serve(async (req) => {
           status,
           payment_status,
           total_amount,
+          currency,
           created_at,
           billing_address,
           shipping_address,
@@ -301,6 +304,7 @@ serve(async (req) => {
           status: normaliseOrderStatus(orderRecord.status, orderRecord.payment_status),
           payment_status: orderRecord.payment_status,
           total_amount: Number(orderRecord.total_amount ?? 0),
+          currency: orderRecord.currency || 'USD',
           created_at: orderRecord.created_at,
           billing_address: orderRecord.billing_address,
           shipping_address: orderRecord.shipping_address,

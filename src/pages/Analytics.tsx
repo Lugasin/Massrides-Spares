@@ -33,6 +33,28 @@ const Analytics = () => {
   const { user, profile, userRole, session, ready } = useAuth();
   const { formatCurrency } = useSettings();
   const [dashboardData, setDashboardData] = useState<DashboardData>(null);
+  const formatMultiCurrency = (revenue: any) => {
+    if (!revenue) return formatCurrency(0);
+    if (typeof revenue === 'number') return formatCurrency(revenue);
+    
+    const entries = Object.entries(revenue);
+    if (entries.length === 0) return formatCurrency(0);
+    
+    return entries
+      .map(([curr, amount]) => {
+        try {
+          return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: curr,
+            maximumFractionDigits: 0,
+          }).format(Number(amount));
+        } catch {
+          return `${curr} ${Number(amount).toLocaleString()}`;
+        }
+      })
+      .join(' / ');
+  };
+
   const layoutRole =
     userRole === 'super_admin' ||
     userRole === 'admin' ||
@@ -58,24 +80,67 @@ const Analytics = () => {
         }
 
         if (userRole === 'vendor' && profile) {
-          const { data, error } = await supabase.functions.invoke('get-vendor-dashboard-data', {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`
-            }
+          const [
+            { data: products },
+            { data: orders }
+          ] = await Promise.all([
+            supabase.from('products').select('*').eq('vendor_id', user.id),
+            supabase.from('orders').select('*').eq('vendor_id', user.id)
+          ]);
+          
+          let totalRevenue = 0;
+          orders?.forEach(o => {
+             if (o.status !== 'cancelled' && o.payment_status === 'paid') {
+               totalRevenue += Number(o.total_amount || 0);
+             }
           });
-          if (error) throw error;
-          setDashboardData({ kind: 'vendor', ...data.dashboardData } as VendorDashboardData);
+
+          const lowStock = products?.filter(p => (p.stock_quantity || 0) < 5) || [];
+
+          setDashboardData({
+            kind: 'vendor',
+            totalRevenue,
+            totalOrders: orders?.length || 0,
+            totalProducts: products?.length || 0,
+            lowStockProducts: lowStock
+          });
           return;
         }
 
         if ((userRole === 'admin' || userRole === 'super_admin') && profile) {
-          const { data, error } = await supabase.functions.invoke('get-admin-dashboard-data', {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`
+          const [
+            { data: usersData },
+            { data: ordersData },
+            { data: productsData }
+          ] = await Promise.all([
+            supabase.from('user_profiles').select('id, role'),
+            supabase.from('orders').select('id, status, payment_status, total_amount'),
+            supabase.from('products').select('id')
+          ]);
+
+          let totalRevenue = 0;
+          let pendingOrders = 0;
+          
+          ordersData?.forEach(o => {
+            if (o.status !== 'cancelled' && o.payment_status === 'paid') {
+              totalRevenue += Number(o.total_amount || 0);
+            }
+            if (o.status === 'pending') {
+              pendingOrders++;
             }
           });
-          if (error) throw error;
-          setDashboardData({ kind: 'admin', ...data.dashboardData } as AdminDashboardData);
+
+          setDashboardData({
+            kind: 'admin',
+            stats: {
+              totalRevenue,
+              totalUsers: usersData?.length || 0,
+              totalOrders: ordersData?.length || 0,
+              pendingOrders,
+              totalProducts: productsData?.length || 0,
+              activeVendors: usersData?.filter(u => u.role === 'vendor' || u.role === 'super_admin')?.length || 0
+            }
+          });
           return;
         }
 
@@ -93,7 +158,7 @@ const Analytics = () => {
       return {
         title: "Vendor Analytics",
         cards: [
-          { title: "Sales Revenue", value: `$${(dashboardData.totalRevenue || 0).toLocaleString()}`, change: "Gross", icon: DollarSign },
+          { title: "Sales Revenue", value: formatMultiCurrency(dashboardData.totalRevenue), change: "Gross", icon: DollarSign },
           { title: "Total Orders", value: dashboardData.totalOrders?.toString() || "0", change: "Total", icon: ShoppingCart },
           { title: "Active Products", value: dashboardData.totalProducts?.toString() || "0", change: "Live", icon: Package },
           { title: "Low Stock", value: (dashboardData.lowStockProducts?.length ?? 0).toString(), change: "Alerts", icon: BarChart3 }
@@ -105,7 +170,7 @@ const Analytics = () => {
       return {
         title: userRole === 'super_admin' ? "Super Admin Analytics" : "Admin Analytics",
         cards: [
-          { title: "Total Revenue", value: formatCurrency(dashboardData.stats?.totalRevenue || 0), change: "Paid Orders", icon: DollarSign },
+          { title: "Total Revenue", value: formatMultiCurrency(dashboardData.stats?.totalRevenue), change: "Paid Orders", icon: DollarSign },
           { title: "Users", value: `${dashboardData.stats?.totalUsers || 0}`, change: "Registered", icon: Users },
           { title: "Orders", value: `${dashboardData.stats?.totalOrders || 0}`, change: `${dashboardData.stats?.pendingOrders || 0} pending`, icon: ShoppingCart },
           { title: "Products", value: `${dashboardData.stats?.totalProducts || 0}`, change: `${dashboardData.stats?.activeVendors || 0} active vendors`, icon: Package }

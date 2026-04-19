@@ -94,7 +94,7 @@ serve(async (req) => {
     }
 
     // 5. Call Vesicash Payout API with correct headers
-    const payoutEndpoint = `${vesicash.apiBaseUrl}/payment/payout/process`;
+    const payoutEndpoint = `${vesicash.apiBaseUrl}/payment/payouts/process`;
     console.log('Calling Vesicash payout endpoint:', payoutEndpoint);
     console.log('Payout payload:', JSON.stringify(payoutPayload));
 

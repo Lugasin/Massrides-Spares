@@ -19,14 +19,14 @@ export const logActivity = async ({
 }: LogActivityParams) => {
   try {
     const { error } = await supabase
-      .from('activity_logs')
+      .from('audit_logs')
       .insert({
-        user_id: userId,
+        actor_id: userId,
         action: actionType,
-        metadata: {
+        object_type: resourceType,
+        object_id: resourceId ? String(resourceId) : null,
+        diff: {
           ...actionDetails, 
-          entity_type: resourceType || 'user_activity',
-          entity_id: resourceId ? String(resourceId) : null,
           risk_score: riskScore, 
           log_source: 'client_action',
           user_agent: navigator.userAgent,

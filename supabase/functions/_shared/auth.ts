@@ -8,10 +8,16 @@ interface AuthResult {
 
 // SECURITY DEFINER function to bypass RLS recursion
 export async function assertAdminOrSuperAdmin(authHeader: string, supabaseUrl: string, supabaseKey: string): Promise<AuthResult> {
-  const supabase = createClient(supabaseUrl, supabaseKey)
-
-  // Extract JWT token
   const token = authHeader.replace('Bearer ', '')
+  if (!token) {
+    throw new Error('No authorization token provided')
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  })
   if (!token) {
     throw new Error('No authorization token provided')
   }
@@ -57,9 +63,16 @@ export async function assertAdminOrSuperAdmin(authHeader: string, supabaseUrl: s
 }
 
 export async function getCurrentUser(authHeader: string, supabaseUrl: string, supabaseKey: string): Promise<AuthResult> {
-  const supabase = createClient(supabaseUrl, supabaseKey)
-
   const token = authHeader.replace('Bearer ', '')
+  if (!token) {
+    throw new Error('No authorization token provided')
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  })
   if (!token) {
     throw new Error('No authorization token provided')
   }

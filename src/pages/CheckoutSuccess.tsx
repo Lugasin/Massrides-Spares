@@ -10,6 +10,7 @@ import { useQuote } from "@/context/QuoteContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { clearHostedPaymentSession, openPaymentLink } from "@/lib/paymentRedirect";
+import { useSettings } from "@/context/SettingsContext";
 
 type PaymentState = "pending" | "processing" | "authorised" | "paid" | "failed" | "cancelled" | "refunded";
 
@@ -36,6 +37,7 @@ interface StatusPayload {
     shipping_address: Record<string, string> | null;
     status: string;
     total_amount: number;
+    currency: string;
   } | null;
   payment: {
     completed_at: string | null;
@@ -55,6 +57,7 @@ const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
   const { clearCart, itemCount } = useQuote();
   const { user, loading: authLoading } = useAuth();
+  const { formatCurrency } = useSettings();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusData, setStatusData] = useState<StatusPayload | null>(null);
@@ -356,7 +359,9 @@ const CheckoutSuccess = () => {
                         </div>
                         <div className="flex justify-between gap-4">
                           <span className="text-muted-foreground">Total</span>
-                          <span className="font-medium">${order?.total_amount?.toLocaleString() ?? "0"}</span>
+                          <span className="font-medium">
+                            {formatCurrency(order?.total_amount ?? 0, order?.currency)}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -399,18 +404,22 @@ const CheckoutSuccess = () => {
                         {order.order_items?.map((item) => (
                           <div key={item.id} className="flex items-center justify-between gap-4 border rounded-lg p-4">
                             <div className="flex items-center gap-4">
-                              <img
-                                src={item.products?.main_image || "/api/placeholder/80/80"}
-                                alt={item.products?.name || "Product"}
-                                className="w-14 h-14 rounded object-cover"
-                                loading="lazy"
-                              />
-                              <div>
-                                <p className="font-medium">{item.products?.name || "Unknown item"}</p>
-                                <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                                <img
+                                  src={item.products?.main_image || "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=100&h=100&fit=crop"}
+                                  alt={item.products?.name || "Product"}
+                                  className="w-14 h-14 rounded object-cover border bg-muted"
+                                  loading="lazy"
+                                />
+                                <div>
+                                  <p className="font-medium">{item.products?.name || "Unknown item"}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Qty: {item.quantity} × {formatCurrency(item.unit_price, order?.currency)}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                            <p className="font-medium">${(item.unit_price * item.quantity).toLocaleString()}</p>
+                              <p className="font-medium">
+                                {formatCurrency(item.unit_price * item.quantity, order?.currency)}
+                              </p>
                           </div>
                         ))}
                       </CardContent>

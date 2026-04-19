@@ -21,6 +21,7 @@ import {
   Info
 } from "lucide-react";
 import { useQuote } from "@/context/QuoteContext";
+import { useSettings } from "@/context/SettingsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ interface SparePart {
   dimensions_cm?: string;
   featured: boolean;
   tags: string[];
+  currency?: string;
   category: {
     name: string;
   };
@@ -65,6 +67,7 @@ const SparePartDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [isFavorite, setIsFavorite] = useState(false);
   const { addItem, itemCount } = useQuote();
+  const { formatCurrency } = useSettings();
 
   useEffect(() => {
     if (partId) {
@@ -78,8 +81,8 @@ const SparePartDetail = () => {
         .from('products')
         .select(`
           *,
-          category:categories(name),
-          inventory(quantity)
+          currency,
+          category:categories(name)
         `)
         .eq('id', parseInt(partId))
         .maybeSingle();
@@ -95,7 +98,7 @@ const SparePartDetail = () => {
       const product = data as any;
       const attrs = product.attributes || {};
       // Inventory is 1:1, so it is an object, not an array.
-      const totalStock = product.inventory?.quantity || 0;
+      const totalStock = product.stock_quantity || 0;
 
       const mappedPart: SparePart = {
         id: product.id.toString(),
@@ -115,6 +118,7 @@ const SparePartDetail = () => {
         dimensions_cm: attrs.dimensions,
         featured: attrs.featured === true,
         tags: attrs.tags || [],
+        currency: product.currency || 'USD',
         category: {
           name: product.category?.name || 'General'
         },
@@ -138,12 +142,13 @@ const SparePartDetail = () => {
 
     try {
       await addItem({
-        id: sparePart.id, // This is a string (UUID) from the database
+        id: sparePart.id,
         name: sparePart.name,
         price: sparePart.price,
         image: sparePart.images[0] || '',
         specs: sparePart.tags,
-        category: sparePart.category.name
+        category: sparePart.category.name,
+        currency: sparePart.currency
       }, quantity);
 
       toast.success(`${sparePart.name} added to cart!`);
@@ -321,7 +326,7 @@ const SparePartDetail = () => {
             {/* Price and Stock */}
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <span className="text-4xl font-bold text-primary">${sparePart.price.toLocaleString()}</span>
+                <span className="text-4xl font-bold text-primary">{formatCurrency(sparePart.price)}</span>
                 <div className="text-sm text-muted-foreground">
                   <p>Stock: {sparePart.stock_quantity} units</p>
                   {sparePart.warranty_months != null && (
@@ -363,7 +368,7 @@ const SparePartDetail = () => {
                   disabled={sparePart.availability_status !== 'in_stock'}
                 >
                   <ShoppingCart className="h-5 w-5 mr-2" />
-                  Add to Cart - ${(sparePart.price * quantity).toLocaleString()}
+                  Add to Cart - {formatCurrency(sparePart.price * quantity)}
                 </Button>
 
                 <div className="grid grid-cols-2 gap-3">

@@ -34,6 +34,7 @@ export interface SparePart {
   partNumber?: string; // Added part number for spare parts
   compatibility?: string[]; // Added compatibility info
   warranty?: string; // Added warranty info
+  currency?: string; // Added currency support
 }
 
 export interface UsedSparePart extends SparePart {

@@ -102,7 +102,7 @@ serve(async (req) => {
     if (productIds.length > 0) {
         const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
-        .select('quantity, price_snapshot, order:orders(*)')
+        .select('quantity, price_snapshot, product:products(currency), order:orders(*)')
         .in('product_id', productIds);
 
         if (orderItemsError) throw orderItemsError;
@@ -110,9 +110,14 @@ serve(async (req) => {
         const validItems = (orderItems || []).filter(item => item.order);
         uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
         
-        // 3. Calculate total revenue (price * quantity)
-        // Note: price in order_items is a number, quantity is a number
-        totalRevenue = validItems.reduce((sum, item) => sum + (Number(item.price_snapshot) || 0) * (item.quantity || 0), 0);
+        // 3. Calculate total revenue grouped by currency
+        const revenueMap: Record<string, number> = {};
+        validItems.forEach(item => {
+          const curr = item.product?.currency || 'USD';
+          const lineTotal = (Number(item.price_snapshot) || 0) * (item.quantity || 0);
+          revenueMap[curr] = (revenueMap[curr] || 0) + lineTotal;
+        });
+        totalRevenue = revenueMap as any;
     }
 
     // 4. Get recent orders

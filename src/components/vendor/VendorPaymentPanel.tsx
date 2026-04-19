@@ -47,12 +47,11 @@ interface VendorPaymentRow {
 
 interface PayoutRow {
   id: string;
-  total_amount: number;
-  total_orders: number | null;
+  amount: number;
   status: string | null;
   created_at: string | null;
-  processed_at: string | null;
-  notes: string | null;
+  updated_at: string | null;
+  failure_reason: string | null;
 }
 
 interface CustomerProfileRow {
@@ -94,6 +93,7 @@ export const VendorPaymentPanel = () => {
   const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [customerMap, setCustomerMap] = useState<Record<string, CustomerProfileRow>>({});
   const [loading, setLoading] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchFinanceData = useCallback(async () => {
@@ -131,14 +131,18 @@ export const VendorPaymentPanel = () => {
               user_id,
               vendor_id,
               shipping_address,
-              billing_address
+              billing_address,
+              platform_fee,
+              vendor_earning,
+              payout_status,
+              status
             )
           `)
           .order('created_at', { ascending: false })
           .limit(100),
         supabase
-          .from('payouts')
-          .select('id, total_amount, total_orders, status, created_at, processed_at, notes')
+          .from('vendor_payouts')
+          .select('id, amount, status, created_at, updated_at, failure_reason')
           .order('created_at', { ascending: false })
           .limit(50),
       ]);
@@ -192,6 +196,57 @@ export const VendorPaymentPanel = () => {
     void fetchFinanceData();
   }, [fetchFinanceData]);
 
+  const handleWithdrawalSubmit = async () => {
+    if (!payments.length) return;
+    
+    // We compute available balance inside the function to ensure freshness
+    let availableAmount = 0;
+    const unpaidOrderIds: number[] = [];
+
+    payments.forEach((payment) => {
+      const order = payment.order as any;
+      if (order?.payment_status === 'paid' || payment.status === 'paid') {
+        if (order?.payout_status === 'unpaid' || order?.status === 'delivered') {
+          availableAmount += Number(order?.vendor_earning || 0);
+          if (order?.id) unpaidOrderIds.push(order.id);
+        }
+      }
+    });
+
+    if (availableAmount <= 0) {
+      toast.error("No available funds to withdraw.");
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) throw new Error("Authentication required.");
+
+      const { error: payoutError } = await supabase
+        .from('vendor_payouts')
+        .insert({
+          vendor_id: session.user.id,
+          amount: availableAmount,
+          status: 'pending'
+        });
+
+      if (payoutError) throw payoutError;
+
+      toast.success("Withdrawal request submitted successfully!");
+      void fetchFinanceData();
+    } catch (err: any) {
+      console.error("Withdrawal error:", err);
+      if (err?.code === '42501') {
+        toast.error("Withdrawal failed due to security policies. Please contact support.");
+      } else {
+        toast.error(`Withdrawal failed: ${err.message || 'Unknown error'}`);
+      }
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   const paymentRows = useMemo(() => {
     return payments.map((payment) => {
       const fxSummary = getPaymentFxSummary(payment, null);
@@ -214,18 +269,30 @@ export const VendorPaymentPanel = () => {
   }, [customerMap, payments]);
 
   const summary = useMemo(() => {
-    const settledPayments = payments.filter((payment) => payment.status === 'paid');
-    const pendingPayments = payments.filter((payment) => ['pending', 'authorised', 'processing'].includes(payment.status));
-    const totalSettledZmw = payments.reduce((sum, payment) => {
-      const fxSummary = getPaymentFxSummary(payment, null);
-      return sum + Number(fxSummary?.amountZmw ?? payment.amount_zmw ?? 0);
-    }, 0);
-    const payoutTotal = payouts.reduce((sum, payout) => sum + Number(payout.total_amount || 0), 0);
+    let pendingEscrow = 0;
+    let availableBalance = 0;
+
+    payments.forEach((payment) => {
+      const order = payment.order as any;
+      if (order?.payment_status === 'paid' || payment.status === 'paid') {
+        const earning = Number(order?.vendor_earning || 0);
+        
+        // If it's escrowed (waiting for delivery)
+        if (order?.payout_status === 'escrow') {
+          pendingEscrow += earning;
+        } 
+        // If delivered but unpaid, it's available
+        else if (order?.payout_status === 'unpaid' || order?.status === 'delivered') {
+          availableBalance += earning;
+        }
+      }
+    });
+
+    const payoutTotal = payouts.reduce((sum, payout) => sum + Number(payout.amount || 0), 0);
 
     return {
-      settledPayments: settledPayments.length,
-      pendingPayments: pendingPayments.length,
-      totalSettledZmw,
+      pendingEscrow,
+      availableBalance,
       payoutTotal,
       payoutCount: payouts.length,
     };
@@ -245,23 +312,29 @@ export const VendorPaymentPanel = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Settled payments</p>
-            <p className="text-2xl font-bold">{summary.settledPayments}</p>
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-lg border p-4 bg-muted/20">
+            <p className="text-sm text-muted-foreground whitespace-nowrap">Pending Escrow (Delivery Awaited)</p>
+            <p className="text-2xl font-bold text-amber-600">{formatMoney(summary.pendingEscrow, 'ZMW')}</p>
+          </div>
+          <div className="rounded-lg border p-4 bg-primary/5">
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-medium text-muted-foreground">Available Balance</p>
+              <Button 
+                size="sm" 
+                variant="default" 
+                disabled={summary.availableBalance <= 0 || withdrawing}
+                onClick={handleWithdrawalSubmit}
+              >
+                {withdrawing ? 'Processing...' : 'Withdraw'}
+              </Button>
+            </div>
+            <p className="text-2xl font-bold text-primary mt-1">{formatMoney(summary.availableBalance, 'ZMW')}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Pending payments</p>
-            <p className="text-2xl font-bold text-amber-600">{summary.pendingPayments}</p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Total settled</p>
-            <p className="text-2xl font-bold text-primary">{formatMoney(summary.totalSettledZmw, 'ZMW')}</p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Payouts</p>
-            <p className="text-2xl font-bold">{summary.payoutCount}</p>
-            <p className="text-xs text-muted-foreground">{formatMoney(summary.payoutTotal, 'ZMW')} total</p>
+            <p className="text-sm text-muted-foreground">Lifetime Payouts</p>
+            <p className="text-2xl font-bold">{formatMoney(summary.payoutTotal, 'ZMW')}</p>
+            <p className="text-xs text-muted-foreground">{summary.payoutCount} total withdrawals</p>
           </div>
         </CardContent>
       </Card>
@@ -384,22 +457,22 @@ export const VendorPaymentPanel = () => {
                 payouts.map((payout) => (
                   <TableRow key={payout.id}>
                     <TableCell className="font-mono text-xs">{payout.id}</TableCell>
-                    <TableCell>{payout.total_orders ?? 0}</TableCell>
-                    <TableCell className="font-medium">{formatMoney(Number(payout.total_amount || 0), 'ZMW')}</TableCell>
+                    <TableCell>{payout.id ? "1" : "0"}</TableCell>
+                    <TableCell className="font-medium">{formatMoney(Number(payout.amount || 0), 'ZMW')}</TableCell>
                     <TableCell>
                       <Badge variant={getBadgeVariant(payout.status || 'pending')} className="capitalize">
                         {payout.status || 'pending'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {payout.processed_at
-                        ? formatDistanceToNow(new Date(payout.processed_at), { addSuffix: true })
+                      {payout.updated_at
+                        ? formatDistanceToNow(new Date(payout.updated_at), { addSuffix: true })
                         : payout.created_at
                           ? formatDistanceToNow(new Date(payout.created_at), { addSuffix: true })
                           : 'N/A'}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {payout.notes || 'No notes'}
+                      {payout.failure_reason || 'No notes'}
                     </TableCell>
                   </TableRow>
                 ))

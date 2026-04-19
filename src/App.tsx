@@ -12,6 +12,7 @@ import { AuthProvider } from "@/context/AuthContext"; // Import AuthProvider
 import { SettingsProvider } from "@/context/SettingsContext"; // Import SettingsProvider
 import { CurrencyProvider } from "@/context/CurrencyContext"; // Import CurrencyProvider
 import { PageErrorBoundary } from "@/components/ErrorBoundary";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -69,8 +70,8 @@ const DevSetup = lazy(() => import("./pages/DevSetup"));
 
 // Loading component
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-[50vh]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+  <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
+    <LoadingSpinner size="lg" text="Massrides is preparing your fields..." />
   </div>
 );
 

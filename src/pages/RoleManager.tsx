@@ -32,11 +32,16 @@ const RoleManager = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('get-users');
+      let query = supabase.from('user_profiles').select('*').order('created_at', { ascending: false });
+      
+      if (userRole === 'admin') {
+        query = query.neq('role', 'super_admin');
+      }
 
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
 
-      setUsers(data.users || []);
+      setUsers(data || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast.error(`Failed to load users: ${error.message}`);
@@ -57,9 +62,10 @@ const RoleManager = () => {
     if (!newRole) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('update-user-role', {
-        body: { userId, newRole }
-      });
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
 
       if (error) throw new Error(error.message);
 

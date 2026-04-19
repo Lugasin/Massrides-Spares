@@ -26,19 +26,8 @@ const Dashboard = () => {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <h2 className="text-xl font-semibold mb-4">Please log in</h2>
-            <p className="text-muted-foreground mb-6">You need to be logged in to access the dashboard.</p>
-            <Button onClick={() => navigate('/login')}>
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    window.location.href = '/';
+    return null;
   }
 
   const renderDashboardContent = () => {

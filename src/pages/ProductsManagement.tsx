@@ -31,7 +31,7 @@ import { useNavigate } from 'react-router-dom';
 interface Product {
   id: number;
   part_number: string;
-  name: string;
+  title: string;
   description: string;
   price: number;
   brand: string;
@@ -72,8 +72,7 @@ const ProductsManagement = () => {
         .from('products')
         .select(`
           *,
-          category:categories!category_id(name),
-          inventory(quantity)
+          category:categories!category_id(name)
         `)
         .order('created_at', { ascending: false });
 
@@ -118,13 +117,12 @@ const ProductsManagement = () => {
 
       const mappedData = (data || []).map((p: any) => {
         const attrs = typeof p.attributes === 'object' && p.attributes ? p.attributes : {};
-        const inventory = Array.isArray(p.inventory) ? p.inventory[0] : p.inventory;
-        const stockQuantity = inventory?.quantity ?? p.stock_quantity ?? 0;
+        const stockQuantity = p.stock_quantity ?? 0;
 
         return {
           id: p.id,
           part_number: p.sku || '',
-          name: p.name,
+          title: p.title,
           description: p.description || '',
           price: p.price,
           brand: attrs.brand || '',
@@ -134,7 +132,7 @@ const ProductsManagement = () => {
           min_stock_level: attrs.min_stock_level || 5,
           featured: attrs.featured === true,
           is_active: p.is_active ?? true,
-          images: p.main_image ? [p.main_image] : [],
+          images: p.images || [],
           created_at: p.created_at,
           category: p.category || null,
           vendor: vendorMap.get(p.vendor_id) || null,
@@ -208,8 +206,25 @@ const ProductsManagement = () => {
     }
   };
 
-  const handleToggleFeatured = async (productId: number, currentStatus: boolean) => {
-    toast.info('Featured status checks are currently disabled pending schema update');
+  const handleToggleFeatured = async (product: any) => {
+    try {
+      const currentAttributes = product.attributes || {};
+      const newAttributes = {
+        ...currentAttributes,
+        featured: !currentAttributes.featured
+      };
+
+      const { error } = await supabase
+        .from('products')
+        .update({ attributes: newAttributes })
+        .eq('id', product.id);
+
+      if (error) throw error;
+      toast.success(newAttributes.featured ? "Product featured!" : "Removed from featured");
+    } catch (error: any) {
+      console.error('Error toggling featured:', error);
+      toast.error("Failed to update featured status");
+    }
   };
 
   const filteredProducts = products.filter(product => {

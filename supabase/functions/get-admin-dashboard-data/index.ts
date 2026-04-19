@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
     const [
       { data: userStats, error: userError },
       { data: orderStats, error: orderError },
+      { data: revenueStats, error: revenueError },
       { data: productStats, error: productError },
       { data: recentActivity, error: activityError }
     ] = await Promise.all([
@@ -59,6 +60,12 @@ Deno.serve(async (req) => {
         .select('status, payment_status, total_amount, created_at')
         .order('created_at', { ascending: false })
         .limit(100),
+
+      // Revenue statistics from payments
+      supabase
+        .from('payments')
+        .select('amount_usd, amount_zmw, base_currency, quote_currency, status')
+        .in('status', ['paid', 'authorised', 'settled']),
 
       // Product statistics
       supabase
@@ -106,9 +113,16 @@ Deno.serve(async (req) => {
       return acc
     }, {})
 
-    const totalRevenue = (orderStats || [])
-      .filter((order: any) => order.payment_status === 'paid')
-      .reduce((sum: number, order: any) => sum + (order.total_amount || 0), 0)
+    const totalRevenue: Record<string, number> = {};
+    (revenueStats || []).forEach((payment: any) => {
+      if (payment.amount_zmw) {
+        const curr = payment.quote_currency || 'ZMW';
+        totalRevenue[curr] = (totalRevenue[curr] || 0) + Number(payment.amount_zmw);
+      } else if (payment.amount_usd) {
+        const curr = payment.base_currency || 'USD';
+        totalRevenue[curr] = (totalRevenue[curr] || 0) + Number(payment.amount_usd);
+      }
+    });
 
     // Process product statistics
     const totalProducts = productStats?.length || 0
