@@ -166,8 +166,8 @@ const AppContent = () => {
             <Route path="/user-management" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']} element={<UserManagement />} />} />
             <Route path="/role-manager" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']} element={<RoleManager />} />} />
 
-            {/* Developer Setup Route - Temporary for seeding */}
-            <Route path="/dev-setup" element={<DevSetup />} />
+            {/* Developer Setup Route — only available in local dev */}
+            {import.meta.env.DEV && <Route path="/dev-setup" element={<DevSetup />} />}
 
           </Routes>
         </Suspense>

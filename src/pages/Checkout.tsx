@@ -252,16 +252,7 @@ const handleCreateOrder = async (e: React.FormEvent) => {
       // 0. Strict Auth Guard (Auth-Only Checkout)
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      console.log("ACTIVE SESSION:", session);
-      if (session) {
-        console.log("JWT Access Token (truncated):", session.access_token.substring(0, 20) + "...");
-        try {
-          const payload = JSON.parse(atob(session.access_token.split('.')[1]));
-          console.log("JWT Payload:", payload);
-        } catch (e) {
-          console.error("Failed to decode JWT payload:", e);
-        }
-      }
+
 
       if (sessionError || !session?.user) {
         console.error("No active session found:", sessionError);
@@ -297,6 +288,12 @@ const handleCreateOrder = async (e: React.FormEvent) => {
       const payload = {
         delivery_address: useShippingAddress ? shippingInfo : customerInfo,
         customer_details: customerInfo,
+        items: items.map(item => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          name: item.name,
+        })),
         notes: null,
         payment_method: 'vesicash',
         send_receipt: sendReceipt

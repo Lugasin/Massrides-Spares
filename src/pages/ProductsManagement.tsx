@@ -229,7 +229,7 @@ const ProductsManagement = () => {
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = !searchTerm ||
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.vendor?.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
