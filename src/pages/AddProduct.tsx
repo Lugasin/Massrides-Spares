@@ -49,10 +49,31 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 interface Category {
-  id: string;
+  id: number;
   name: string;
   description?: string;
 }
+
+const parseCompatibilityInput = (value?: string) =>
+  (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const serializeCompatibilityValue = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return "";
+};
 
 const AddProduct: React.FC = () => {
   const { user, profile, userRole } = useAuth();
@@ -92,8 +113,7 @@ const AddProduct: React.FC = () => {
       const { data, error } = await supabase
         .from('categories')
         .select('id, name, description')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+        .order('name', { ascending: true });
 
       if (error) throw error;
       setCategories(data || []);
@@ -117,32 +137,30 @@ const AddProduct: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        // Map DB fields to form
-        const inv = Array.isArray(data.inventory)
-          ? (data.inventory[0] || { quantity: 0, threshold: 5 })
-          : (data.inventory || { quantity: 0, threshold: 5 });
-        const attributes = typeof data.attributes === 'object' ? data.attributes : {};
+        const attributes = typeof data.attributes === 'object' && data.attributes ? data.attributes : {};
+        const primaryImage = Array.isArray(data.images) ? data.images[0] || '' : '';
+        const stockQuantity = Number(data.stock_quantity ?? 0);
+        const minStockLevel = Number(data.min_stock_level ?? (attributes as any)?.min_stock_level ?? 5);
 
         setProductVendorId(data.vendor_id ? String(data.vendor_id) : profile?.id ?? null);
 
         reset({
-          name: data.name,
+          name: data.title || '',
           description: data.description || '',
-          price: data.price,
+          price: Number(data.price ?? 0),
           sku: data.sku || '',
           category_id: data.category_id?.toString() || '',
-          main_image: data.main_image || '',
-          stock_quantity: data.stock_quantity || 0,
-          min_stock_level: Number(data.min_stock_level ?? (attributes as any)?.min_stock_level ?? 5),
-          // Map stored attributes back to form fields
-          brand: (attributes as any)?.brand || '',
-          condition: (attributes as any)?.condition || 'new',
+          main_image: primaryImage,
+          stock_quantity: stockQuantity,
+          min_stock_level: minStockLevel,
+          brand: data.brand || (attributes as any)?.brand || '',
+          condition: data.condition || (attributes as any)?.condition || 'new',
           oem_part_number: (attributes as any)?.oem_part_number || '',
           aftermarket_part_number: (attributes as any)?.aftermarket_part_number || '',
           warranty: (attributes as any)?.warranty || '',
-          compatibility: (attributes as any)?.compatibility || '',
-          featured: (attributes as any)?.featured === true,
-          availability_status: data.stock_quantity > 0 ? 'in_stock' : 'out_of_stock'
+          compatibility: serializeCompatibilityValue((attributes as any)?.compatibility),
+          featured: Boolean(data.featured ?? ((attributes as any)?.featured === true)),
+          availability_status: (data.availability_status as ProductFormValues['availability_status']) || (stockQuantity > 0 ? 'in_stock' : 'out_of_stock')
         });
       }
     } catch (error: any) {
@@ -180,31 +198,41 @@ const AddProduct: React.FC = () => {
       setLoading(true);
 
       const sku = values.sku || `${values.brand?.substring(0, 3).toUpperCase() || 'GEN'}-${Date.now().toString().slice(-6)}`;
+      const compatibility = parseCompatibilityInput(values.compatibility);
+      const nextFeatured = values.featured === true;
+      const availabilityStatus =
+        values.availability_status === 'on_order'
+          ? 'on_order'
+          : values.stock_quantity > 0
+            ? 'in_stock'
+            : 'out_of_stock';
 
-      // Store extra fields in JSON attributes
       const attributes = {
-        brand: values.brand,
-        condition: values.condition,
-        oem_part_number: values.oem_part_number,
-        aftermarket_part_number: values.aftermarket_part_number,
-        warranty: values.warranty,
-        compatibility: values.compatibility,
-        availability_status: values.availability_status,
-        featured: values.featured === true
+        brand: values.brand?.trim() || null,
+        condition: values.condition || null,
+        oem_part_number: values.oem_part_number?.trim() || null,
+        aftermarket_part_number: values.aftermarket_part_number?.trim() || null,
+        warranty: values.warranty?.trim() || null,
+        compatibility,
+        availability_status: availabilityStatus,
+        featured: nextFeatured
       };
 
       const productData = {
-        name: values.name,
-        description: values.description,
+        title: values.name.trim(),
+        description: values.description?.trim() || null,
         price: values.price,
         sku: sku,
         category_id: values.category_id ? Number(values.category_id) : null,
         vendor_id: resolvedVendorId,
+        brand: values.brand?.trim() || null,
+        condition: values.condition || null,
+        availability_status: availabilityStatus,
         attributes: attributes,
-        is_active: true, // Renamed from active
-        stock_quantity: values.stock_quantity, // Added required field
-        main_image: values.main_image,
-        currency: 'USD'
+        stock_quantity: values.stock_quantity,
+        min_stock_level: values.min_stock_level,
+        featured: nextFeatured,
+        images: values.main_image?.trim() ? [values.main_image.trim()] : []
       };
 
       let currentProductId = isEditMode ? Number(productId) : null;
@@ -220,7 +248,7 @@ const AddProduct: React.FC = () => {
       } else {
         const { data, error } = await supabase
           .from('products')
-          .insert([productData])
+          .insert([{ ...productData, is_active: true }])
           .select()
           .single();
 
@@ -236,16 +264,15 @@ const AddProduct: React.FC = () => {
           vendor_id: resolvedVendorId,
           quantity: values.stock_quantity,
           threshold: values.min_stock_level,
-          location: 'Main Warehouse',
           last_restocked: new Date().toISOString()
         };
 
         const { error: inventoryError } = await supabase
-          .from('inventory')
+          .from('inventory' as any)
           .upsert(inventoryData as any, { onConflict: 'product_id' });
 
         if (inventoryError) {
-          throw inventoryError;
+          console.warn('Inventory sync failed after product save:', inventoryError);
         }
       }
 

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { formatCurrencyAmount, Currency, convertCurrency } from '@/lib/currencyUtils';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchCheckoutFxRate } from '@/lib/fxRate';
 
 interface CurrencyContextType {
   currency: Currency;
@@ -18,7 +18,7 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 const DEFAULT_RATE = 1.0;
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const { settings, updateSetting } = useSettings();
   const [currency, setCurrencyState] = useState<Currency>(
     (settings?.currency as Currency) || 'USD'
@@ -28,32 +28,44 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Fetch exchange rate from database or API
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchExchangeRate = async () => {
       try {
-        // Use edge function which has proper access - this avoids RLS issues
-        const { data, error } = await supabase.functions.invoke('get-fx-rate', {
-          body: { base_currency: 'USD', quote_currency: 'ZMW' }
-        });
+        const response = await fetchCheckoutFxRate();
 
-        if (!error && data?.fx_rate?.rate) {
-          setExchangeRate(data.fx_rate.rate);
-        } else {
-          // Fallback to default rate
+        if (cancelled) {
+          return;
+        }
+
+        setExchangeRate(
+          Number.isFinite(response.fx_rate?.rate)
+            ? response.fx_rate.rate
+            : DEFAULT_RATE
+        );
+      } catch (err) {
+        console.error("Error fetching exchange rate:", err);
+
+        if (!cancelled) {
           setExchangeRate(DEFAULT_RATE);
         }
-      } catch {
-        // Use default rate on error
-        setExchangeRate(DEFAULT_RATE);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchExchangeRate();
+    void fetchExchangeRate();
 
-    // Note: Real-time FX rate updates disabled due to RLS on fx_rates table
-    // Users can manually set rate in Super Admin or Admin dashboard
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user?.id]);
 
   // Update settings when currency changes
   useEffect(() => {

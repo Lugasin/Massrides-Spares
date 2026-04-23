@@ -148,8 +148,77 @@ async function fetchOpenErApiRate(baseCurrency: string, quoteCurrency: string): 
   };
 }
 
+async function fetchExchangeRateApi(baseCurrency: string, quoteCurrency: string): Promise<ProviderRateResult> {
+  const response = await fetch(
+    `https://api.exchangerate-api.com/v4/latest/${encodeURIComponent(baseCurrency)}`,
+    { headers: { Accept: "application/json" } },
+  );
+
+  const payload = asRecord(await response.json().catch(() => ({})));
+  const responseRate = Number(asRecord(payload.rates)[quoteCurrency.toUpperCase()]);
+
+  if (!response.ok) {
+    throw new Error(`exchangerate-api returned ${response.status}.`);
+  }
+
+  if (!Number.isFinite(responseRate) || responseRate <= 0) {
+    throw new Error("exchangerate-api did not return a valid exchange rate.");
+  }
+
+  return {
+    provider: "exchangerate_api",
+    rate: responseRate,
+    providerTimestamp: typeof payload.time_last_updated === "number"
+      ? new Date(payload.time_last_updated * 1000).toISOString()
+      : null,
+    rateDate: typeof payload.date === "string" ? payload.date : null,
+    payload,
+  };
+}
+
+async function fetchFawazCurrencyApi(baseCurrency: string, quoteCurrency: string): Promise<ProviderRateResult> {
+  const baseLower = baseCurrency.toLowerCase();
+  const quoteLower = quoteCurrency.toLowerCase();
+  const response = await fetch(
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${encodeURIComponent(baseLower)}.json`,
+    { headers: { Accept: "application/json" } },
+  );
+
+  const payload = asRecord(await response.json().catch(() => ({})));
+  const rates = asRecord(payload[baseLower]);
+  const responseRate = Number(rates[quoteLower]);
+
+  if (!response.ok) {
+    throw new Error(`fawazahmed0_api returned ${response.status}.`);
+  }
+
+  if (!Number.isFinite(responseRate) || responseRate <= 0) {
+    throw new Error("fawazahmed0_api did not return a valid exchange rate.");
+  }
+
+  return {
+    provider: "fawazahmed0_api",
+    rate: responseRate,
+    providerTimestamp: typeof payload.date === "string" ? payload.date : null,
+    rateDate: typeof payload.date === "string" ? payload.date : null,
+    payload,
+  };
+}
+
 async function fetchLiveProviderRate(baseCurrency: string, quoteCurrency: string): Promise<ProviderRateResult> {
   const providerErrors: string[] = [];
+
+  try {
+    return await fetchExchangeRateApi(baseCurrency, quoteCurrency);
+  } catch (error) {
+    providerErrors.push(`exchangerate: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  try {
+    return await fetchFawazCurrencyApi(baseCurrency, quoteCurrency);
+  } catch (error) {
+    providerErrors.push(`fawazahmed0: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   try {
     return await fetchFrankfurterRate(baseCurrency, quoteCurrency);

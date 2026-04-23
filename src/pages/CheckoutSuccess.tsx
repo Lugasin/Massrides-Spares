@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, default as React } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -56,7 +56,7 @@ const FINAL_STATUSES: PaymentState[] = ["paid", "failed", "cancelled", "refunded
 const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
   const { clearCart, itemCount } = useQuote();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { formatCurrency } = useSettings();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +85,7 @@ const CheckoutSuccess = () => {
     };
   }, [searchParams]);
 
-  const fetchStatus = React.useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     if (!user) {
       return;
     }
@@ -99,37 +99,49 @@ const CheckoutSuccess = () => {
     setLoading(true);
     setError(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const authHeader = sessionData?.session?.access_token ? `Bearer ${sessionData.session.access_token}` : undefined;
+    try {
+      const accessToken = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+      const authHeader = accessToken ? `Bearer ${accessToken}` : undefined;
 
-    const { data, error: invokeError } = await supabase.functions.invoke("get-order-payment-status", {
-      body: {
-        orderId: lookup.orderId || undefined,
-        orderNumber: lookup.orderNumber || undefined,
-        reference: lookup.reference || undefined,
-      },
-      headers: authHeader ? { Authorization: authHeader } : undefined,
-    });
+      const { data, error: invokeError } = await supabase.functions.invoke("get-order-payment-status", {
+        body: {
+          orderId: lookup.orderId || undefined,
+          orderNumber: lookup.orderNumber || undefined,
+          reference: lookup.reference || undefined,
+        },
+        headers: authHeader ? { Authorization: authHeader } : undefined,
+      });
 
-    if (invokeError) {
-      setError(invokeError.message || "Failed to load payment status.");
+      if (invokeError) {
+        console.warn("Payment status polling error (possibly temporary):", invokeError);
+        // If we don't have data yet, we don't show the error immediately to allow polling to continue.
+        // But if it's the first check and it fails with a 400, it might be a missing order.
+        // We'll wait for the next poll before showing a hard error.
+        if (!statusData) {
+            // Keep loading true to show checking status
+        } else {
+            setLoading(false);
+        }
+        return;
+      }
+
+      setStatusData((data || null) as StatusPayload | null);
+      
+      if (!data?.order && !data?.payment) {
+        // If no matching order found after check, we might show error after a few retries.
+        // For now, we allow refresh.
+        setError("We could not find a matching order yet. Refresh this page or open your orders shortly.");
+      } else if (data?.payment?.status === "paid") {
+        clearCart();
+        clearHostedPaymentSession();
+        setPaymentLink("");
+      }
+    } catch (err) {
+      console.error("Fetch status failed:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setStatusData((data || null) as StatusPayload | null);
-    if (!data?.order && !data?.payment) {
-      setError("We could not find a matching order yet. Refresh this page or open your orders shortly.");
-      setLoading(false);
-      return;
-    }
-    if (data?.payment?.status === "paid") {
-      clearCart();
-      clearHostedPaymentSession();
-      setPaymentLink("");
-    }
-    setLoading(false);
-  }, [clearCart, lookup.orderId, lookup.orderNumber, lookup.reference, user]);
+  }, [clearCart, lookup.orderId, lookup.orderNumber, lookup.reference, user, session, statusData]);
 
   useEffect(() => {
     if (!authLoading && user) {

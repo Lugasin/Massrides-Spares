@@ -40,7 +40,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fetchCheckoutFxRate, type FxRateSnapshot } from "@/lib/fxRate";
 
 const Checkout = () => {
-  const { items, total, itemCount, updateQuantity, removeItem } = useQuote();
+  const { items, total, itemCount, updateQuantity, removeItem, clearCart } = useQuote();
   const { user, profile } = useAuth();
   // ... (rest of imports)
 
@@ -327,6 +327,10 @@ const handleCreateOrder = async (e: React.FormEvent) => {
 
       // 2. Redirect to Payment Directly (Consolidated)
       if (payment_link) {
+        // Clear cart only now that we have a success confirmation from backend
+        // We do this BEFORE redirection to avoid racing with the success page
+        clearCart();
+
         const { usedPopup } = beginHostedPayment({
           navigate,
           orderId: order_id,

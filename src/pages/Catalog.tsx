@@ -12,7 +12,7 @@ import { products, categories, Product } from "@/data/products";
 import { useQuote } from "@/context/QuoteContext";
 import { toast } from "sonner";
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const Catalog = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -116,6 +116,7 @@ const Catalog = () => {
       id: product.id.toString(),
       name: product.name,
       price: product.price,
+      currency: product.currency || 'USD',
       image: product.image,
       specs: product.specs,
       category: product.category

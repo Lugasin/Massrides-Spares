@@ -43,3 +43,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_vesicash_config() TO authenticated, service_role;
 
 COMMIT;
+
+
+
+

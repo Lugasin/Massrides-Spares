@@ -95,29 +95,30 @@ serve(async (req) => {
     const productIds = (products || []).map(p => p.id);
 
     // 2. Get orders containing vendor's products
-    // Use 'product_id' instead of 'spare_part_id'
+    // Filter for PAID orders and use vendor_earning for actual revenue metrics
     let uniqueOrders: any[] = [];
     let totalRevenue = 0;
 
     if (productIds.length > 0) {
-        const { data: orderItems, error: orderItemsError } = await supabase
-        .from('order_items')
-        .select('quantity, price_snapshot, product:products(currency), order:orders(*)')
-        .in('product_id', productIds);
+        const { data: ordersWithEarnings, error: ordersError } = await supabase
+          .from('orders')
+          .select('id, total_amount, vendor_earning, payment_status, status, created_at, order_number')
+          .in('id', (
+            await supabase
+              .from('order_items')
+              .select('order_id')
+              .in('product_id', productIds)
+          ).data?.map(i => i.order_id) || [])
+          .order('created_at', { ascending: false });
 
-        if (orderItemsError) throw orderItemsError;
+        if (ordersError) throw ordersError;
 
-        const validItems = (orderItems || []).filter(item => item.order);
-        uniqueOrders = [...new Map(validItems.map(item => [item.order.id, item.order])).values()];
+        uniqueOrders = ordersWithEarnings || [];
         
-        // 3. Calculate total revenue grouped by currency
-        const revenueMap: Record<string, number> = {};
-        validItems.forEach(item => {
-          const curr = item.product?.currency || 'USD';
-          const lineTotal = (Number(item.price_snapshot) || 0) * (item.quantity || 0);
-          revenueMap[curr] = (revenueMap[curr] || 0) + lineTotal;
-        });
-        totalRevenue = revenueMap as any;
+        // Only sum 'paid' revenue for the totalRevenue metric
+        totalRevenue = uniqueOrders
+          .filter(o => o.payment_status === 'paid')
+          .reduce((sum, o) => sum + (Number(o.vendor_earning) || 0), 0);
     }
 
     // 4. Get recent orders

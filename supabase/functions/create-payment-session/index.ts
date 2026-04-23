@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { corsHeaders } from "../_shared/cors.ts";
-import { loadVesicashConfig } from "../_shared/vesicash.ts";
+import { getVesicashApiHeaders, loadVesicashConfig } from "../_shared/vesicash.ts";
 
 console.log("Create-Payment-Session Function Invoked");
 
@@ -88,10 +88,7 @@ serve(async (req) => {
 
       const resp = await fetch(`${vesicash.apiBaseUrl}/transactions/create`, { 
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'V-PRIVATE-KEY': vesicash.secretKey
-        },
+        headers: getVesicashApiHeaders(vesicash),
         body: JSON.stringify(payload)
       });
 

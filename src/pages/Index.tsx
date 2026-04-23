@@ -46,30 +46,37 @@ const Index = () => {
 
   useEffect(() => {
     const fetchFeatured = async () => {
-      // Fetch products and filter client-side to avoid 400 if column missing
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *
-        `)
-        .limit(20);
+      try {
+        // Fetch products and filter client-side to avoid 400 if column missing
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .limit(20);
 
-      if (data) {
-        const mappedProducts = data.map((p: any) => ({
-          ...p,
-          id: p.id,
-          title: p.title || p.name,
-          image: p.main_image || '/placeholder-part.png',
-          price: p.price,
-          in_stock: (p.stock_quantity || 0) > 0,
-          part_number: p.sku,
-          featured: p.featured || p.attributes?.featured === true
-        }));
+        if (error) {
+          logger.error("Index: Error fetching featured products", error);
+        }
 
-        const featured = mappedProducts.filter((p: any) => p.featured === true).slice(0, 8);
-        setFeaturedProducts(featured.length > 0 ? featured : mappedProducts.slice(0, 8));
+        if (data) {
+          const mappedProducts = data.map((p: any) => ({
+            ...p,
+            id: p.id,
+            title: p.title || p.name,
+            image: p.main_image || '/placeholder-part.png',
+            price: p.price,
+            in_stock: (p.stock_quantity || 0) > 0,
+            part_number: p.sku,
+            featured: p.featured || p.attributes?.featured === true
+          }));
+
+          const featured = mappedProducts.filter((p: any) => p.featured === true).slice(0, 8);
+          setFeaturedProducts(featured.length > 0 ? featured : mappedProducts.slice(0, 8));
+        }
+      } catch (err) {
+        logger.error("Index: Unexpected error in fetchFeatured", err);
+      } finally {
+        setLoadingFeatured(false);
       }
-      setLoadingFeatured(false);
     };
     fetchFeatured();
   }, []);

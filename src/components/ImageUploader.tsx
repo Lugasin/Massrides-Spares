@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,10 @@ interface ImageUploaderProps {
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange, disabled }) => {
     const [uploading, setUploading] = useState(false);
     const [preview, setPreview] = useState<string | null>(value || null);
+
+    useEffect(() => {
+        setPreview(value || null);
+    }, [value]);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         if (acceptedFiles.length === 0) return;

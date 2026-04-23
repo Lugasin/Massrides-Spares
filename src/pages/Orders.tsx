@@ -160,10 +160,10 @@ const Orders = () => {
           order_items (
             id,
             quantity,
-            price_snapshot,
+            unit_price,
             products (
-              name,
-              main_image
+              title,
+              images
             )
           )
         `)
@@ -178,7 +178,7 @@ const Orders = () => {
       const { data, error } = await ordersQuery;
       if (error) throw error;
 
-      const orderRows = (data || []) as Order[];
+      const orderRows = (data || []) as any[]; // Cast to any first to bypass stale generated type mismatches
       const customerIds = Array.from(new Set(orderRows.map((order) => order.user_id).filter(Boolean) as string[]));
       const customerMap = new Map<string, CustomerProfileRecord>();
 
@@ -246,6 +246,8 @@ const Orders = () => {
 
         return {
           id: String(order.id),
+          user_id: order.user_id,
+          vendor_id: order.vendor_id,
           order_number: order.order_number,
           status: order.status,
           payment_status: order.payment_status,
@@ -280,11 +282,16 @@ const Orders = () => {
           order_items: (order.order_items || []).map((item) => ({
             id: item.id,
             quantity: item.quantity,
-            unit_price: Number(item.price_snapshot || 0),
+            unit_price: Number(item.unit_price || 0),
             products: item.products
               ? {
-                  name: item.products.name,
-                  main_image: item.products.main_image || null,
+                  name: item.products.title || 'Unknown item',
+                  main_image:
+                    Array.isArray(item.products.images) &&
+                    item.products.images.length > 0 &&
+                    typeof item.products.images[0] === 'string'
+                      ? item.products.images[0]
+                      : null,
                 }
               : null,
           })),
@@ -317,9 +324,39 @@ const Orders = () => {
     return () => supabase.removeChannel(channel);
   }, [fetchOrders]);
 
+  const handleSyncStatus = async (orderId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-order-payment-status', {
+        body: { orderId: Number(orderId) },
+        headers: {
+          Authorization: 'Bearer ' + session?.access_token
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success('Status synced with provider');
+      fetchOrders();
+      // Update selected order view if open
+      if (selectedOrder && selectedOrder.id === orderId) {
+         const { data: updatedOrder } = await supabase
+          .from('orders')
+          .select('*, payment:payments(*)')
+          .eq('id', orderId)
+          .single();
+         if (updatedOrder) setSelectedOrder(updatedOrder as any);
+      }
+    } catch (error: any) {
+      console.error('Error syncing order status:', error);
+      toast.error('Sync failed: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleUpdateStatus = async (orderId: string, status: string) => {
     try {
-      if (userRole !== 'super_admin') {
+      if ((userRole !== 'super_admin' && userRole !== 'admin')) {
         throw new Error('Only super admins can update order status.');
       }
 
@@ -345,10 +382,15 @@ const Orders = () => {
   };
 
   useEffect(() => {
-    if (ready) {
-      fetchOrders();
-      return subscribeToOrders();
-    }
+    const initialize = async () => {
+      if (ready) {
+        await fetchOrders();
+        // Return unsubscribe from the sync wrapper if needed, 
+        // but here we just call the functions.
+        subscribeToOrders();
+      }
+    };
+    initialize();
   }, [fetchOrders, ready, subscribeToOrders]);
 
   const getStatusColor = (status: string) => {
@@ -473,9 +515,9 @@ const Orders = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Value</p>
+                  <p className="text-sm text-muted-foreground">Paid Revenue (Success Only)</p>
                   <p className="text-2xl font-bold text-primary">
-                    {formatCurrency(orders.reduce((sum, o) => sum + o.total_amount, 0))}
+                    {formatCurrency(orders.filter(o => o.payment_status === "paid").reduce((sum, o) => sum + o.total_amount, 0))}
                   </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-primary" />
@@ -569,7 +611,7 @@ const Orders = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
+                          {new Date(order.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                         </TableCell>
                         <TableCell>
                           <Badge variant={getStatusColor(order.status)} className="capitalize">
@@ -577,9 +619,8 @@ const Orders = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getPaymentStatusColor(order.payment_status)} className="capitalize">
-                            {order.payment_status}
-                          </Badge>
+                          <Badge variant={getPaymentStatusColor(order.payment_status)} className="capitalize">{order.payment_status}</Badge>
+                            {order.payment?.vesicash_transaction_id && <p className="text-[10px] text-muted-foreground mt-1">Ref: {order.payment.vesicash_transaction_id}</p>}
                         </TableCell>
                         <TableCell className="font-medium">
                           {formatCurrency(order.total_amount)}
@@ -677,6 +718,18 @@ const Orders = () => {
                           )}
                         </div>
                       </div>
+                      <div className="mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full" 
+                          onClick={() => handleSyncStatus(selectedOrder.id)}
+                          disabled={loading}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                          Sync with Vesicash
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -732,7 +785,19 @@ const Orders = () => {
                             FX snapshot unavailable for this payment record. Legacy order details remain available.
                           </div>
                         )}
-                      </CardContent>
+                        <div className="mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full" 
+                          onClick={() => handleSyncStatus(selectedOrder.id)}
+                          disabled={loading}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                          Sync with Vesicash
+                        </Button>
+                      </div>
+                    </CardContent>
                     </Card>
                   )}
 
@@ -772,6 +837,18 @@ const Orders = () => {
                           </span>
                         </div>
                       </div>
+                      <div className="mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full" 
+                          onClick={() => handleSyncStatus(selectedOrder.id)}
+                          disabled={loading}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                          Sync with Vesicash
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -793,7 +870,19 @@ const Orders = () => {
                           </p>
                           <p>{selectedOrder.shipping_address.country}</p>
                         </div>
-                      </CardContent>
+                        <div className="mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full" 
+                          onClick={() => handleSyncStatus(selectedOrder.id)}
+                          disabled={loading}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                          Sync with Vesicash
+                        </Button>
+                      </div>
+                    </CardContent>
                     </Card>
                   )}
                 </div>

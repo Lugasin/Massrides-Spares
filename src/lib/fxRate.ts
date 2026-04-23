@@ -29,6 +29,10 @@ export interface FxRateResponse {
 const DEFAULT_BASE_CURRENCY = "USD";
 const DEFAULT_QUOTE_CURRENCY = "ZMW";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY ||
+  "";
 const FX_RATE_CACHE_PREFIX = "massrides_checkout_fx_rate";
 
 function buildFxRateEndpoint(baseCurrency: string, quoteCurrency: string) {
@@ -121,27 +125,21 @@ function toCachedResponse(snapshot: FxRateSnapshot, note: string): FxRateRespons
   };
 }
 
-function get1to1Fallback(base: string, quote: string): FxRateResponse {
-  const now = new Date().toISOString();
-  const snapshot: FxRateSnapshot = {
-    base_currency: base,
-    quote_currency: quote,
-    rate: 1.0,
-    provider: "hardcoded_fallback",
-    source: "cache",
-    fetched_at: now,
-    cache_expires_at: new Date(Date.now() + 3600000).toISOString(),
-    stale_cache_used: false,
-    fallback_used: true
+async function buildFxRateRequestHeaders() {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
   };
 
-  return {
-    fx_rate: snapshot,
-    source: "cache",
-    fallback_used: true,
-    stale_cache_used: false,
-    note: "Using emergency 1:1 fallback exchange rate."
-  };
+  if (SUPABASE_PUBLISHABLE_KEY) {
+    headers.apikey = SUPABASE_PUBLISHABLE_KEY;
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  return headers;
 }
 
 export async function fetchCheckoutFxRate(
@@ -151,16 +149,26 @@ export async function fetchCheckoutFxRate(
   const cachedSnapshot = readCachedFxRateSnapshot(baseCurrency, quoteCurrency);
 
   try {
-    const { data: payload, error } = await supabase.functions.invoke('get-fx-rate', {
-      method: 'POST',
-      body: {
+    const response = await fetch(buildFxRateEndpoint(baseCurrency, quoteCurrency), {
+      method: "POST",
+      headers: await buildFxRateRequestHeaders(),
+      body: JSON.stringify({
         base_currency: baseCurrency,
-        quote_currency: quoteCurrency
-      }
+        quote_currency: quoteCurrency,
+      }),
     });
 
-    if (error) {
-      const message = error.message || "Live exchange rate request failed.";
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const message =
+        (payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string"
+          ? payload.message
+          : null) ||
+        (payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : null) ||
+        `Live exchange rate request failed with status ${response.status}.`;
 
       if (cachedSnapshot) {
         return toCachedResponse(
@@ -179,9 +187,11 @@ export async function fetchCheckoutFxRate(
 
     writeCachedFxRateSnapshot(responseData.fx_rate);
     return responseData;
-  } catch (error) {
-    console.error("FX Rate Fetch Error - Using 1:1 Fallback:", error);
-    return get1to1Fallback(baseCurrency, quoteCurrency);
+  } catch (error: any) {
+    console.error("FX Rate Fetch Error:", error);
+    // During checkout, we SHOULD NOT use a silent 1:1 fallback if the call fails and there's no cache.
+    // The Edge Function returned error should be propagated to the UI.
+    throw error;
   }
 }
 

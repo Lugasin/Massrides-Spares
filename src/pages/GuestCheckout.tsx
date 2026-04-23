@@ -150,6 +150,12 @@ const GuestCheckout = () => {
             email,
             country: 'Zambia',
           },
+          items: items.map(item => ({
+            product_id: item.id,
+            quantity: item.quantity,
+            unit_price: item.price,
+            name: item.name,
+          })),
           payment_method: 'vesicash',
           send_receipt: sendReceipt,
         },

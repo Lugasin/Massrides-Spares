@@ -115,9 +115,9 @@ const AppContent = () => {
             <Route path="/" element={<Index />} />
             <Route path="/catalog" element={<SparePartsCatalog />} />
             <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/checkout/success" element={<CheckoutSuccess />} />
-            <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+            <Route path="/checkout" element={<ProtectedRoute element={<Checkout />} />} />
+            <Route path="/checkout/success" element={<ProtectedRoute element={<CheckoutSuccess />} />} />
+            <Route path="/checkout/cancel" element={<ProtectedRoute element={<CheckoutCancel />} />} />
 
             {/* Protected Dashboard Route */}
             <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} /> {/* Protected Dashboard Route */}

@@ -90,8 +90,8 @@ const Analytics = () => {
           
           let totalRevenue = 0;
           orders?.forEach(o => {
-             if (o.status !== 'cancelled' && o.payment_status === 'paid') {
-               totalRevenue += Number(o.total_amount || 0);
+             if (o.payment_status === 'paid') {
+               totalRevenue += Number(o.vendor_earning || 0);
              }
           });
 

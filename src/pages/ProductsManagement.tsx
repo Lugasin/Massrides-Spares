@@ -42,6 +42,7 @@ interface Product {
   featured: boolean;
   is_active: boolean;
   images: string[];
+  attributes: Record<string, unknown>;
   created_at: string;
   category: { name: string } | null;
   vendor: { full_name: string | null; email: string | null; company_name?: string | null } | null;
@@ -125,14 +126,15 @@ const ProductsManagement = () => {
           title: p.title,
           description: p.description || '',
           price: p.price,
-          brand: attrs.brand || '',
-          condition: attrs.condition || 'new',
-          availability_status: attrs.availability_status || (stockQuantity > 0 ? 'in_stock' : 'out_of_stock'),
+          brand: p.brand || attrs.brand || '',
+          condition: p.condition || attrs.condition || 'new',
+          availability_status: p.availability_status || attrs.availability_status || (stockQuantity > 0 ? 'in_stock' : 'out_of_stock'),
           stock_quantity: stockQuantity,
-          min_stock_level: attrs.min_stock_level || 5,
-          featured: attrs.featured === true,
+          min_stock_level: Number(p.min_stock_level ?? attrs.min_stock_level ?? 5),
+          featured: Boolean(p.featured ?? (attrs.featured === true)),
           is_active: p.is_active ?? true,
           images: p.images || [],
+          attributes: attrs,
           created_at: p.created_at,
           category: p.category || null,
           vendor: vendorMap.get(p.vendor_id) || null,
@@ -206,21 +208,30 @@ const ProductsManagement = () => {
     }
   };
 
-  const handleToggleFeatured = async (product: any) => {
+  const handleToggleFeatured = async (productId: number, currentStatus: boolean) => {
     try {
-      const currentAttributes = product.attributes || {};
+      const product = products.find((entry) => entry.id === productId);
+      const currentAttributes = product?.attributes || {};
       const newAttributes = {
         ...currentAttributes,
-        featured: !currentAttributes.featured
+        featured: !currentStatus
       };
 
       const { error } = await supabase
         .from('products')
-        .update({ attributes: newAttributes })
-        .eq('id', product.id);
+        .update({
+          featured: !currentStatus,
+          attributes: newAttributes,
+        } as any)
+        .eq('id', productId);
 
       if (error) throw error;
-      toast.success(newAttributes.featured ? "Product featured!" : "Removed from featured");
+      setProducts(products.map((entry) =>
+        entry.id === productId
+          ? { ...entry, featured: !currentStatus, attributes: newAttributes }
+          : entry
+      ));
+      toast.success(!currentStatus ? "Product featured!" : "Removed from featured");
     } catch (error: any) {
       console.error('Error toggling featured:', error);
       toast.error("Failed to update featured status");
@@ -400,7 +411,7 @@ const ProductsManagement = () => {
                           {product.images?.[0] ? (
                             <img
                               src={product.images[0]}
-                              alt={product.name}
+                              alt={product.title}
                               className="w-full h-full object-cover rounded-lg"
                               loading="lazy"
                             />
@@ -411,7 +422,7 @@ const ProductsManagement = () => {
                         <div className="flex-1">
                           <div className="flex items-start justify-between">
                             <div>
-                              <h3 className="font-semibold">{product.name}</h3>
+                              <h3 className="font-semibold">{product.title}</h3>
                               <p className="text-sm text-muted-foreground">{product.part_number}</p>
                               <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
                             </div>
@@ -506,7 +517,7 @@ const ProductsManagement = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Product Name</Label>
-                    <p className="font-medium">{selectedProduct.name}</p>
+                    <p className="font-medium">{selectedProduct.title}</p>
                   </div>
                   <div>
                     <Label>Part Number</Label>

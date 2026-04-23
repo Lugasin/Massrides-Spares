@@ -95,7 +95,28 @@ export const getOrCreateSessionId = (): string => {
   return sessionId
 }
 
+export const ensureGuestSession = async (token: string) => {
+  try {
+    const { error } = await supabase
+      .from('guest_sessions')
+      .upsert({ token }, { onConflict: 'token' });
+    
+    if (error) {
+      console.error("Failed to ensure guest session in database:", error);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Critical error in ensureGuestSession:", error);
+  }
+}
+
 const getOrCreateCart = async (userId: string | null, guestToken: string | null) => {
+  // If this is a guest, make sure the session exists in the DB first
+  // to avoid 23503 FK violations in the carts table.
+  if (!userId && guestToken) {
+    await ensureGuestSession(guestToken);
+  }
+
   const query = supabase.from('carts').select('*');
   
   if (userId) {
@@ -121,7 +142,14 @@ const getOrCreateCart = async (userId: string | null, guestToken: string | null)
     .select('*')
     .single();
 
-  if (insertError) throw insertError;
+  if (insertError) {
+    if (insertError.code === '23505') {
+       // 23505 is Unique Violation: another concurrent call already created it.
+       const { data: retryCart } = await query.single();
+       if (retryCart) return retryCart;
+    }
+    throw insertError;
+  }
   return newCart;
 }
 

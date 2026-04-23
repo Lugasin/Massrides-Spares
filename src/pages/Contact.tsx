@@ -27,21 +27,19 @@ const Contact = () => {
     setIsSubmitting(true);
 
     try {
-      // For now, just simulate success until types are updated
-      console.log('Contact form submitted:', formData);
-      // TODO: Implement when support_tickets table is available
-      // const { error } = await supabase
-      //   .from('support_tickets')
-      //   .insert({
-      //     name: formData.name,
-      //     email: formData.email,
-      //     message: formData.message,
-      //     status: 'open'
-      //   });
+      const { error } = await supabase.functions.invoke('send-notification-email', {
+        body: {
+          type: 'contact_form',
+          name: formData.name,
+          email: formData.email,
+          message: formData.message,
+          subject: `New Contact Form Submission from ${formData.name}`
+        }
+      });
 
-      // if (error) {
-      //   throw error;
-      // }
+      if (error) {
+        throw error;
+      }
 
       toast.success('Message sent successfully! We\'ll get back to you soon.');
       setFormData({ name: '', email: '', message: '' });

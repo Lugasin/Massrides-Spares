@@ -62,10 +62,16 @@ const RoleManager = () => {
     if (!newRole) return;
 
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('update-user-role', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
+        },
+        body: { 
+          target_user_id: userId,
+          role: newRole 
+        }
+      });
 
       if (error) throw new Error(error.message);
 

@@ -199,6 +199,13 @@ export const VendorPaymentPanel = () => {
   const handleWithdrawalSubmit = async () => {
     if (!payments.length) return;
     
+    // Prevent multiple concurrent pending requests
+    const hasPendingPayout = payouts.some(p => p.status === 'pending');
+    if (hasPendingPayout) {
+      toast.error("You already have a pending withdrawal request. Please wait for it to be processed.");
+      return;
+    }
+    
     // We compute available balance inside the function to ensure freshness
     let availableAmount = 0;
     const unpaidOrderIds: number[] = [];
@@ -289,12 +296,14 @@ export const VendorPaymentPanel = () => {
     });
 
     const payoutTotal = payouts.reduce((sum, payout) => sum + Number(payout.amount || 0), 0);
+    const hasPendingPayout = payouts.some((payout) => payout.status === 'pending');
 
     return {
       pendingEscrow,
       availableBalance,
       payoutTotal,
       payoutCount: payouts.length,
+      hasPendingPayout,
     };
   }, [payments, payouts]);
 
@@ -323,10 +332,10 @@ export const VendorPaymentPanel = () => {
               <Button 
                 size="sm" 
                 variant="default" 
-                disabled={summary.availableBalance <= 0 || withdrawing}
+                disabled={summary.availableBalance <= 0 || withdrawing || summary.hasPendingPayout}
                 onClick={handleWithdrawalSubmit}
               >
-                {withdrawing ? 'Processing...' : 'Withdraw'}
+                {summary.hasPendingPayout ? 'Pending Approval' : withdrawing ? 'Processing...' : 'Withdraw'}
               </Button>
             </div>
             <p className="text-2xl font-bold text-primary mt-1">{formatMoney(summary.availableBalance, 'ZMW')}</p>

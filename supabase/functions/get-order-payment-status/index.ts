@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadVesicashConfig, getVesicashPaymentDetails, normaliseVesicashStatus, settlePayment } from "../_shared/vesicash.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,8 +35,8 @@ type OrderRecord = {
     quantity: number;
     price_snapshot: number | null;
     products: {
-      name: string;
-      main_image: string | null;
+      title: string | null;
+      images: string[] | null;
     } | null;
   }> | null;
 } | null;
@@ -53,6 +54,19 @@ function normaliseOrderStatus(status: string | null, paymentStatus: string | nul
   return current || "pending_payment";
 }
 
+function getProductName(product: { title: string | null } | null | undefined) {
+  return product?.title || "Unknown item";
+}
+
+function getProductImage(product: { images: string[] | null } | null | undefined) {
+  if (!product?.images || !Array.isArray(product.images) || product.images.length === 0) {
+    return null;
+  }
+
+  const [firstImage] = product.images;
+  return typeof firstImage === "string" && firstImage.trim().length > 0 ? firstImage : null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -64,7 +78,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,7 +103,8 @@ serve(async (req) => {
       });
     }
 
-    const { data: profileByUserId, error: profileError } = await supabaseAdmin
+    // Harden: Don't throw if profile is missing (supports new guests)
+    const { data: profileByUserId } = await supabaseAdmin
       .from("user_profiles")
       .select("id, role, email, full_name, phone, company_name, address")
       .eq("user_id", user.id)
@@ -97,30 +112,19 @@ serve(async (req) => {
 
     let profile = profileByUserId;
 
-    if (profileError) {
-      throw new Error(profileError.message || "User profile not found");
-    }
-
     if (!profile) {
-      const { data: profileById, error: profileByIdError } = await supabaseAdmin
+      const { data: profileById } = await supabaseAdmin
         .from("user_profiles")
         .select("id, role, email, full_name, phone, company_name, address")
         .eq("id", user.id)
         .maybeSingle();
 
-      if (profileByIdError) {
-        throw new Error(profileByIdError.message || "User profile not found");
-      }
-
       profile = profileById;
     }
 
-    if (!profile) {
-      throw new Error("User profile not found");
-    }
-
     const requestBody = await req.json().catch(() => ({}));
-    const orderId = Number(requestBody.orderId);
+    const rawOrderId = requestBody.orderId;
+    const orderId = rawOrderId ? Number(rawOrderId) : NaN;
     const orderNumber = String(requestBody.orderNumber ?? "").trim();
     const reference = String(requestBody.reference ?? "").trim();
 
@@ -175,8 +179,8 @@ serve(async (req) => {
             quantity,
             price_snapshot,
             products (
-              name,
-              main_image
+              title,
+              images
             )
           )
         `)
@@ -197,6 +201,7 @@ serve(async (req) => {
           status,
           payment_status,
           total_amount,
+          currency,
           created_at,
           billing_address,
           shipping_address,
@@ -207,8 +212,8 @@ serve(async (req) => {
             quantity,
             price_snapshot,
             products (
-              name,
-              main_image
+              title,
+              images
             )
           )
         `)
@@ -240,8 +245,8 @@ serve(async (req) => {
             quantity,
             price_snapshot,
             products (
-              name,
-              main_image
+              title,
+              images
             )
           )
         `)
@@ -262,8 +267,8 @@ serve(async (req) => {
       });
     }
 
-    const requesterRole = profile.role ?? "customer";
-    const requesterIds = Array.from(new Set([profile.id, user.id].filter(Boolean))).map(String);
+    const requesterRole = profile?.role ?? "customer";
+    const requesterIds = Array.from(new Set([profile?.id, user.id].filter(Boolean))).map(String);
     const orderOwnerId = String(orderRecord.user_id ?? "").trim();
     const vendorOwnerId = String(orderRecord.vendor_id ?? "").trim();
     const isAdmin = ["admin", "super_admin"].includes(requesterRole);
@@ -292,6 +297,44 @@ serve(async (req) => {
       paymentRecord = data;
     }
 
+    // --- LIVE POLLING / SYNC LOGIC ---
+    // If the local database status is not final (paid/failed), poll the provider for the absolute truth.
+    if (paymentRecord && paymentRecord.vesicash_transaction_id && !["paid", "failed", "cancelled"].includes(paymentRecord.status || "")) {
+      try {
+        const vesicash = await loadVesicashConfig(supabaseAdmin);
+        const liveDetails = await getVesicashPaymentDetails(paymentRecord.vesicash_transaction_id, vesicash);
+        const liveStatus = normaliseVesicashStatus(String(liveDetails.status ?? ""), String(liveDetails.event_type ?? ""));
+
+        if (liveStatus !== paymentRecord.status) {
+          console.log(`Live Sync: Payment ${paymentRecord.id} status changed from ${paymentRecord.status} to ${liveStatus}`);
+          
+          const vesicashPaymentId = String(liveDetails.id ?? liveDetails.payment_id ?? paymentRecord.vesicash_payment_id ?? "").trim() || null;
+
+          // Use the shared settlePayment utility to handle splits and status updates
+          const { nextOrderStatus, nextPaymentStatus } = await settlePayment(
+            supabaseAdmin,
+            paymentRecord,
+            orderRecord as any,
+            liveStatus,
+            {
+               reference: paymentRecord.vesicash_transaction_id,
+               payment_id: vesicashPaymentId
+            }
+          );
+
+          // Update records in memory for the response
+          if (orderRecord) {
+            orderRecord.payment_status = nextPaymentStatus;
+            orderRecord.status = nextOrderStatus;
+          }
+          paymentRecord.status = nextPaymentStatus;
+          paymentRecord.vesicash_payment_id = vesicashPaymentId;
+        }
+      } catch (err: any) {
+        console.warn("Live Sync Failed (falling back to cached DB status):", err.message);
+      }
+    }
+
     const showAccountPrompt =
       requesterRole === "customer" &&
       (paymentRecord?.status === "paid" || orderRecord.payment_status === "paid");
@@ -314,8 +357,8 @@ serve(async (req) => {
             unit_price: Number(item.price_snapshot ?? 0),
             products: item.products
               ? {
-                  name: item.products.name,
-                  main_image: item.products.main_image,
+                  name: getProductName(item.products),
+                  main_image: getProductImage(item.products),
                 }
               : null,
           })),
@@ -333,9 +376,9 @@ serve(async (req) => {
           : null,
         customer: {
           role: requesterRole,
-          email: profile.email || orderRecord.billing_address?.email || orderRecord.shipping_address?.email || "",
-          full_name: profile.full_name || orderRecord.billing_address?.full_name || "",
-          phone: profile.phone || orderRecord.billing_address?.phone || orderRecord.shipping_address?.phone || "",
+          email: profile?.email || orderRecord.billing_address?.email || orderRecord.shipping_address?.email || "",
+          full_name: profile?.full_name || orderRecord.billing_address?.full_name || "",
+          phone: profile?.phone || orderRecord.billing_address?.phone || orderRecord.shipping_address?.phone || "",
         },
         show_account_prompt: showAccountPrompt,
       }),
@@ -346,6 +389,7 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
+    console.error("Payment Status Error:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,

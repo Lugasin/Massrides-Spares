@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { loadVesicashConfig } from "../_shared/vesicash.ts";
+import { getVesicashApiHeaders, loadVesicashConfig } from "../_shared/vesicash.ts";
 import { resolveFxRateSnapshot } from "../_shared/fx-rate.ts";
 
 const supabase = createClient(
@@ -275,11 +275,7 @@ serve(async (req) => {
         `${vesicash.apiBaseUrl}/payment/init`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "V-PRIVATE-KEY": vesicash.secretKey,
-            "V-PUBLIC-KEY": vesicash.publicKey,
-          },
+          headers: getVesicashApiHeaders(vesicash),
           body: JSON.stringify(vesicashPayload),
         }
       );
@@ -301,8 +297,9 @@ serve(async (req) => {
       console.log("Vesicash Response:", JSON.stringify(vData, null, 2));
 
       const failureStatuses = new Set(["failed", "error", "declined", "rejected", "cancelled", "canceled", "expired"]);
+      const isActuallyFailed = failureStatuses.has(providerStatus) || (!vesicashRes.ok && providerStatus !== "processing");
 
-      if (!vesicashRes.ok || failureStatuses.has(providerStatus)) {
+      if (isActuallyFailed) {
         await supabaseAdmin
           .from("payments")
           .update({ status: "failed" })
@@ -344,7 +341,6 @@ serve(async (req) => {
             ? "authorised"
             : "pending";
 
-      // Optional: Store the payment reference
       await supabaseAdmin
         .from("payments")
         .update({

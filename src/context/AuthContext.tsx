@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<string>('guest')
   const [retryCount, setRetryCount] = useState(0)
 
-  const loadUserProfile = useCallback(async (userId: string): Promise<boolean> => {
+  const loadUserProfile = useCallback(async (userId: string): Promise<{ success: boolean; retry: boolean }> => {
     try {
       logger.log('AuthContext: Loading user profile for', userId)
 
@@ -61,11 +61,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         logger.error('AuthContext: Profile load error:', error)
-        // Don't throw - handle gracefully
+        // If it's a permission error (403), we should NOT retry
+        const isPermissionError = error.code === '42501' || error.status === 403;
+        
         setProfile(null)
         setUserRole('guest')
         setUserPermissions([])
-        return false
+        return { success: false, retry: !isPermissionError };
       }
 
       if (profileData) {
@@ -75,51 +77,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Set permissions based on role
         const permissions = getPermissionsForRole(profileData.role || 'customer')
         setUserPermissions(permissions)
-        return true
+        return { success: true, retry: false };
       }
 
-      // If no profile found, user might be new or profile was wiped in a reset
-      logger.warn('AuthContext: No profile found for user, attempting self-healing...')
-      
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const metadata = user.user_metadata || {}
-        const { data: newProfile, error: createError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: user.id,
-            email: user.email,
-            full_name: metadata.full_name || metadata.name || '',
-            phone: metadata.phone || '',
-            company_name: metadata.company_name || '',
-            role: 'customer',
-            is_active: true
-          })
-          .select()
-          .maybeSingle()
-
-        if (!createError && newProfile) {
-          logger.log('AuthContext: Self-healed profile created')
-          setProfile(newProfile)
-          setUserRole(newProfile.role || 'customer')
-          setUserPermissions(getPermissionsForRole(newProfile.role || 'customer'))
-          return true
-        } else {
-          logger.error('AuthContext: Failed to self-heal profile:', createError)
-        }
-      }
-
+      // Profile not found
+      logger.warn('AuthContext: No profile found for user.')
       setProfile(null)
-      setUserRole('guest')
-      setUserPermissions([])
-      return false
+      setUserRole('customer')
+      setUserPermissions(getPermissionsForRole('customer'))
+      return { success: false, retry: false }; // Don't retry if not found
 
     } catch (error) {
       logger.error('AuthContext: Unexpected error loading profile:', error)
       setProfile(null)
       setUserRole('guest')
       setUserPermissions([])
-      return false
+      return { success: false, retry: false };
     }
   }, [])
 
@@ -189,8 +162,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(session?.user ?? null)
 
           if (session?.user) {
-            const profileLoaded = await loadUserProfile(session.user.id)
-            if (!profileLoaded) {
+            const { success } = await loadUserProfile(session.user.id)
+            if (!success) {
               logger.warn('AuthContext: Failed to load profile on init')
             }
           }
@@ -235,8 +208,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const maxAttempts = 3
 
           while (attempts < maxAttempts) {
-            const success = await loadUserProfile(session.user.id)
-            if (success) break
+            const result = await loadUserProfile(session.user.id)
+            if (result.success || !result.retry) break
 
             attempts++
             if (attempts < maxAttempts) {
@@ -266,8 +239,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
       logger.log('AuthContext: Manual profile refresh requested')
-      await loadUserProfile(user.id)
+      const { success } = await loadUserProfile(user.id)
+      return success
     }
+    return false
   }, [user?.id, loadUserProfile])
 
   const hasPermission = useCallback((permission: string) => {

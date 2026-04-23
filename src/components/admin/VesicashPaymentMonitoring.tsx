@@ -290,6 +290,26 @@ function usePaymentMonitorData() {
 
 export const VesicashPaymentMonitoringView = () => {
   const { auditLogs, getCustomer, loading, metrics, payments, refresh } = usePaymentMonitorData();
+  const [isSyncing, setIsSyncing] = useState<number | null>(null);
+
+  const handleSyncStatus = async (orderId: number) => {
+    try {
+      setIsSyncing(orderId);
+      const { data, error } = await supabase.functions.invoke('get-order-payment-status', {
+        body: { orderId }
+      });
+
+      if (error) throw error;
+      
+      toast.success('Status synced with provider');
+      await refresh();
+    } catch (error: any) {
+      console.error('Error syncing order status:', error);
+      toast.error('Sync failed: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsSyncing(null);
+    }
+  };
   const paymentFxMetadataById = React.useMemo(() => buildPaymentFxMetadataMap(auditLogs), [auditLogs]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -344,38 +364,18 @@ export const VesicashPaymentMonitoringView = () => {
 
     try {
       setIsSubmittingAction(true);
-      // Log the action directly without edge function
-      const { error: logError } = await supabase.from('financial_audit_logs').insert({
-        event_type: `payment_${selectedAction}`,
-        entity_type: 'payment',
-        entity_id: String(selectedPayment.id),
-        amount: selectedPayment.order?.total_amount,
-        metadata: { reason: actionReason.trim(), action: selectedAction }
+      
+      const { data, error } = await supabase.functions.invoke('manage-payment-action', {
+        body: {
+          paymentId: selectedPayment.id,
+          action: selectedAction,
+          reason: actionReason.trim()
+        }
       });
 
-      if (logError) {
-        throw logError;
-      }
+      if (error) throw error;
 
-      // Update payment status based on action
-      const statusMap: Record<string, string> = {
-        'reconcile_paid': 'paid',
-        'mark_failed': 'failed',
-        'cancel_payment': 'cancelled',
-        'refund_payment': 'refunded'
-      };
-      const newStatus = statusMap[selectedAction];
-
-      const { error: updateError } = await supabase
-        .from('payments')
-        .update({ status: newStatus, completed_at: new Date().toISOString() })
-        .eq('id', selectedPayment.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      toast.success('Payment action recorded successfully.');
+      toast.success(`Payment ${actionLabelMap[selectedAction as keyof typeof actionLabelMap]} successful.`);
       setActionDialogOpen(false);
       setSelectedPayment(null);
       setSelectedAction('');
@@ -556,6 +556,15 @@ export const VesicashPaymentMonitoringView = () => {
                                   Refund
                                 </Button>
                               )}
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => handleSyncStatus(payment.order_id)}
+                                disabled={isSyncing === payment.order_id}
+                              >
+                                <RefreshCw className={`h-3 w-3 mr-1 ${isSyncing === payment.order_id ? 'animate-spin' : ''}`} />
+                                Sync
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>

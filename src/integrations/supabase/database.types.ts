@@ -163,8 +163,10 @@ export type Database = {
           id: number
           order_id: number
           price: number
+          price_snapshot: number | null
           product_id: number
           quantity: number
+          unit_price: number | null
         }
         Insert: {
           created_at?: string | null
@@ -179,8 +181,10 @@ export type Database = {
           id?: number
           order_id?: number
           price?: number
+          price_snapshot?: number | null
           product_id?: number
           quantity?: number
+          unit_price?: number | null
         }
         Relationships: [
           {
@@ -205,11 +209,13 @@ export type Database = {
           created_at: string | null
           id: number
           order_number: string
+          payment_status: string
           shipping_address: Json | null
           status: string
           total_amount: number
           updated_at: string | null
           user_id: string
+          vendor_id: string | null
         }
         Insert: {
           billing_address?: Json | null
@@ -227,11 +233,13 @@ export type Database = {
           created_at?: string | null
           id?: number
           order_number?: string
+          payment_status?: string
           shipping_address?: Json | null
           status?: string
           total_amount?: number
           updated_at?: string | null
           user_id?: string
+          vendor_id?: string | null
         }
         Relationships: []
       }
